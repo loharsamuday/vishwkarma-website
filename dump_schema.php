@@ -1,0 +1,1 @@
+<?php require "includes/db.php"; $stmt = $pdo->query("SHOW CREATE TABLE matrimony_profiles"); print_r($stmt->fetch(PDO::FETCH_ASSOC)); $stmt = $pdo->query("SHOW CREATE TABLE partner_preferences"); print_r($stmt->fetch(PDO::FETCH_ASSOC));

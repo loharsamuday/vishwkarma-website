@@ -1,0 +1,501 @@
+/* Premium Base Styling for Vishwakarma Samaj Portal */
+:root {
+    --primary-color: #f39c12; /* Golden Orange */
+    --primary-hover: #e67e22;
+    --dark-bg: #1a1a2e;
+    --light-bg: #f4f7f6;
+    --text-main: #2c3e50;
+    --text-muted: #7f8c8d;
+}
+
+body {
+    font-family: 'Poppins', sans-serif;
+    background-color: var(--light-bg);
+    color: var(--text-main);
+    overflow-x: hidden;
+    position: relative;
+    isolation: isolate;
+    min-height: 100vh;
+    background-image:
+        radial-gradient(circle at top left, rgba(243, 156, 18, 0.10), transparent 28%),
+        radial-gradient(circle at bottom right, rgba(44, 62, 80, 0.08), transparent 24%),
+        linear-gradient(135deg, #f9fbfc 0%, #f4f7f6 100%);
+}
+
+body::before,
+body::after {
+    content: '';
+    position: fixed;
+    border-radius: 50%;
+    filter: blur(70px);
+    pointer-events: none;
+    z-index: -1;
+    opacity: 0.8;
+    animation: floatGlow 16s ease-in-out infinite alternate;
+}
+
+body::before {
+    width: 28rem;
+    height: 28rem;
+    top: -7rem;
+    left: -8rem;
+    background: rgba(243, 156, 18, 0.20);
+}
+
+body::after {
+    width: 24rem;
+    height: 24rem;
+    right: -7rem;
+    bottom: 5rem;
+    background: rgba(52, 73, 94, 0.16);
+    animation-duration: 20s;
+    animation-direction: alternate-reverse;
+}
+
+.text-warning {
+    color: var(--primary-color) !important;
+}
+
+.bg-warning {
+    background-color: var(--primary-color) !important;
+}
+
+.btn-warning {
+    background-color: var(--primary-color);
+    border-color: var(--primary-color);
+    color: #fff;
+    box-shadow: 0 4px 15px rgba(243, 156, 18, 0.3);
+    transition: all 0.3s ease;
+}
+
+.btn-warning:hover {
+    background-color: var(--primary-hover);
+    border-color: var(--primary-hover);
+    color: #fff;
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(230, 126, 34, 0.4);
+}
+
+.btn-outline-warning {
+    color: var(--primary-color);
+    border-color: var(--primary-color);
+    transition: all 0.3s ease;
+}
+
+.btn-outline-warning:hover {
+    background-color: var(--primary-color);
+    color: #fff;
+    transform: translateY(-2px);
+}
+
+/* Animations */
+@keyframes fadeInUp {
+    from { opacity: 0; transform: translateY(30px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes floatGlow {
+    0% {
+        transform: translate3d(0, 0, 0) scale(1);
+    }
+    100% {
+        transform: translate3d(2rem, -1.5rem, 0) scale(1.08);
+    }
+}
+
+.animate-up {
+    animation: fadeInUp 1s ease-out forwards;
+}
+
+/* Hero Section */
+.hero-section {
+    background: linear-gradient(rgba(26, 26, 46, 0.8), rgba(26, 26, 46, 0.7)), url('https://placehold.co/1920x800/2c3e50/f39c12?text=Lord+Vishwakarma') no-repeat center center;
+    background-size: cover;
+    background-attachment: fixed;
+    color: white;
+    min-height: 85vh;
+    padding: 5rem 1rem;
+    text-align: center;
+    position: relative;
+}
+
+.hero-content {
+    max-width: 860px;
+    width: 100%;
+}
+
+.hero-actions {
+    max-width: 620px;
+    margin: 0 auto;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 1rem;
+    flex-wrap: wrap;
+}
+
+.hero-btn {
+    border-radius: 50px;
+    letter-spacing: 1px;
+    white-space: normal;
+}
+
+@media (max-width: 767.98px) {
+    .hero-section {
+        min-height: 78vh;
+        padding: 4rem 1rem;
+        background-attachment: scroll;
+    }
+
+    .hero-section h1 {
+        font-size: 2.1rem;
+        line-height: 1.2;
+    }
+
+    .hero-section p {
+        font-size: 1rem !important;
+        line-height: 1.7;
+    }
+
+    .hero-actions {
+        width: 100%;
+        flex-direction: column;
+        gap: 0.75rem;
+    }
+
+    .hero-btn {
+        width: 100%;
+        padding: 0.9rem 1rem;
+    }
+}
+
+@media (max-width: 575.98px) {
+    .hero-section {
+        min-height: 72vh;
+        padding: 3rem 0.85rem;
+    }
+
+    .hero-section h1 {
+        font-size: 1.75rem;
+    }
+
+    .hero-section p {
+        font-size: 0.95rem !important;
+    }
+}
+
+.drop-shadow {
+    text-shadow: 2px 2px 8px rgba(0,0,0,0.5);
+}
+
+.drop-shadow-sm {
+    text-shadow: 1px 1px 4px rgba(0,0,0,0.3);
+}
+
+.hero-btn {
+    border-radius: 50px;
+    letter-spacing: 1px;
+}
+
+/* Cards & Micro-interactions */
+.card-custom {
+    border: none;
+    border-radius: 15px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.05);
+    transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(10px);
+}
+
+.card-custom:hover {
+    transform: translateY(-10px);
+    box-shadow: 0 15px 35px rgba(0,0,0,0.1);
+}
+
+.service-card {
+    border: none;
+    border-radius: 20px;
+    background: #fff;
+    box-shadow: 0 5px 20px rgba(0,0,0,0.04);
+    transition: all 0.4s ease;
+    overflow: hidden;
+    position: relative;
+    z-index: 1;
+}
+
+.service-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: linear-gradient(135deg, rgba(243,156,18,0.1) 0%, rgba(255,255,255,0) 100%);
+    z-index: -1;
+    opacity: 0;
+    transition: opacity 0.4s ease;
+}
+
+.service-card:hover {
+    transform: translateY(-8px);
+    box-shadow: 0 15px 30px rgba(243, 156, 18, 0.15);
+}
+
+.service-card:hover::before {
+    opacity: 1;
+}
+
+.service-icon i {
+    transition: transform 0.3s ease;
+}
+
+.service-card:hover .service-icon i {
+    transform: scale(1.15);
+}
+
+.section-title {
+    position: relative;
+    display: inline-block;
+    padding-bottom: 10px;
+}
+
+.section-title::after {
+    content: '';
+    position: absolute;
+    left: 50%;
+    bottom: 0;
+    transform: translateX(-50%);
+    width: 60px;
+    height: 3px;
+    background-color: var(--primary-color);
+    border-radius: 2px;
+}
+
+.hover-lift {
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.hover-lift:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 15px 25px rgba(0,0,0,0.1) !important;
+}
+
+.hover-scale {
+    transition: transform 0.5s ease;
+}
+
+.hover-scale:hover {
+    transform: scale(1.03);
+}
+
+.tracking-wide {
+    letter-spacing: 2px;
+}
+
+/* Glassmorphism for Navbar */
+.navbar {
+    background: rgba(255, 255, 255, 0.95) !important;
+    backdrop-filter: blur(10px);
+    border-bottom: 1px solid rgba(0,0,0,0.05);
+}
+
+.mobile-nav-toggle {
+    border: 0;
+    padding: 0.35rem 0.45rem;
+    border-radius: 10px;
+}
+
+.mobile-nav-toggle:focus {
+    box-shadow: none;
+}
+
+.mobile-nav-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(15, 23, 42, 0.6);
+    backdrop-filter: blur(4px);
+    opacity: 0;
+    visibility: hidden;
+    transition: all 0.3s ease;
+    z-index: 1040;
+}
+
+.mobile-nav-overlay.show {
+    opacity: 1;
+    visibility: visible;
+}
+
+.mobile-nav-drawer {
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    width: min(85vw, 320px);
+    background: #fff;
+    box-shadow: 20px 0 45px rgba(0, 0, 0, 0.18);
+    z-index: 1050;
+    transform: translateX(-100%);
+    transition: transform 0.35s ease;
+    display: flex;
+    flex-direction: column;
+}
+
+.mobile-nav-drawer.open {
+    transform: translateX(0);
+}
+
+.mobile-nav-drawer .drawer-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 1rem 1rem 0.75rem;
+    border-bottom: 1px solid #f2f2f2;
+}
+
+.mobile-nav-drawer .drawer-nav {
+    padding: 1rem 1rem 1.5rem;
+    overflow-y: auto;
+    flex: 1;
+}
+
+.mobile-nav-drawer .drawer-nav .nav-link {
+    padding: 0.8rem 0.5rem;
+    border-radius: 10px;
+    color: #2c3e50;
+    font-weight: 500;
+    transition: all 0.2s ease;
+}
+
+.mobile-nav-drawer .drawer-nav .nav-link:hover,
+.mobile-nav-drawer .drawer-nav .nav-link.active {
+    background: rgba(243, 156, 18, 0.12);
+    color: #d97706;
+}
+
+.mobile-nav-drawer .drawer-actions {
+    margin-top: 1rem;
+    padding-top: 1rem;
+    border-top: 1px solid #f2f2f2;
+}
+
+.mobile-menu-open {
+    overflow: hidden;
+}
+
+@media (min-width: 992px) {
+    .mobile-nav-toggle,
+    .mobile-nav-overlay,
+    .mobile-nav-drawer {
+        display: none !important;
+    }
+}
+
+/* ==============================================================
+   FEEDBACK SYSTEM STYLES
+   ============================================================== */
+
+/* Floating Action Button */
+.feedback-fab {
+    position: fixed;
+    bottom: 30px;
+    right: 30px;
+    z-index: 1050;
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #ffc107, #ff9800);
+    color: white;
+    box-shadow: 0 4px 15px rgba(255, 152, 0, 0.4);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 24px;
+    cursor: pointer;
+    transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    animation: bounce-subtle 2s infinite;
+}
+
+.feedback-fab:hover {
+    transform: scale(1.1) rotate(10deg);
+    box-shadow: 0 8px 25px rgba(255, 152, 0, 0.6);
+    color: white;
+}
+
+.feedback-fab:active {
+    transform: scale(0.95);
+}
+
+/* Subtle Bounce Animation for FAB */
+@keyframes bounce-subtle {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-5px); }
+}
+
+/* Star Rating System */
+.star-rating {
+    display: flex;
+    flex-direction: row-reverse;
+    justify-content: center;
+    gap: 10px;
+}
+
+.star-rating input {
+    display: none;
+}
+
+.star-rating label {
+    font-size: 35px;
+    color: #ddd;
+    cursor: pointer;
+    transition: color 0.2s, transform 0.2s;
+}
+
+.star-rating input:checked ~ label,
+.star-rating label:hover,
+.star-rating label:hover ~ label {
+    color: #ffc107;
+    transform: scale(1.1);
+}
+
+/* Modal Animations */
+.modal.fade .modal-dialog {
+    transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    transform: scale(0.8) translateY(50px);
+    opacity: 0;
+}
+
+.modal.show .modal-dialog {
+    transform: scale(1) translateY(0);
+    opacity: 1;
+}
+
+/* WhatsApp Floating Button */
+.whatsapp-fab {
+    position: fixed;
+    bottom: 30px;
+    left: 30px;
+    z-index: 1050;
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    background: #25d366;
+    color: white;
+    box-shadow: 0 4px 15px rgba(37, 211, 102, 0.4);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 32px;
+    cursor: pointer;
+    text-decoration: none;
+    transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    animation: pulse-whatsapp 2s infinite;
+}
+
+.whatsapp-fab:hover {
+    transform: scale(1.1);
+    box-shadow: 0 8px 25px rgba(37, 211, 102, 0.6);
+    color: white;
+}
+
+@keyframes pulse-whatsapp {
+    0% { box-shadow: 0 0 0 0 rgba(37, 211, 102, 0.7); }
+    70% { box-shadow: 0 0 0 15px rgba(37, 211, 102, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(37, 211, 102, 0); }
+}

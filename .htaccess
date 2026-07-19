@@ -1,0 +1,14 @@
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    RewriteBase /vishwkarma/
+
+    # Sitemap route
+    RewriteRule ^sitemap\.xml$ sitemap_generator.php [L]
+
+    # Do not apply rules if the file or directory exists
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteCond %{REQUEST_FILENAME} !-d
+
+    # Route everything else to router.php
+    RewriteRule ^(.*)$ router.php?url=$1 [QSA,L]
+</IfModule>
