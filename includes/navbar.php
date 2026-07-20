@@ -18,7 +18,16 @@ function isServicesActive($current_page) {
     </div>
 </div>
 <!-- Navbar -->
-<nav class="navbar navbar-expand-lg navbar-light bg-white shadow-sm sticky-top">
+<div class="site-utility-bar d-none d-md-block">
+  <div class="container d-flex justify-content-between align-items-center">
+    <span><i class="fa-solid fa-sparkles me-2"></i>A trusted digital home for the Vishwakarma community</span>
+    <div class="d-flex align-items-center gap-4">
+      <a href="<?= BASE_URL ?>contact.php"><i class="fa-regular fa-envelope me-2"></i>Support</a>
+      <a href="<?= BASE_URL ?>business-directory.php"><i class="fa-solid fa-store me-2"></i>Explore businesses</a>
+    </div>
+  </div>
+</div>
+<nav class="navbar navbar-expand-lg navbar-light bg-white shadow-sm sticky-top site-navbar">
   <div class="container">
     <a class="navbar-brand text-warning fw-bold me-lg-4 d-flex align-items-center" href="<?= BASE_URL ?>">
         <?php if(!empty($global_settings['logo_image'])): ?>
@@ -33,7 +42,7 @@ function isServicesActive($current_page) {
     </button>
     
     <div class="collapse navbar-collapse d-none d-lg-flex" id="navbarNav">
-      <ul class="navbar-nav ms-auto">
+      <ul class="navbar-nav ms-auto align-items-lg-center">
         <li class="nav-item">
           <a class="nav-link <?= isActiveNav('index.php', $current_page) ?>" href="<?= BASE_URL ?>">Home</a>
         </li>

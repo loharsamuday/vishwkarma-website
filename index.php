@@ -149,24 +149,50 @@ require_once 'includes/navbar.php';
     font-family: serif;
     line-height: 1;
 }
+
+/* Home page signature layout */
+.home-hero { min-height: min(760px, calc(100vh - 100px)); text-align: left; padding: 5.5rem 0 8rem; }
+.home-hero::before { background: linear-gradient(95deg, rgba(7, 24, 39, .92) 0%, rgba(11, 35, 53, .77) 48%, rgba(7, 24, 39, .2) 100%); }
+.home-hero .hero-content { max-width: 720px; margin: 0; }
+.hero-kicker { display: inline-flex; align-items: center; gap: .55rem; padding: .5rem .9rem; background: rgba(255,255,255,.12); border: 1px solid rgba(255,255,255,.18); border-radius: 99px; color: #ffe0a2; font-size: .75rem; font-weight: 700; letter-spacing: .09em; text-transform: uppercase; }
+.home-hero h1 { font-size: clamp(2.65rem, 5.1vw, 4.8rem); letter-spacing: -.055em; line-height: 1.04; max-width: 700px; }
+.home-hero .hero-lead { max-width: 610px; font-size: 1.08rem; line-height: 1.75; color: rgba(255,255,255,.85); }
+.hero-trust-list { display: flex; flex-wrap: wrap; gap: 1.2rem; margin-top: 2rem; color: rgba(255,255,255,.9); font-size: .86rem; font-weight: 600; }
+.hero-trust-list i { color: #ffc857; }
+.hero-signal { position: absolute; right: 7vw; bottom: 3.5rem; z-index: 3; width: min(335px, 29vw); padding: 1.2rem 1.35rem; background: rgba(255,255,255,.95); box-shadow: 0 20px 50px rgba(0,0,0,.22); border-radius: 16px; color: #18334a; }
+.hero-signal .signal-icon { width: 40px; height: 40px; display: grid; place-items: center; border-radius: 12px; background: #fff1d2; color: #d88406; }
+.home-section { padding: 6.3rem 0; }
+.eyebrow { color: #c97907; font-size: .73rem; font-weight: 800; letter-spacing: .13em; text-transform: uppercase; }
+.section-heading { letter-spacing: -.035em; color: #152d42; }
+.service-card { padding: 1.9rem !important; }
+.service-card h4 { font-size: 1.08rem; }
+.service-card p { font-size: .9rem; line-height: 1.65; }
+.service-icon { width: 64px; height: 64px; margin-left: 0; border-radius: 14px; }
+.stats-section { background: radial-gradient(circle at 85% 20%, rgba(241,173,43,.26), transparent 23%), linear-gradient(120deg, #10283c, #0a1e31); }
+.glass-stat-box { border-radius: 14px; padding: 1.6rem !important; }
+.gallery-card { border-radius: 14px; box-shadow: 0 12px 25px rgba(16,39,59,.08) !important; }
+.testimonial-card { border-radius: 16px; border-top-color: #e79b17 !important; }
+@media (max-width: 991.98px) { .home-hero { min-height: 650px; padding: 5rem 0 7rem; text-align: center; } .home-hero .hero-content { margin: auto; } .hero-trust-list { justify-content: center; } .hero-signal { display: none; } .service-icon { margin-left: auto; } }
+@media (max-width: 575.98px) { .home-hero { min-height: 620px; padding: 4rem 0; } .home-hero h1 { font-size: 2.55rem; } .home-section { padding: 4rem 0; } }
 </style>
 
 <!-- Hero Section -->
 <?php 
 $hero_images = [];
 if (function_exists('getUiImage')) {
-    $img1 = getUiImage('home_hero', 'https://placehold.co/1920x800/1a1a1a/ffc107?text=Welcome+to+Vishwakarma+Samaj');
-    $img2 = getUiImage('home_hero_2', '');
-    $img3 = getUiImage('home_hero_3', '');
+    $img1 = getUiImage('home_hero', 'https://images.unsplash.com/photo-1590050752117-238cb0fb12b1?q=80&w=1920&auto=format&fit=crop');
+    $img2 = getUiImage('home_hero_2', 'https://images.unsplash.com/photo-1600010996160-c447bc981249?q=80&w=1920&auto=format&fit=crop');
+    $img3 = getUiImage('home_hero_3', 'https://images.unsplash.com/photo-1504917595217-d4dc5ebe6122?q=80&w=1920&auto=format&fit=crop');
     
     $hero_images[] = $img1;
     if (!empty($img2)) $hero_images[] = $img2;
     if (!empty($img3)) $hero_images[] = $img3;
 } else {
-    $hero_images[] = "https://placehold.co/1920x800/1a1a1a/ffc107?text=Welcome+to+Vishwakarma+Samaj";
+    $hero_images[] = "https://images.unsplash.com/photo-1590050752117-238cb0fb12b1?q=80&w=1920&auto=format&fit=crop";
+
 }
 ?>
-<section class="hero-section d-flex align-items-center justify-content-center text-center overflow-hidden position-relative">
+<section class="hero-section home-hero d-flex align-items-center overflow-hidden position-relative">
     
     <!-- Background Carousel -->
     <div id="heroCarousel" class="carousel slide carousel-fade position-absolute w-100 h-100" data-bs-ride="carousel" data-bs-pause="false" style="top: 0; left: 0; z-index: 0;">
@@ -179,9 +205,10 @@ if (function_exists('getUiImage')) {
     </div>
 
     <!-- Overlay Content -->
-    <div class="container hero-content" data-aos="zoom-in">
-        <h1 class="display-3 fw-bold mb-3 text-white drop-shadow">Welcome to <span class="text-warning">Vishwakarma Samaj</span></h1>
-        <p class="lead mb-5 text-light fs-4 drop-shadow mx-auto" style="max-width: 800px;">Connecting our community globally. Empowering lives through unity, education, and mutual support.</p>
+    <div class="container hero-content" data-aos="fade-up" data-aos-duration="900">
+        <div class="hero-kicker mb-4"><i class="fa-solid fa-gem"></i> United by heritage, built for tomorrow</div>
+        <h1 class="fw-bold mb-4 text-white">Your community.<br><span class="text-warning">One trusted place.</span></h1>
+        <p class="hero-lead mb-4">Connect with families, discover opportunities, and celebrate the strength of Vishwakarma Samaj—wherever life takes you.</p>
         
         <div class="d-flex flex-column flex-sm-row justify-content-center gap-3 hero-actions">
             <a href="register.php" class="btn btn-warning btn-lg px-5 py-3 fw-bold hero-btn shadow-lg">
@@ -191,15 +218,30 @@ if (function_exists('getUiImage')) {
                 <i class="fa-solid fa-heart me-2 text-warning"></i> Find a Match
             </a>
         </div>
+        <div class="hero-trust-list">
+            <span><i class="fa-solid fa-circle-check me-2"></i>Verified community network</span>
+            <span><i class="fa-solid fa-circle-check me-2"></i>Privacy-first platform</span>
+            <span><i class="fa-solid fa-circle-check me-2"></i>Support that feels local</span>
+        </div>
+    </div>
+    <div class="hero-signal d-none d-lg-block" data-aos="fade-left" data-aos-delay="350">
+        <div class="d-flex gap-3 align-items-center mb-3">
+            <div class="signal-icon"><i class="fa-solid fa-users"></i></div>
+            <div><div class="fw-bold">A growing network</div><small class="text-muted">Built around people and progress</small></div>
+        </div>
+        <div class="d-flex align-items-end justify-content-between border-top pt-3">
+            <div><strong class="fs-3 text-warning"><?= number_format($stats['members']) ?>+</strong><small class="d-block text-muted">Members connected</small></div>
+            <a href="community-directory.php" class="btn btn-sm btn-dark rounded-pill px-3">Explore <i class="fa-solid fa-arrow-right ms-1"></i></a>
+        </div>
     </div>
 </section>
 
 <!-- Quick Services -->
-<section class="py-5" style="background-color: #f8f9fa;">
+<section class="home-section" style="background-color: #f8f9fa;">
     <div class="container my-5">
         <div class="text-center mb-5" data-aos="fade-up">
-            <h6 class="text-warning fw-bold text-uppercase tracking-wide">What We Offer</h6>
-            <h2 class="fw-bold display-6">Our <span class="text-warning">Services</span></h2>
+            <div class="eyebrow mb-2">Everything you need, together</div>
+            <h2 class="fw-bold display-6 section-heading">Explore community <span class="text-warning">services</span></h2>
             <div class="mx-auto mt-3 rounded" style="width: 60px; height: 4px; background: #ffc107;"></div>
         </div>
         
@@ -358,7 +400,7 @@ if (function_exists('getUiImage')) {
         <div class="row align-items-center g-5">
             <div class="col-lg-6" data-aos="fade-right">
                 <div class="position-relative">
-                    <?php $about_img = function_exists('getUiImage') ? getUiImage('home_about', 'https://placehold.co/800x600/f8f9fa/ffc107?text=Vishwakarma+Samaj') : "https://placehold.co/800x600/f8f9fa/ffc107?text=Vishwakarma+Samaj"; ?>
+                    <?php $about_img = function_exists('getUiImage') ? getUiImage('home_about', 'https://images.unsplash.com/photo-1566804860762-23c31671f76e?q=80&w=800&auto=format&fit=crop') : "https://images.unsplash.com/photo-1566804860762-23c31671f76e?q=80&w=800&auto=format&fit=crop"; ?>
                     <img src="<?= htmlspecialchars($about_img) ?>" class="img-fluid rounded-4 shadow-lg w-100" alt="Vishwakarma Samaj" style="object-fit: cover; height: 450px;">
                     <div class="position-absolute bottom-0 end-0 bg-warning text-dark p-4 rounded-4 shadow-lg me-n3 mb-n3 d-none d-md-block">
                         <h3 class="fw-bold mb-0 text-center">100+</h3>

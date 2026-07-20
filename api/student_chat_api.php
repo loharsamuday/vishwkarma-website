@@ -67,7 +67,7 @@ if ($action === 'send') {
         
         $formatted_messages = [];
         foreach($messages as $m) {
-            $pic = empty($m['profile_pic']) ? "https://placehold.co/40x40/007bff/white?text=" . strtoupper(substr($m['first_name'], 0, 1)) : "../uploads/profile/" . $m['profile_pic'];
+            $pic = empty($m['profile_pic']) ? "https://ui-avatars.com/api/?background=random&name=" . strtoupper(substr($m['first_name'], 0, 1)) : "../uploads/profile/" . $m['profile_pic'];
             $is_mine = ($m['sender_id'] == $user_id);
             $formatted_messages[] = [
                 'id' => $m['id'],

@@ -27,7 +27,7 @@ require_once 'includes/navbar.php';
 
 <!-- Header Banner -->
 <?php 
-$banner_business = function_exists('getUiImage') ? getUiImage('banner_business', 'https://placehold.co/1920x400/2c3e50/f39c12?text=Business+Directory') : "https://placehold.co/1920x400/2c3e50/f39c12?text=Business+Directory";
+$banner_business = function_exists('getUiImage') ? getUiImage('banner_business', 'https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?q=80&w=1920&auto=format&fit=crop') : "https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?q=80&w=1920&auto=format&fit=crop";
 ?>
 <div class="bg-dark text-white py-5 text-center" style="background: linear-gradient(rgba(0,0,0,0.7), rgba(0,0,0,0.7)), url('<?= htmlspecialchars($banner_business) ?>') center/cover;">
     <div class="container">

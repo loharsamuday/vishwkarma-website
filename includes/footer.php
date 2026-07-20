@@ -38,14 +38,42 @@
             text-align: center;
             color: #f39c12;
         }
+        /* Professional footer upgrade */
+        .footer-custom { background: radial-gradient(circle at 88% 8%, rgba(231,155,23,.18), transparent 24%), linear-gradient(135deg, #0b1d2d, #102b41); border-top: 0; }
+        .footer-custom::before { content: ''; position: absolute; left: -12%; bottom: -135px; width: 450px; height: 260px; border-radius: 50%; border: 1px solid rgba(255,255,255,.08); transform: rotate(-15deg); pointer-events: none; }
+        .footer-custom .container { position: relative; z-index: 1; }
+        .footer-cta { padding: 1.2rem 1.4rem; border: 1px solid rgba(255,255,255,.14); border-radius: 16px; background: rgba(255,255,255,.075); }
+        .footer-eyebrow { color: #f7be52; font-size: .7rem; font-weight: 800; letter-spacing: .11em; text-transform: uppercase; }
+        .footer-custom h5 { font-size: .76rem; letter-spacing: .11em; }
+        .footer-custom .text-light { color: rgba(255,255,255,.7) !important; }
+        .footer-link { font-size: .88rem; margin-bottom: .68rem; color: rgba(255,255,255,.7); }
+        .footer-link:hover { color: #f8c55d; transform: translateX(4px); }
+        .footer-link i { color: #e9a52c; }
+        .footer-contact { color: rgba(255,255,255,.75); font-size: .88rem; line-height: 1.55; }
+        .footer-contact a { color: inherit; text-decoration: none; }
+        .footer-contact a:hover { color: #f8c55d; }
+        .footer-contact-icon { color: #e9a52c; width: 22px; }
+        .footer-pill { display: inline-flex; gap: .4rem; align-items: center; padding: .42rem .7rem; background: rgba(255,255,255,.09); border-radius: 99px; color: rgba(255,255,255,.77); font-size: .75rem; }
+        .footer-pill i { color: #f8c55d; }
+        .footer-custom hr { border-color: rgba(255,255,255,.12); }
+        .social-icon { width: 38px; height: 38px; border-radius: 10px; }
+        .social-icon:hover { background: #e49a1a; color: #102b41 !important; transform: translateY(-3px); }
+        .footer-legal, .footer-legal a { color: rgba(255,255,255,.58); font-size: .78rem; text-decoration: none; }
+        .footer-legal a:hover { color: #f8c55d; }
+        @media (max-width: 767.98px) { .footer-custom { text-align: center; } .footer-cta { text-align: left; padding: 1rem; } .footer-cta .btn { width: 100%; margin-top: .8rem; } .footer-contact { justify-content: center; text-align: left; } .footer-custom hr { margin-top: 1.6rem; } }
     </style>
     <!-- Footer -->
     <footer class="footer-custom text-white pt-5 pb-3 mt-5">
         <div class="container text-center text-md-left">
+            <div class="footer-cta d-md-flex align-items-center justify-content-between gap-4 mb-5" data-aos="fade-up">
+                <div class="text-start"><div class="footer-eyebrow mb-1">Vishwakarma Samaj</div><strong class="fs-5">A stronger community starts with one connection.</strong><div class="small text-white-50 mt-1">Discover people, opportunities and support in one trusted place.</div></div>
+                <a href="<?= BASE_URL ?><?= isset($_SESSION['user_id']) ? 'dashboard.php' : 'register.php' ?>" class="btn btn-warning text-dark fw-bold px-4 rounded-pill text-nowrap"><?= isset($_SESSION['user_id']) ? 'Open Dashboard' : 'Join the Community' ?> <i class="fa-solid fa-arrow-right ms-1"></i></a>
+            </div>
             <div class="row text-center text-md-left">
                 <div class="col-md-4 col-lg-4 col-xl-4 mx-auto mt-3 mb-4 text-center text-md-start" data-aos="fade-up" data-aos-delay="100">
                     <h5 class="text-uppercase mb-4 font-weight-bold text-warning fw-bold"><i class="fa-solid fa-users-rays me-2"></i><?= SITE_NAME ?></h5>
                     <p class="text-light" style="line-height: 1.8;">Connecting the Vishwakarma Samaj globally. Explore matrimony, business directory, and community services all in one place.</p>
+                    <div class="d-flex flex-wrap gap-2 justify-content-center justify-content-md-start mt-3"><span class="footer-pill"><i class="fa-solid fa-shield-heart"></i> Safety aware</span><span class="footer-pill"><i class="fa-solid fa-handshake"></i> Community led</span></div>
                 </div>
 
                 <div class="col-md-3 col-lg-2 col-xl-2 mx-auto mt-3 mb-4 text-center text-md-start" data-aos="fade-up" data-aos-delay="200">
@@ -79,6 +107,17 @@
                         <p class="mb-3 d-flex align-items-center"><i class="fas fa-home footer-contact-icon"></i> <span class="ms-2"><?= htmlspecialchars($contact_address) ?></span></p>
                         <p class="mb-3 d-flex align-items-center"><i class="fas fa-envelope footer-contact-icon"></i> <span class="ms-2"><?= htmlspecialchars($contact_email) ?></span></p>
                         <p class="mb-3 d-flex align-items-center"><i class="fas fa-phone footer-contact-icon"></i> <span class="ms-2"><?= htmlspecialchars($contact_phone) ?></span></p>
+                        <a href="<?= BASE_URL ?>contact.php" class="btn btn-outline-light btn-sm rounded-pill px-3 mt-1">Contact our team <i class="fa-solid fa-arrow-right ms-1"></i></a>
+                    </div>
+                </div>
+                <div class="col-md-4 col-lg-3 col-xl-3 mx-auto mt-3 mb-4 text-center text-md-start" data-aos="fade-up" data-aos-delay="400">
+                    <h5 class="text-uppercase mb-4 font-weight-bold text-warning fw-bold">Community</h5>
+                    <p class="text-light small mb-3">Stay informed, share feedback and use the platform responsibly.</p>
+                    <div class="d-flex flex-column align-items-center align-items-md-start">
+                        <a href="<?= BASE_URL ?>events.php" class="footer-link"><i class="fa-solid fa-angle-right me-2 text-warning small"></i>Upcoming Events</a>
+                        <a href="<?= BASE_URL ?>blogs.php" class="footer-link"><i class="fa-solid fa-angle-right me-2 text-warning small"></i>Community Blogs</a>
+                        <a href="<?= BASE_URL ?>fraud-alert.php" class="footer-link"><i class="fa-solid fa-angle-right me-2 text-warning small"></i>Safety Guidelines</a>
+                        <a href="<?= BASE_URL ?>contact.php" class="footer-link"><i class="fa-solid fa-angle-right me-2 text-warning small"></i>Help & Feedback</a>
                     </div>
                 </div>
             </div>
@@ -107,17 +146,17 @@
                     <ul class="list-unstyled list-inline mb-0">
                         <?php if($facebook !== '#'): ?>
                         <li class="list-inline-item me-2">
-                            <a href="<?= htmlspecialchars($facebook) ?>" class="text-white social-icon" target="_blank"><i class="fab fa-facebook-f"></i></a>
+                            <a href="<?= htmlspecialchars($facebook) ?>" class="text-white social-icon" target="_blank" rel="noopener noreferrer" aria-label="Facebook"><i class="fab fa-facebook-f"></i></a>
                         </li>
                         <?php endif; ?>
                         <?php if($twitter !== '#'): ?>
                         <li class="list-inline-item me-2">
-                            <a href="<?= htmlspecialchars($twitter) ?>" class="text-white social-icon" target="_blank"><i class="fab fa-twitter"></i></a>
+                            <a href="<?= htmlspecialchars($twitter) ?>" class="text-white social-icon" target="_blank" rel="noopener noreferrer" aria-label="Twitter"><i class="fab fa-twitter"></i></a>
                         </li>
                         <?php endif; ?>
                         <?php if($instagram !== '#'): ?>
                         <li class="list-inline-item">
-                            <a href="<?= htmlspecialchars($instagram) ?>" class="text-white social-icon" target="_blank"><i class="fab fa-instagram"></i></a>
+                            <a href="<?= htmlspecialchars($instagram) ?>" class="text-white social-icon" target="_blank" rel="noopener noreferrer" aria-label="Instagram"><i class="fab fa-instagram"></i></a>
                         </li>
                         <?php endif; ?>
                     </ul>

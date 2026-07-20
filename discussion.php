@@ -130,7 +130,7 @@ require_once 'includes/navbar.php';
                 <?php else: ?>
                     <div class="list-group list-group-flush">
                         <?php foreach($chat_history_users as $cu): 
-                            $pic = $cu['profile_pic'] ? BASE_URL . "uploads/profile/" . $cu['profile_pic'] : "https://placehold.co/50x50/f39c12/white?text=U";
+                            $pic = $cu['profile_pic'] ? BASE_URL . "uploads/profile/" . $cu['profile_pic'] : "https://ui-avatars.com/api/?name=User&background=random";
                             $active = ($target_user_id == $cu['id']) ? 'bg-warning text-dark bg-opacity-25' : '';
                         ?>
                             <a href="discussion.php?user_id=<?= $cu['id'] ?>" class="list-group-item list-group-item-action <?= $active ?> py-3 position-relative">
@@ -155,7 +155,7 @@ require_once 'includes/navbar.php';
         <!-- Chat Area -->
         <div class="col-md-8 col-12 p-0 d-flex flex-column <?= (!$target_user_id) ? 'd-none d-md-flex' : '' ?>" style="height: 100%;">
             <?php if ($target_user_id && $target_user_info): 
-                $pic = $target_user_info['profile_pic'] ? BASE_URL . "uploads/profile/" . $target_user_info['profile_pic'] : "https://placehold.co/50x50/f39c12/white?text=U";
+                $pic = $target_user_info['profile_pic'] ? BASE_URL . "uploads/profile/" . $target_user_info['profile_pic'] : "https://ui-avatars.com/api/?name=User&background=random";
             ?>
                 <!-- Chat Header -->
                 <div class="bg-white p-3 border-bottom d-flex align-items-center shadow-sm z-1">

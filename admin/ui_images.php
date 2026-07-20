@@ -137,7 +137,7 @@ require_once 'includes/header.php';
                                             $img_src = htmlspecialchars($img['external_url']);
                                             $source_type = '<span class="badge bg-info">External Link</span>';
                                         } else {
-                                            $img_src = 'https://placehold.co/100x100?text=No+Image';
+                                            $img_src = 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?q=80&w=100&auto=format&fit=crop';
                                         }
                                     ?>
                                     <tr>
@@ -147,8 +147,22 @@ require_once 'includes/header.php';
                                             </div>
                                         </td>
                                         <td>
+                                            <?php
+                                                $rec_size = "Auto";
+                                                if (strpos($img['image_key'], 'banner_') !== false) { $rec_size = "1920 x 400"; }
+                                                elseif (strpos($img['image_key'], 'home_hero') !== false) { $rec_size = "1920 x 800"; }
+                                                elseif (strpos($img['image_key'], 'about_hero') !== false) { $rec_size = "1920 x 600"; }
+                                                elseif (strpos($img['image_key'], 'home_about') !== false) { $rec_size = "800 x 600"; }
+                                                elseif ($img['image_key'] == 'about_community') { $rec_size = "800 x 800"; }
+                                                elseif ($img['image_key'] == 'about_vision' || $img['image_key'] == 'about_mission') { $rec_size = "800 x 400"; }
+                                                elseif (strpos($img['image_key'], 'about_core_') !== false) { $rec_size = "200 x 200"; }
+                                                elseif (strpos($img['image_key'], 'home_testimonial_') !== false) { $rec_size = "100 x 100 (Square)"; }
+                                                elseif (strpos($img['image_key'], 'gallery_static_') !== false) { $rec_size = "400 x 300"; }
+                                                elseif ($img['image_key'] == 'web_services_placeholder') { $rec_size = "600 x 500"; }
+                                            ?>
                                             <strong><?= htmlspecialchars($img['title']) ?></strong><br>
-                                            <small class="text-muted" style="font-family: monospace;">Key: <?= htmlspecialchars($img['image_key']) ?></small>
+                                            <small class="text-muted" style="font-family: monospace;">Key: <?= htmlspecialchars($img['image_key']) ?></small><br>
+                                            <small class="text-primary"><i class="fa-solid fa-crop-simple"></i> Size: <?= $rec_size ?></small>
                                         </td>
                                         <td><?= $source_type ?></td>
                                         <td class="text-end pe-4">

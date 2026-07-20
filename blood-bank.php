@@ -36,7 +36,7 @@ if (isset($_GET['blood_group']) && !empty($_GET['blood_group'])) {
 require_once 'includes/header.php';
 require_once 'includes/navbar.php';
 ?>
-<?php $banner_img = function_exists('getUiImage') ? getUiImage('banner_blood_bank', 'https://placehold.co/1920x400/e74c3c/ffffff?text=Blood+Bank') : 'https://placehold.co/1920x400/e74c3c/ffffff?text=Blood+Bank'; ?>
+<?php $banner_img = function_exists('getUiImage') ? getUiImage('banner_blood_bank', 'https://images.unsplash.com/photo-1615461066841-6116e61058f4?q=80&w=1920&auto=format&fit=crop') : 'https://images.unsplash.com/photo-1615461066841-6116e61058f4?q=80&w=1920&auto=format&fit=crop'; ?>
 <div class="page-banner mb-4">
     <img src="<?= htmlspecialchars($banner_img) ?>" class="img-fluid w-100 shadow-sm" style="max-height: 400px; object-fit: cover;">
 </div>
@@ -45,7 +45,7 @@ require_once 'includes/navbar.php';
 <!-- Header Banner -->
 <?php 
 $global_settings = function_exists('getGlobalSettings') ? getGlobalSettings() : [];
-$banner_blood = (!empty($global_settings['banner_blood'])) ? BASE_URL . "uploads/banners/" . $global_settings['banner_blood'] : "https://placehold.co/1920x400/8b0000/ff4d4d?text=Blood+Bank";
+$banner_blood = (!empty($global_settings['banner_blood'])) ? BASE_URL . "uploads/banners/" . $global_settings['banner_blood'] : "https://images.unsplash.com/photo-1615461066841-6116e61058f4?q=80&w=1920&auto=format&fit=crop";
 ?>
 <div class="bg-dark text-white py-5 text-center" style="background: linear-gradient(rgba(0,0,0,0.7), rgba(0,0,0,0.7)), url('<?= htmlspecialchars($banner_blood) ?>') center/cover;">
     <div class="container">

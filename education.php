@@ -9,7 +9,7 @@ require_once 'includes/navbar.php';
 
 <!-- Header Banner -->
 <?php 
-$banner_education = function_exists('getUiImage') ? getUiImage('banner_education', 'https://placehold.co/1920x400/2c3e50/f39c12?text=Education+%26+Career') : "https://placehold.co/1920x400/2c3e50/f39c12?text=Education+%26+Career";
+$banner_education = function_exists('getUiImage') ? getUiImage('banner_education', 'https://images.unsplash.com/photo-1523050854058-8df90110c9f1?q=80&w=1920&auto=format&fit=crop') : "https://images.unsplash.com/photo-1523050854058-8df90110c9f1?q=80&w=1920&auto=format&fit=crop";
 ?>
 <div class="bg-dark text-white py-5 text-center" style="background: linear-gradient(rgba(0,0,0,0.7), rgba(0,0,0,0.7)), url('<?= htmlspecialchars($banner_education) ?>') center/cover;">
     <div class="container">

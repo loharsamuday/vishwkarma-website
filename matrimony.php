@@ -130,24 +130,62 @@ require_once 'includes/navbar.php';
   text-align: center;
   margin-right: 8px;
 }
+
+/* Matrimony trust-first visual system */
+.match-hero { min-height: 760px !important; isolation: isolate; }
+.match-hero::before { content: ''; position: absolute; inset: 0; background: linear-gradient(100deg, rgba(20,18,30,.94) 0%, rgba(33,23,39,.78) 48%, rgba(20,18,30,.28) 100%); z-index: -1; }
+.match-hero .container { position: relative; z-index: 1; }
+.match-kicker { display: inline-flex; align-items: center; gap: .55rem; border: 1px solid rgba(255,255,255,.2); background: rgba(255,255,255,.1); padding: .55rem .9rem; border-radius: 99px; color: #ffda83; font-size: .75rem; font-weight: 700; letter-spacing: .09em; text-transform: uppercase; }
+.match-hero h1 { letter-spacing: -.055em; line-height: 1.05; }
+.match-hero-copy { max-width: 690px; margin: auto; color: rgba(255,255,255,.83); line-height: 1.7; }
+.hero-safety-points { display: flex; justify-content: center; gap: 1.2rem; flex-wrap: wrap; color: rgba(255,255,255,.82); font-size: .82rem; font-weight: 600; margin: 1.65rem 0 2.5rem; }
+.hero-safety-points i { color: #ffc857; }
+.glass-search { background: rgba(255,255,255,.95); border: 1px solid rgba(255,255,255,.6); border-radius: 18px; padding: 1.4rem; box-shadow: 0 20px 50px rgba(0,0,0,.25); text-align: left; }
+.glass-search label { color: #46586a; text-shadow: none; font-size: .7rem; font-weight: 800; letter-spacing: .06em; }
+.glass-search .form-select { border: 1px solid #e0e7ed !important; font-size: .93rem; padding: .75rem .85rem; }
+.matrimony-trust-bar { background: #fff; border-bottom: 1px solid #e8edf1; }
+.trust-item { padding: .65rem 1.1rem; height: 100%; border-right: 1px solid #e8edf1; }
+.trust-item:last-child { border: 0; }
+.trust-item .trust-icon { width: 44px; height: 44px; display: grid; place-items: center; border-radius: 12px; background: #fff4dd; color: #cf7b08; }
+.match-section { padding: 6rem 0; }
+.match-eyebrow { color: #bf6c07; font-weight: 800; font-size: .72rem; letter-spacing: .13em; text-transform: uppercase; }
+.match-heading { color: #1d2b38; letter-spacing: -.04em; }
+.process-card { border: 1px solid #e5ebf0; border-radius: 15px; padding: 1.5rem; height: 100%; background: #fff; box-shadow: 0 10px 25px rgba(16,39,59,.04); }
+.process-number { width: 38px; height: 38px; display: grid; place-items: center; border-radius: 50%; background: #fff0d3; color: #bd6d05; font-weight: 800; margin-bottom: 1.05rem; }
+.privacy-panel { background: linear-gradient(135deg, #142d42, #0d2234); color: white; border-radius: 20px; overflow: hidden; }
+.privacy-panel p { color: rgba(255,255,255,.7); }
+.privacy-list li { margin-bottom: 1rem; color: rgba(255,255,255,.88); }
+.privacy-list i { color: #ffc857; width: 22px; }
+.profile-card { border: 1px solid #e6ebef; border-radius: 16px; box-shadow: 0 10px 28px rgba(16,39,59,.06); }
+.profile-card:hover { transform: translateY(-7px); box-shadow: 0 18px 36px rgba(16,39,59,.12); border-color: rgba(231,155,23,.45); }
+.profile-card .card-banner { height: 74px; background: linear-gradient(120deg, #18384f, #d98c14); }
+.profile-card .profile-img-wrap img { width: 92px; height: 92px; }
+.guest-profile-photo { filter: saturate(.8); }
+.profile-info-list li { color: #536575; }
+.profile-disclaimer { background: #fff8e9; border: 1px solid #f4d69c; border-radius: 12px; color: #765016; }
+.bottom-match-cta { background: radial-gradient(circle at 82% 20%, rgba(255,215,128,.35), transparent 25%), linear-gradient(125deg, #142c40, #0b2033); color: white; }
+.bottom-match-cta .lead { color: rgba(255,255,255,.77); }
+@media (max-width: 767.98px) { .match-hero { min-height: 700px !important; } .match-hero h1 { font-size: 2.6rem; } .hero-safety-points { gap: .75rem; } .trust-item { border-right: 0; border-bottom: 1px solid #e8edf1; } .match-section { padding: 4rem 0; } }
 </style>
 
 <!-- Hero Section with Integrated Search -->
 <?php 
-$banner_matrimony = function_exists('getUiImage') ? getUiImage('banner_matrimony', 'https://placehold.co/1920x600/e84393/ffffff?text=Matrimony') : "https://placehold.co/1920x600/e84393/ffffff?text=Matrimony";
+$banner_matrimony = function_exists('getUiImage') ? getUiImage('banner_matrimony', 'https://images.unsplash.com/photo-1511285560929-80b456fea0bc?q=80&w=1920&auto=format&fit=crop') : "https://images.unsplash.com/photo-1511285560929-80b456fea0bc?q=80&w=1920&auto=format&fit=crop";
 ?>
-<div class="position-relative d-flex align-items-center" style="min-height: 80vh; background: linear-gradient(rgba(0,0,0,0.6), rgba(0,0,0,0.8)), url('<?= htmlspecialchars($banner_matrimony) ?>') center/cover no-repeat;">
+<div class="position-relative d-flex align-items-center match-hero" style="background: url('<?= htmlspecialchars($banner_matrimony) ?>') center/cover no-repeat;">
     <div class="container py-5 mt-5">
         <div class="row justify-content-center text-center mb-5">
             <div class="col-lg-8" data-aos="zoom-in">
-                <h1 class="display-3 fw-bold text-white mb-3" style="text-shadow: 2px 2px 4px rgba(0,0,0,0.5);">Find Your Perfect Match</h1>
+                <div class="match-kicker mb-4"><i class="fa-solid fa-heart-circle-check"></i> Meaningful introductions, thoughtfully made</div>
+                <h1 class="display-3 fw-bold text-white mb-3">Find a connection built on <span class="text-warning">shared values.</span></h1>
                 
                 <?php if (!$is_paid_mode): ?>
-                    <h3 class="text-warning fw-bold mb-4 drop-shadow"><i class="fa-solid fa-gift me-2"></i> 100% Free Registration & Matchmaking!</h3>
-                    <p class="lead text-light mb-4 text-shadow">Join our growing community. Thousands of verified profiles from all castes and religions.</p>
+                    <p class="match-hero-copy lead mb-0">Create your profile, explore compatible introductions and take the next step at your own pace. Registration is currently free.</p>
                 <?php else: ?>
-                    <p class="lead text-light mb-4 text-shadow">Premium matchmaking services with strictly verified profiles.</p>
+                    <p class="match-hero-copy lead mb-0">A thoughtful space to create your profile, explore introductions and begin meaningful conversations with care.</p>
                 <?php endif; ?>
+
+                <div class="hero-safety-points"><span><i class="fa-solid fa-shield-heart me-2"></i>Privacy-conscious profiles</span><span><i class="fa-solid fa-user-group me-2"></i>Community-led introductions</span><span><i class="fa-solid fa-lock me-2"></i>Share details at your comfort</span></div>
 
                 <?php if(!isLoggedIn()): ?>
                     <a href="register.php" class="btn btn-warning btn-lg px-5 py-3 fw-bold rounded-pill shadow-lg hover-scale fs-5">
@@ -161,7 +199,7 @@ $banner_matrimony = function_exists('getUiImage') ? getUiImage('banner_matrimony
             </div>
         </div>
 
-        <!-- Glassmorphism Quick Search -->
+        <!-- Quick Search -->
         <div class="row justify-content-center" data-aos="fade-up" data-aos-delay="200">
             <div class="col-xl-10">
                 <div class="glass-search">
@@ -210,36 +248,54 @@ $banner_matrimony = function_exists('getUiImage') ? getUiImage('banner_matrimony
     </div>
 </div>
 
-<!-- Trust Badges Section -->
-<div class="bg-light py-4 border-bottom shadow-sm">
+<!-- Trust Principles -->
+<div class="matrimony-trust-bar py-4">
     <div class="container">
         <div class="row text-center g-4">
             <div class="col-md-4" data-aos="fade-up" data-aos-delay="100">
-                <i class="fa-solid fa-shield-halved fa-2x text-warning mb-2"></i>
-                <h6 class="fw-bold mb-1">100% Privacy Guaranteed</h6>
-                <p class="text-muted small mb-0">Your data is safe and secure with us.</p>
+                <div class="trust-item d-flex align-items-center text-start gap-3 justify-content-md-center"><div class="trust-icon"><i class="fa-solid fa-user-shield"></i></div><div><h6 class="fw-bold mb-1">Privacy comes first</h6><p class="text-muted small mb-0">Public views are designed to keep contact details private.</p></div></div>
             </div>
             <div class="col-md-4" data-aos="fade-up" data-aos-delay="200">
-                <i class="fa-solid fa-user-check fa-2x text-warning mb-2"></i>
-                <h6 class="fw-bold mb-1">Verified Profiles</h6>
-                <p class="text-muted small mb-0">Genuine profiles with strict verification.</p>
+                <div class="trust-item d-flex align-items-center text-start gap-3 justify-content-md-center"><div class="trust-icon"><i class="fa-solid fa-address-card"></i></div><div><h6 class="fw-bold mb-1">Complete profiles matter</h6><p class="text-muted small mb-0">Helpful details make every introduction more meaningful.</p></div></div>
             </div>
             <div class="col-md-4" data-aos="fade-up" data-aos-delay="300">
-                <i class="fa-solid fa-hand-holding-heart fa-2x text-warning mb-2"></i>
-                <h6 class="fw-bold mb-1">Success Stories</h6>
-                <p class="text-muted small mb-0">Thousands have found their life partner.</p>
+                <div class="trust-item d-flex align-items-center text-start gap-3 justify-content-md-center"><div class="trust-icon"><i class="fa-solid fa-comments"></i></div><div><h6 class="fw-bold mb-1">Connect thoughtfully</h6><p class="text-muted small mb-0">Start with a conversation and proceed when it feels right.</p></div></div>
             </div>
         </div>
     </div>
 </div>
 
+<!-- How It Works + Safety -->
+<section class="match-section bg-white">
+    <div class="container">
+        <div class="text-center mb-5" data-aos="fade-up">
+            <div class="match-eyebrow mb-2">A respectful way to begin</div>
+            <h2 class="fw-bold match-heading display-6">Simple steps. <span class="text-warning">Better introductions.</span></h2>
+            <p class="text-muted mx-auto mb-0" style="max-width: 670px;">Take your time, present yourself honestly and let shared values lead the conversation.</p>
+        </div>
+        <div class="row g-4">
+            <div class="col-md-4" data-aos="fade-up"><div class="process-card"><div class="process-number">01</div><h5 class="fw-bold">Create your profile</h5><p class="text-muted small mb-0">Add the information that helps a compatible family understand you—your education, profession and preferences.</p></div></div>
+            <div class="col-md-4" data-aos="fade-up" data-aos-delay="100"><div class="process-card"><div class="process-number">02</div><h5 class="fw-bold">Explore with intention</h5><p class="text-muted small mb-0">Use the search filters to discover profiles that align with what matters most to you.</p></div></div>
+            <div class="col-md-4" data-aos="fade-up" data-aos-delay="200"><div class="process-card"><div class="process-number">03</div><h5 class="fw-bold">Start a respectful conversation</h5><p class="text-muted small mb-0">When there is mutual interest, connect thoughtfully and involve family at the pace you prefer.</p></div></div>
+        </div>
+        <div class="privacy-panel p-4 p-lg-5 mt-5" data-aos="fade-up">
+            <div class="row align-items-center g-4">
+                <div class="col-lg-7"><div class="match-eyebrow text-warning mb-2">Your safety matters</div><h3 class="fw-bold mb-3">A genuine journey starts with sensible boundaries.</h3><p class="mb-0">Avoid sending money, sharing sensitive personal documents, or moving too quickly. Get to know people carefully and verify important details independently.</p></div>
+                <div class="col-lg-5"><ul class="list-unstyled privacy-list mb-0"><li><i class="fa-solid fa-check"></i>Keep financial information private</li><li><i class="fa-solid fa-check"></i>Verify details before committing</li><li><i class="fa-solid fa-check"></i>Report suspicious behaviour promptly</li></ul><a href="fraud-alert.php" class="btn btn-outline-light rounded-pill px-4">Read safety guidelines <i class="fa-solid fa-arrow-right ms-1"></i></a></div>
+            </div>
+        </div>
+    </div>
+</section>
+
 <!-- Profiles Section -->
-<div class="container py-5">
+<section class="match-section" style="background: #f6f8fa;">
+<div class="container">
     <div class="d-flex justify-content-between align-items-center mb-4 border-bottom pb-2" data-aos="fade-right">
-        <h3 class="fw-bold text-dark mb-0"><i class="fa-solid fa-users text-warning me-2"></i> Recently Added Matches</h3>
+        <div><div class="match-eyebrow mb-1">New introductions</div><h3 class="fw-bold match-heading mb-0">Recently added matches</h3></div>
         <a href="search.php" class="btn btn-sm btn-outline-dark rounded-pill px-3">View All <i class="fa-solid fa-arrow-right ms-1"></i></a>
     </div>
 
+    <div class="profile-disclaimer d-flex align-items-center gap-3 p-3 mb-4 small"><i class="fa-solid fa-circle-info fs-5"></i><span>For privacy, contact details are never displayed here. Create an account to view profiles responsibly and connect through the platform.</span></div>
     <div class="row g-4">
         <?php if (empty($recent_profiles)): ?>
             <div class="col-12 text-center text-muted py-5">
@@ -252,6 +308,9 @@ $banner_matrimony = function_exists('getUiImage') ? getUiImage('banner_matrimony
                 $age = date_diff(date_create($profile['dob']), date_create('today'))->y;
                 $default_pic = $profile['gender'] == 'Male' ? 'https://placehold.co/150x150/2c3e50/white?text=Groom' : 'https://placehold.co/150x150/f39c12/white?text=Bride';
                 $pic = $profile['profile_pic'] ? BASE_URL . "uploads/profile/" . $profile['profile_pic'] : $default_pic;
+                $profile_name = isLoggedIn()
+                    ? trim($profile['first_name'] . ' ' . $profile['last_name'])
+                    : trim($profile['first_name'] . ' ' . strtoupper(substr($profile['last_name'] ?? '', 0, 1)) . '.');
                 
                 // Show first 3 profiles as tease, blur the rest if not logged in
                 $is_blurred = !isLoggedIn() && $index >= 3;
@@ -260,7 +319,7 @@ $banner_matrimony = function_exists('getUiImage') ? getUiImage('banner_matrimony
                 <div class="profile-card h-100 d-flex flex-column" style="<?= $is_blurred ? 'filter: blur(5px) grayscale(40%); pointer-events: none; user-select: none;' : '' ?>">
                     <div class="card-banner"></div>
                     <div class="profile-img-wrap">
-                        <img src="<?= htmlspecialchars($pic) ?>" alt="Profile">
+                        <img src="<?= htmlspecialchars($pic) ?>" alt="<?= htmlspecialchars($profile_name) ?>" class="<?= !isLoggedIn() ? 'guest-profile-photo' : '' ?>">
                         <?php if(isUserOnline($profile['last_active'])): ?>
                             <span class="position-absolute p-2 bg-success border border-light rounded-circle online-blink" style="bottom: 10px; right: 25px; z-index: 2;" title="Online Now">
                                 <span class="visually-hidden">Online</span>
@@ -269,8 +328,8 @@ $banner_matrimony = function_exists('getUiImage') ? getUiImage('banner_matrimony
                     </div>
                     
                     <div class="p-3 text-center flex-grow-1 d-flex flex-column">
-                        <h5 class="fw-bold mb-1 text-truncate" title="<?= htmlspecialchars($profile['first_name'] . ' ' . $profile['last_name']) ?>">
-                            <?= htmlspecialchars($profile['first_name'] . ' ' . $profile['last_name']) ?>
+                        <h5 class="fw-bold mb-1 text-truncate" title="<?= htmlspecialchars($profile_name) ?>">
+                            <?= htmlspecialchars($profile_name) ?>
                         </h5>
                         <p class="text-muted small mb-3">ID: VISH-<?= str_pad($profile['id'], 5, '0', STR_PAD_LEFT) ?></p>
                         
@@ -282,10 +341,10 @@ $banner_matrimony = function_exists('getUiImage') ? getUiImage('banner_matrimony
                         
                         <div class="row g-2 mt-auto">
                             <div class="col-6">
-                                <a href="profile.php?id=<?= $profile['id'] ?>" class="btn btn-outline-dark btn-sm w-100 rounded-pill">Profile</a>
+                                <a href="<?= isLoggedIn() ? 'profile.php?id=' . $profile['id'] : 'register.php' ?>" class="btn btn-outline-dark btn-sm w-100 rounded-pill"><?= isLoggedIn() ? 'Profile' : 'Details' ?></a>
                             </div>
                             <div class="col-6">
-                                <a href="discussion.php?user_id=<?= $profile['user_id'] ?>" class="btn btn-warning btn-sm w-100 rounded-pill fw-bold btn-chat-animate"><i class="fa-solid fa-comment-dots"></i> Chat</a>
+                                <a href="<?= isLoggedIn() ? 'discussion.php?user_id=' . $profile['user_id'] : 'register.php' ?>" class="btn btn-warning btn-sm w-100 rounded-pill fw-bold <?= isLoggedIn() ? 'btn-chat-animate' : '' ?>"><i class="fa-solid <?= isLoggedIn() ? 'fa-comment-dots' : 'fa-lock' ?>"></i> <?= isLoggedIn() ? 'Chat' : 'Join' ?></a>
                             </div>
                         </div>
                     </div>
@@ -307,15 +366,17 @@ $banner_matrimony = function_exists('getUiImage') ? getUiImage('banner_matrimony
         <?php endif; ?>
     </div>
 </div>
+</section>
 
 <!-- Bottom CTA Section -->
 <?php if(!isLoggedIn()): ?>
-<div class="bg-warning text-dark py-5 text-center mt-4">
+<div class="bottom-match-cta py-5 text-center">
     <div class="container" data-aos="zoom-in">
-        <h2 class="fw-bold mb-3">Ready to find your soulmate?</h2>
-        <p class="lead mb-4">Join thousands of happy members and start your journey today. <?= (!$is_paid_mode) ? 'It\'s absolutely FREE!' : '' ?></p>
-        <a href="register.php" class="btn btn-dark btn-lg px-5 py-3 rounded-pill fw-bold shadow hover-scale">
-            Get Started Now <i class="fa-solid fa-arrow-right ms-2"></i>
+        <div class="match-eyebrow text-warning mb-2">Begin with confidence</div>
+        <h2 class="fw-bold mb-3">Ready to create a profile that feels like you?</h2>
+        <p class="lead mb-4">Join the community, share only what matters and discover introductions at your own pace. <?= (!$is_paid_mode) ? 'Registration is currently free.' : '' ?></p>
+        <a href="register.php" class="btn btn-warning btn-lg px-5 py-3 rounded-pill fw-bold shadow hover-scale">
+            Create Your Profile <i class="fa-solid fa-arrow-right ms-2"></i>
         </a>
     </div>
 </div>

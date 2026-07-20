@@ -15,7 +15,7 @@ $matrimony_profile = $stmt->fetch();
 $stmt2 = $pdo->prepare("SELECT profile_pic FROM member_profiles WHERE user_id = ?");
 $stmt2->execute([$user_id]);
 $member_profile = $stmt2->fetch();
-$user_profile_pic = ($member_profile && $member_profile['profile_pic']) ? BASE_URL . "uploads/profile/" . $member_profile['profile_pic'] : "https://placehold.co/150x150/f39c12/white?text=User";
+$user_profile_pic = ($member_profile && $member_profile['profile_pic']) ? BASE_URL . "uploads/profile/" . $member_profile['profile_pic'] : "https://ui-avatars.com/api/?name=User&background=random";
 
 $is_admin = (isset($_SESSION['role_id']) && $_SESSION['role_id'] == 1);
 
@@ -77,12 +77,39 @@ require_once 'includes/header.php';
 require_once 'includes/navbar.php';
 ?>
 
-<div class="container py-5">
-    <div class="row">
-        <div class="col-md-3">
-            <div class="card card-custom mb-4 shadow-sm">
+<style>
+/* Member dashboard visual system */
+.dashboard-shell { padding-top: 3.5rem !important; padding-bottom: 4.5rem !important; }
+.dashboard-welcome { position: relative; overflow: hidden; padding: 2rem 2.2rem; border-radius: 18px; background: radial-gradient(circle at 88% 15%, rgba(255,201,93,.32), transparent 25%), linear-gradient(125deg, #0e2b40, #16435c); color: #fff; box-shadow: 0 18px 40px rgba(15,43,64,.18); }
+.dashboard-welcome::after { content: ''; position: absolute; width: 230px; height: 230px; right: -60px; bottom: -145px; border: 1px solid rgba(255,255,255,.13); border-radius: 50%; }
+.dashboard-welcome > * { position: relative; z-index: 1; }
+.dashboard-eyebrow { color: #ffd26f; font-size: .72rem; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; }
+.dashboard-welcome h1 { letter-spacing: -.04em; }
+.dashboard-welcome p { color: rgba(255,255,255,.75); }
+.dashboard-status { border: 1px solid #e4ebf0; border-radius: 14px; background: #fff; padding: 1rem; height: 100%; box-shadow: 0 8px 22px rgba(16,39,59,.04); }
+.dashboard-status-icon { width: 42px; height: 42px; display: grid; place-items: center; border-radius: 12px; background: #fff2d8; color: #c87808; }
+.member-card { border: 1px solid #e4ebf0 !important; border-radius: 16px !important; overflow: hidden; box-shadow: 0 12px 30px rgba(16,39,59,.07) !important; }
+.member-card .card-body { padding: 1.65rem 1.25rem; background: linear-gradient(180deg, #fff, #fafcfd); }
+.member-card .list-group-item { padding: .8rem 1rem; border-color: #edf1f4; font-size: .9rem; font-weight: 600; color: #46596a; }
+.member-card .list-group-item:not(.active):hover { background: #fff7e8; color: #aa6200; }
+.member-card .list-group-item.active { background: #e79b17; border-color: #e79b17; color: #172c3e; }
+.profile-image-wrap img { box-shadow: 0 8px 20px rgba(15,43,64,.16); }
+.dashboard-action { border: 1px solid #e4ebf0 !important; border-top-width: 3px !important; border-radius: 16px !important; box-shadow: 0 10px 26px rgba(16,39,59,.055) !important; transition: transform .25s ease, box-shadow .25s ease; }
+.dashboard-action:hover { transform: translateY(-5px); box-shadow: 0 18px 34px rgba(16,39,59,.1) !important; }
+.dashboard-action h5 { color: #1b3449; }
+.dashboard-action p { line-height: 1.65; }
+.dashboard-action .btn { margin-top: auto; }
+.online-widget { border: 1px solid #e2ebe7 !important; border-radius: 16px !important; background: linear-gradient(135deg, #fff, #f5fbf7); }
+.admin-zone { border-radius: 16px !important; }
+@media (max-width: 767.98px) { .dashboard-shell { padding-top: 2rem !important; } .dashboard-welcome { padding: 1.5rem 1.2rem; border-radius: 15px; } .dashboard-welcome h1 { font-size: 1.75rem; } .dashboard-sidebar { order: 2; } .dashboard-main { order: 1; } .member-card .card-body { padding: 1.3rem 1rem; } .dashboard-status { padding: .85rem; } }
+</style>
+
+<div class="container dashboard-shell">
+    <div class="row g-4">
+        <div class="col-md-3 dashboard-sidebar">
+            <div class="card card-custom member-card mb-4 shadow-sm">
                 <div class="card-body text-center">
-                    <div class="position-relative d-inline-block mb-3">
+                    <div class="position-relative d-inline-block mb-3 profile-image-wrap">
                         <img src="<?= htmlspecialchars($user_profile_pic) ?>" class="rounded-circle border border-3 border-warning" alt="Avatar" style="width: 150px; height: 150px; object-fit: cover;">
                         <button class="btn btn-sm btn-light position-absolute bottom-0 end-0 rounded-circle shadow border" type="button" data-bs-toggle="modal" data-bs-target="#profilePicModal" title="Change Profile Picture">
                             <i class="fa-solid fa-camera text-primary"></i>
@@ -123,13 +150,23 @@ require_once 'includes/navbar.php';
             </div>
         </div>
         
-        <div class="col-md-9">
+        <div class="col-md-9 dashboard-main">
             <?php displayFlashMessage(); ?>
-            <h3 class="fw-bold mb-4">Welcome to Your Dashboard</h3>
+            <div class="dashboard-welcome mb-4" data-aos="fade-up">
+                <div class="dashboard-eyebrow mb-2">Member dashboard</div>
+                <h1 class="h2 fw-bold mb-2">Welcome back, <?= htmlspecialchars($_SESSION['first_name'] ?? 'Member') ?>.</h1>
+                <p class="mb-0">Manage your community profile, explore opportunities and keep your information up to date from one place.</p>
+            </div>
+            <div class="row g-3 mb-4" data-aos="fade-up" data-aos-delay="100">
+                <div class="col-sm-4"><div class="dashboard-status d-flex align-items-center gap-3"><div class="dashboard-status-icon"><i class="fa-solid fa-id-card"></i></div><div><small class="text-muted d-block">Profile verification</small><strong class="small"><?= $id_status === 'approved' ? 'Verified' : ($id_status === 'pending' ? 'Under review' : 'Action available') ?></strong></div></div></div>
+                <div class="col-sm-4"><div class="dashboard-status d-flex align-items-center gap-3"><div class="dashboard-status-icon"><i class="fa-solid fa-heart"></i></div><div><small class="text-muted d-block">Matrimony profile</small><strong class="small"><?= $matrimony_profile ? 'Active' : 'Not created yet' ?></strong></div></div></div>
+                <div class="col-sm-4"><div class="dashboard-status d-flex align-items-center gap-3"><div class="dashboard-status-icon"><i class="fa-solid fa-bolt"></i></div><div><small class="text-muted d-block">Quick next step</small><strong class="small"><?= $matrimony_profile ? 'Explore matches' : 'Complete your profile' ?></strong></div></div></div>
+            </div>
+            <div class="d-flex justify-content-between align-items-center mb-3"><div><div class="dashboard-eyebrow text-warning mb-1">Your services</div><h3 class="h4 fw-bold mb-0">Choose what you would like to do</h3></div></div>
             
             <div class="row g-4">
                 <div class="col-md-6">
-                    <div class="card card-custom h-100 p-4 border-top border-4 border-warning shadow-sm">
+                    <div class="card card-custom dashboard-action h-100 p-4 border-top border-4 border-warning shadow-sm">
                         <div class="d-flex justify-content-between align-items-start">
                             <h5 class="fw-bold"><i class="fa-solid fa-heart text-danger me-2"></i> Matrimony</h5>
                             <?php if($matrimony_profile && $matrimony_profile['is_premium']): ?>
@@ -167,7 +204,7 @@ require_once 'includes/navbar.php';
                 </div>
                 
                 <div class="col-md-6">
-                    <div class="card card-custom h-100 p-4 border-top border-4 border-info shadow-sm">
+                    <div class="card card-custom dashboard-action h-100 p-4 border-top border-4 border-info shadow-sm">
                         <h5 class="fw-bold"><i class="fa-solid fa-briefcase text-info me-2"></i> Business Listing</h5>
                         <p class="text-muted small mt-2">Add your business to the community directory and grow your network.</p>
                         <a href="business-register.php" class="btn btn-outline-info mt-auto">Add Business</a>
@@ -175,7 +212,7 @@ require_once 'includes/navbar.php';
                 </div>
                 
                 <div class="col-md-6 mt-4">
-                    <div class="card card-custom h-100 p-4 border-top border-4 border-primary shadow-sm">
+                    <div class="card card-custom dashboard-action h-100 p-4 border-top border-4 border-primary shadow-sm">
                         <h5 class="fw-bold"><i class="fa-solid fa-user-tie text-primary me-2"></i> Jobs & Opportunities</h5>
                         <p class="text-muted small mt-2">Post a job to hire talent directly from the community.</p>
                         <a href="job-post.php" class="btn btn-outline-primary mt-auto">Post a Job</a>
@@ -183,7 +220,7 @@ require_once 'includes/navbar.php';
                 </div>
                 
                 <div class="col-md-6 mt-4">
-                    <div class="card card-custom h-100 p-4 border-top border-4 border-danger shadow-sm">
+                    <div class="card card-custom dashboard-action h-100 p-4 border-top border-4 border-danger shadow-sm">
                         <h5 class="fw-bold"><i class="fa-solid fa-droplet text-danger me-2"></i> Blood Bank</h5>
                         <p class="text-muted small mt-2">Register as a blood donor and save lives during emergencies.</p>
                         <a href="blood-register.php" class="btn btn-outline-danger mt-auto">Register as Donor</a>
@@ -193,7 +230,7 @@ require_once 'includes/navbar.php';
             </div>
             
             <!-- Online Members Widget -->
-            <div class="card card-custom mt-4 p-4 border-top border-4 border-success shadow-sm">
+            <div class="card card-custom online-widget mt-4 p-4 border-top border-4 border-success shadow-sm">
                 <div class="d-flex justify-content-between align-items-center mb-3">
                     <h5 class="fw-bold mb-0"><i class="fa-solid fa-satellite-dish text-success me-2 fa-fade"></i> Currently Online Members</h5>
                     <span class="badge bg-success rounded-pill"><?= count($online_members) ?> Online</span>
@@ -204,7 +241,7 @@ require_once 'includes/navbar.php';
                 <?php else: ?>
                     <div class="d-flex flex-wrap gap-3">
                         <?php foreach($online_members as $ou): 
-                            $pic = $ou['profile_pic'] ? BASE_URL . "uploads/profile/" . $ou['profile_pic'] : "https://placehold.co/50x50/f39c12/white?text=U";
+                            $pic = $ou['profile_pic'] ? BASE_URL . "uploads/profile/" . $ou['profile_pic'] : "https://ui-avatars.com/api/?name=User&background=random";
                         ?>
                             <div class="text-center">
                                 <a href="discussion.php?user_id=<?= $ou['id'] ?>" class="text-decoration-none d-block position-relative" title="Chat with <?= htmlspecialchars($ou['first_name']) ?>">
@@ -233,7 +270,7 @@ require_once 'includes/navbar.php';
                 ?>
                 <div class="row mt-5">
                     <div class="col-12">
-                        <div class="card card-custom p-4 border-top border-4 border-danger shadow-sm">
+                        <div class="card card-custom admin-zone p-4 border-top border-4 border-danger shadow-sm">
                             <h4 class="fw-bold text-danger mb-4"><i class="fa-solid fa-shield-halved me-2"></i> Admin Controls: Manage Matrimony Profiles</h4>
                             <div class="table-responsive">
                                 <table class="table table-hover align-middle">
@@ -287,7 +324,7 @@ require_once 'includes/navbar.php';
                 ?>
                 <div class="row mt-4">
                     <div class="col-12">
-                        <div class="card card-custom p-4 border-top border-4 border-warning shadow-sm">
+                        <div class="card card-custom admin-zone p-4 border-top border-4 border-warning shadow-sm">
                             <h4 class="fw-bold text-warning mb-4"><i class="fa-solid fa-id-card me-2"></i> Pending ID Verifications</h4>
                             <div class="table-responsive">
                                 <table class="table table-hover align-middle">

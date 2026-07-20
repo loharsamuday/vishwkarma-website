@@ -73,7 +73,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 require_once 'includes/header.php';
 require_once 'includes/navbar.php';
 ?>
-<?php $banner_img = function_exists('getUiImage') ? getUiImage('banner_contact', 'https://placehold.co/1920x400/2c3e50/f39c12?text=Contact+Us') : 'https://placehold.co/1920x400/2c3e50/f39c12?text=Contact+Us'; ?>
+<?php $banner_img = function_exists('getUiImage') ? getUiImage('banner_contact', 'https://images.unsplash.com/photo-1516387938699-a93567ec168e?q=80&w=1920&auto=format&fit=crop') : 'https://images.unsplash.com/photo-1516387938699-a93567ec168e?q=80&w=1920&auto=format&fit=crop'; ?>
 <div class="page-banner mb-4">
     <img src="<?= htmlspecialchars($banner_img) ?>" class="img-fluid w-100 shadow-sm" style="max-height: 400px; object-fit: cover;">
 </div>

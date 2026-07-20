@@ -124,7 +124,7 @@ try {
 require_once 'includes/header.php';
 require_once 'includes/navbar.php';
 ?>
-<?php $banner_img = function_exists('getUiImage') ? getUiImage('banner_gallery', 'https://placehold.co/1920x400/2c3e50/f39c12?text=Image+Gallery') : 'https://placehold.co/1920x400/2c3e50/f39c12?text=Image+Gallery'; ?>
+<?php $banner_img = function_exists('getUiImage') ? getUiImage('banner_gallery', 'https://images.unsplash.com/photo-1452587925148-ce544e77e70d?q=80&w=1920&auto=format&fit=crop') : 'https://images.unsplash.com/photo-1452587925148-ce544e77e70d?q=80&w=1920&auto=format&fit=crop'; ?>
 <div class="page-banner mb-4">
     <img src="<?= htmlspecialchars($banner_img) ?>" class="img-fluid w-100 shadow-sm" style="max-height: 400px; object-fit: cover;">
 </div>
@@ -182,9 +182,9 @@ require_once 'includes/navbar.php';
                 <p class="mb-4 fs-5">No photos uploaded yet. Be the first to share your Puja moments!</p>
                 <!-- Placeholders -->
                 <div class="row g-4">
-                    <div class="col-md-4"><img src="<?= function_exists('getUiImage') ? getUiImage('gallery_static_1', 'https://placehold.co/400x300/f39c12/white?text=Vishwakarma+Puja') : 'https://placehold.co/400x300/f39c12/white?text=Vishwakarma+Puja' ?>" class="img-fluid rounded shadow-sm hover-scale"></div>
-                    <div class="col-md-4"><img src="<?= function_exists('getUiImage') ? getUiImage('gallery_static_2', 'https://placehold.co/400x300/2c3e50/white?text=Devotion') : 'https://placehold.co/400x300/2c3e50/white?text=Devotion' ?>" class="img-fluid rounded shadow-sm hover-scale"></div>
-                    <div class="col-md-4"><img src="<?= function_exists('getUiImage') ? getUiImage('gallery_static_3', 'https://placehold.co/400x300/e67e22/white?text=Celebration') : 'https://placehold.co/400x300/e67e22/white?text=Celebration' ?>" class="img-fluid rounded shadow-sm hover-scale"></div>
+                    <div class="col-md-4"><img src="<?= function_exists('getUiImage') ? getUiImage('gallery_static_1', 'https://images.unsplash.com/photo-1590050752117-238cb0fb12b1?q=80&w=400&auto=format&fit=crop') : 'https://images.unsplash.com/photo-1590050752117-238cb0fb12b1?q=80&w=400&auto=format&fit=crop' ?>" class="img-fluid rounded shadow-sm hover-scale"></div>
+                    <div class="col-md-4"><img src="<?= function_exists('getUiImage') ? getUiImage('gallery_static_2', 'https://images.unsplash.com/photo-1600010996160-c447bc981249?q=80&w=400&auto=format&fit=crop') : 'https://images.unsplash.com/photo-1600010996160-c447bc981249?q=80&w=400&auto=format&fit=crop' ?>" class="img-fluid rounded shadow-sm hover-scale"></div>
+                    <div class="col-md-4"><img src="<?= function_exists('getUiImage') ? getUiImage('gallery_static_3', 'https://images.unsplash.com/photo-1504917595217-d4dc5ebe6122?q=80&w=400&auto=format&fit=crop') : 'https://images.unsplash.com/photo-1504917595217-d4dc5ebe6122?q=80&w=400&auto=format&fit=crop' ?>" class="img-fluid rounded shadow-sm hover-scale"></div>
                 </div>
             </div>
         <?php endif; ?>

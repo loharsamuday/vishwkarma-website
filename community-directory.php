@@ -5,7 +5,7 @@ require_once 'includes/session.php';
 require_once 'includes/header.php';
 require_once 'includes/navbar.php';
 ?>
-<?php $banner_img = function_exists('getUiImage') ? getUiImage('banner_community', 'https://placehold.co/1920x400/2c3e50/f39c12?text=Community+Directory') : 'https://placehold.co/1920x400/2c3e50/f39c12?text=Community+Directory'; ?>
+<?php $banner_img = function_exists('getUiImage') ? getUiImage('banner_community', 'https://images.unsplash.com/photo-1511632765486-a01980e01a18?q=80&w=1920&auto=format&fit=crop') : 'https://images.unsplash.com/photo-1511632765486-a01980e01a18?q=80&w=1920&auto=format&fit=crop'; ?>
 <div class="page-banner mb-4">
     <img src="<?= htmlspecialchars($banner_img) ?>" class="img-fluid w-100 shadow-sm" style="max-height: 400px; object-fit: cover;">
 </div>

@@ -13,7 +13,7 @@ require_once 'includes/navbar.php';
 
 <!-- Header Banner -->
 <?php 
-$banner_jobs = function_exists('getUiImage') ? getUiImage('banner_jobs', 'https://placehold.co/1920x400/2c3e50/f39c12?text=Jobs+Portal') : "https://placehold.co/1920x400/2c3e50/f39c12?text=Jobs+Portal";
+$banner_jobs = function_exists('getUiImage') ? getUiImage('banner_jobs', 'https://images.unsplash.com/photo-1521791136064-7986c2920216?q=80&w=1920&auto=format&fit=crop') : "https://images.unsplash.com/photo-1521791136064-7986c2920216?q=80&w=1920&auto=format&fit=crop";
 ?>
 <div class="bg-dark text-white py-5 text-center" style="background: linear-gradient(rgba(0,0,0,0.7), rgba(0,0,0,0.7)), url('<?= htmlspecialchars($banner_jobs) ?>') center/cover;">
     <div class="container">
