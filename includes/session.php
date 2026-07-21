@@ -148,4 +148,66 @@ function logActivity($action, $role = 'user', $user_id = null, $admin_id = null)
         // Ignore log failure to prevent breaking app flow
     }
 }
+
+function verifyGoogleIdToken($idToken) {
+    $global_settings = function_exists('getGlobalSettings') ? getGlobalSettings() : [];
+    $google_client_id = trim($global_settings['google_client_id'] ?? '') ?: (defined('GOOGLE_CLIENT_ID') ? GOOGLE_CLIENT_ID : '');
+    if (empty($idToken) || empty($google_client_id) || $google_client_id === 'YOUR_GOOGLE_OAUTH_CLIENT_ID') {
+        return false;
+    }
+
+    $tokenInfoUrl = 'https://oauth2.googleapis.com/tokeninfo?id_token=' . urlencode($idToken);
+    $response = false;
+
+    if (function_exists('curl_version')) {
+        $ch = curl_init($tokenInfoUrl);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLOPT_TIMEOUT, 10);
+        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, true);
+        $response = curl_exec($ch);
+        curl_close($ch);
+    } else {
+        $response = @file_get_contents($tokenInfoUrl);
+    }
+
+    if (!$response) {
+        return false;
+    }
+
+    $payload = json_decode($response, true);
+    if (empty($payload) || ($payload['aud'] ?? '') !== GOOGLE_CLIENT_ID) {
+        return false;
+    }
+
+    $issuer = $payload['iss'] ?? '';
+    if (!in_array($issuer, ['accounts.google.com', 'https://accounts.google.com'], true)) {
+        return false;
+    }
+
+    $emailVerified = $payload['email_verified'] ?? false;
+    if ($emailVerified !== 'true' && $emailVerified !== true) {
+        return false;
+    }
+
+    return $payload;
+}
+
+function completeUserLogin(array $user) {
+    global $pdo;
+    $_SESSION['user_id'] = $user['id'];
+    $_SESSION['role_id'] = $user['role_id'];
+    $_SESSION['first_name'] = $user['first_name'];
+    $_SESSION['last_name'] = $user['last_name'];
+
+    try {
+        if (isset($pdo)) {
+            $stmt = $pdo->prepare("INSERT INTO login_history (user_id, ip_address, user_agent) VALUES (?, ?, ?)");
+            $stmt->execute([$user['id'], $_SERVER['REMOTE_ADDR'] ?? '', $_SERVER['HTTP_USER_AGENT'] ?? '']);
+        }
+    } catch (PDOException $e) {
+        // Ignore login history failures
+    }
+
+    logActivity('User Logged In', 'user', $user['id']);
+}
 ?>

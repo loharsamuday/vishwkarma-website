@@ -32,6 +32,27 @@ try {
         // Ignore error if column already exists or users table missing during initial install
     }
 
+    // Make phone and password nullable so OAuth users can register without local credentials
+    try {
+        $pdo->exec("ALTER TABLE users MODIFY COLUMN phone VARCHAR(20) NULL");
+    } catch (PDOException $e) {
+        // Ignore if the column is already nullable or the alteration isn't supported
+    }
+    try {
+        $pdo->exec("ALTER TABLE users MODIFY COLUMN password VARCHAR(255) NULL");
+    } catch (PDOException $e) {
+        // Ignore if the column is already nullable or the alteration isn't supported
+    }
+
+    // Add OAuth provider metadata to user records
+    try {
+        $pdo->exec("ALTER TABLE users ADD COLUMN provider VARCHAR(50) NULL");
+        $pdo->exec("ALTER TABLE users ADD COLUMN provider_id VARCHAR(255) NULL");
+        $pdo->exec("ALTER TABLE users ADD COLUMN profile_pic VARCHAR(255) NULL");
+    } catch (PDOException $e) {
+        // Ignore error if columns already exist
+    }
+
     // Add declaration tracking to users table
     try {
         $pdo->exec("ALTER TABLE users ADD COLUMN declaration_accepted BOOLEAN DEFAULT FALSE");

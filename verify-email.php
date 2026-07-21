@@ -3,77 +3,12 @@ $page_title = "Verify Email";
 require_once 'includes/db.php';
 require_once 'includes/session.php';
 
-require_once 'vendor/PHPMailer/src/Exception.php';
-require_once 'vendor/PHPMailer/src/PHPMailer.php';
-require_once 'vendor/PHPMailer/src/SMTP.php';
-
-use PHPMailer\PHPMailer\PHPMailer;
-use PHPMailer\PHPMailer\Exception as PHPMailerException;
-
 $error = '';
 $success = '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $user_id = intval($_POST['user_id']);
-    
-    if (isset($_POST['action']) && $_POST['action'] === 'resend_otp') {
-        if (!$user_id) {
-            $error = "Invalid user for OTP resend.";
-        } else {
-            $stmt = $pdo->prepare("SELECT email, first_name, last_name, is_verified FROM users WHERE id = ?");
-            $stmt->execute([$user_id]);
-            $user = $stmt->fetch();
-            
-            if (!$user) {
-                $error = "User not found.";
-            } elseif ($user['is_verified']) {
-                $error = "User is already verified.";
-            } else {
-                try {
-                    $otp = random_int(100000, 999999);
-                    $expires_at = date('Y-m-d H:i:s', strtotime('+15 minutes'));
-                    
-                    $pdo->prepare("DELETE FROM email_verifications WHERE user_id = ?")->execute([$user_id]);
-                    $pdo->prepare("INSERT INTO email_verifications (user_id, otp, expires_at) VALUES (?, ?, ?)")->execute([$user_id, $otp, $expires_at]);
-                    
-                    $global_settings = function_exists('getGlobalSettings') ? getGlobalSettings() : [];
-                    
-                    if (empty($global_settings['smtp_host']) || empty($global_settings['smtp_username']) || empty($global_settings['smtp_password']) || empty($global_settings['smtp_port'])) {
-                        throw new Exception('SMTP settings are not configured. Verification email cannot be sent.');
-                    }
-                    
-                    $mail = new PHPMailer(true);
-                    $mail->isSMTP();
-                    $mail->Host       = $global_settings['smtp_host'];
-                    $mail->SMTPAuth   = true;
-                    $mail->Username   = $global_settings['smtp_username'];
-                    $mail->Password   = $global_settings['smtp_password'];
-                    $mail->SMTPSecure = !empty($global_settings['smtp_secure']) && strtolower($global_settings['smtp_secure']) === 'ssl' ? PHPMailer::ENCRYPTION_SMTPS : PHPMailer::ENCRYPTION_STARTTLS;
-                    $mail->Port       = $global_settings['smtp_port'];
-
-                    $mail->setFrom($global_settings['smtp_username'], SITE_NAME);
-                    $mail->addAddress($user['email'], $user['first_name'] . ' ' . $user['last_name']);
-                    
-                    $mail->isHTML(true);
-                    $mail->Subject = 'New OTP for ' . SITE_NAME;
-                    $mail->Body    = "<h3>Hello " . htmlspecialchars($user['first_name']) . ",</h3>"
-                        . "<p>You requested a new verification code. Use the following OTP to verify your email address:</p>"
-                        . "<p style='font-size:1.5rem; font-weight:bold; letter-spacing:0.2rem;'>" . $otp . "</p>"
-                        . "<p>This code will expire in 15 minutes.</p>"
-                        . "<br><p>Regards,<br>" . SITE_NAME . " Team</p>";
-                    $mail->AltBody = "Your new verification code is: " . $otp . ". It expires in 15 minutes.";
-                    
-                    $mail->send();
-                    setFlashMessage('success', 'A new OTP has been sent to your email.');
-                    header("Location: verify-email.php?uid=" . $user_id);
-                    exit;
-                } catch (Exception $e) {
-                    $error = "Failed to resend OTP: " . $e->getMessage();
-                }
-            }
-        }
-    } else {
-        $otp = trim($_POST['otp']);
+    $otp = trim($_POST['otp']);
 
     if (!$user_id || empty($otp)) {
         $error = "Please enter the verification code.";
@@ -97,7 +32,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             header('Location: login.php');
             exit;
         }
-    }
     }
 }
 
@@ -127,15 +61,8 @@ require_once 'includes/navbar.php';
                     <button type="submit" class="btn btn-warning w-100 fw-bold">Verify Email</button>
                 </form>
 
-                <form method="POST" action="verify-email.php" class="mt-3">
-                    <input type="hidden" name="user_id" value="<?= htmlspecialchars($prefilled_user_id) ?>">
-                    <input type="hidden" name="action" value="resend_otp">
-                    <p class="text-muted text-center mb-2" style="font-size: 0.9rem;">Didn't receive the OTP?</p>
-                    <button type="submit" class="btn btn-outline-secondary w-100 btn-sm">Resend OTP</button>
-                </form>
-
-                <div class="mt-4 text-center">
-                    <a href="login.php" class="text-decoration-none text-warning fw-bold"><i class="fa-solid fa-arrow-left me-1"></i> Back to Login</a>
+                <div class="mt-3 text-center">
+                    <a href="login.php" class="text-decoration-none text-warning">Back to Login</a>
                 </div>
             </div>
         </div>

@@ -65,6 +65,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         'payment_mode' => trim($_POST['payment_mode'] ?? 'manual'),
         'razorpay_key_id' => trim($_POST['razorpay_key_id'] ?? ''),
         'razorpay_key_secret' => trim($_POST['razorpay_key_secret'] ?? '') !== '' ? trim($_POST['razorpay_key_secret'] ?? '') : ($existing_settings['razorpay_key_secret'] ?? ''),
+        'google_client_id' => trim($_POST['google_client_id'] ?? ''),
         'razorpay_currency' => trim($_POST['razorpay_currency'] ?? 'INR'),
         'razorpay_description' => trim($_POST['razorpay_description'] ?? 'Premium Membership Upgrade'),
         'promo_original_price' => trim($_POST['promo_original_price'] ?? ''),
@@ -462,6 +463,12 @@ $db_settings = $pdo->query("SELECT setting_key, setting_value FROM settings")->f
                         <input class="form-check-input" type="checkbox" role="switch" id="enable_email_verification" name="enable_email_verification" <?= (!isset($db_settings['enable_email_verification']) || $db_settings['enable_email_verification'] == '1') ? 'checked' : '' ?>>
                         <label class="form-check-label fw-bold" for="enable_email_verification">Enable Email OTP Verification during Registration</label>
                         <div class="text-muted small">If turned OFF, new users will be able to register instantly without verifying their email via OTP. Turn this OFF during testing to prevent SMTP limits.</div>
+                    </div>
+                    
+                    <div class="mb-4">
+                        <label class="form-label fw-bold">Google OAuth Client ID</label>
+                        <input type="text" name="google_client_id" class="form-control" value="<?= htmlspecialchars($db_settings['google_client_id'] ?? '') ?>" placeholder="Enter Google OAuth Client ID">
+                        <small class="text-muted">Paste the OAuth Client ID from Google Cloud Console. This enables Google login/signup across the site.</small>
                     </div>
                     
                     <div class="mb-3">
