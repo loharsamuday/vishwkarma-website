@@ -65,6 +65,17 @@ $current_page = basename($_SERVER['PHP_SELF']);
             <a href="#" class="nav-item ps-4"><i class="fa-solid fa-calendar-days me-2"></i> Events</a>
         </div>
         
+        <a class="sidebar-category text-uppercase text-secondary fw-bold ps-3 pt-3 pb-2 d-flex justify-content-between align-items-center" data-bs-toggle="collapse" href="#menuMockTests" role="button" aria-expanded="<?= in_array($current_page, ['mt_categories.php', 'mt_exams.php', 'mt_subjects.php', 'mt_questions.php', 'mt_mock_tests.php', 'mt_results.php', 'mt_settings.php']) ? 'true' : 'false' ?>" style="font-size: 0.75rem; letter-spacing: 0.05em;">
+            <span>Mock Tests</span> <i class="fa-solid fa-chevron-down pe-3"></i>
+        </a>
+        <div class="collapse <?= in_array($current_page, ['mt_categories.php', 'mt_exams.php', 'mt_subjects.php', 'mt_questions.php', 'mt_mock_tests.php', 'mt_results.php', 'mt_settings.php']) ? 'show' : '' ?>" id="menuMockTests" data-bs-parent="#sidebarAccordion">
+            <a href="mt_categories.php" class="nav-item <?= $current_page == 'mt_categories.php' ? 'active' : '' ?> ps-4"><i class="fa-solid fa-list me-2"></i> Categories & Exams</a>
+            <a href="mt_subjects.php" class="nav-item <?= $current_page == 'mt_subjects.php' ? 'active' : '' ?> ps-4"><i class="fa-solid fa-book me-2"></i> Subjects & Topics</a>
+            <a href="mt_questions.php" class="nav-item <?= $current_page == 'mt_questions.php' ? 'active' : '' ?> ps-4"><i class="fa-solid fa-clipboard-question me-2"></i> Question Bank</a>
+            <a href="mt_mock_tests.php" class="nav-item <?= $current_page == 'mt_mock_tests.php' ? 'active' : '' ?> ps-4"><i class="fa-solid fa-file-signature me-2"></i> Mock Tests</a>
+            <a href="mt_results.php" class="nav-item <?= $current_page == 'mt_results.php' ? 'active' : '' ?> ps-4"><i class="fa-solid fa-chart-bar me-2"></i> Results & Reports</a>
+        </div>
+        
         <a class="sidebar-category text-uppercase text-secondary fw-bold ps-3 pt-3 pb-2 d-flex justify-content-between align-items-center" data-bs-toggle="collapse" href="#menuFinance" role="button" aria-expanded="<?= in_array($current_page, ['payments.php']) ? 'true' : 'false' ?>" style="font-size: 0.75rem; letter-spacing: 0.05em;">
             <span>Finance & Revenue</span> <i class="fa-solid fa-chevron-down pe-3"></i>
         </a>

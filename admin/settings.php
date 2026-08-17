@@ -42,6 +42,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         'social_facebook' => trim($_POST['social_facebook'] ?? ''),
         'social_twitter' => trim($_POST['social_twitter'] ?? ''),
         'social_instagram' => trim($_POST['social_instagram'] ?? ''),
+        'social_telegram' => trim($_POST['social_telegram'] ?? ''),
+        'social_whatsapp' => trim($_POST['social_whatsapp'] ?? ''),
         'contact_email' => trim($_POST['contact_email'] ?? ''),
         'contact_phone' => trim($_POST['contact_phone'] ?? ''),
         'whatsapp_number' => trim($_POST['whatsapp_number'] ?? ''),
@@ -213,6 +215,17 @@ $db_settings = $pdo->query("SELECT setting_key, setting_value FROM settings")->f
                     <div class="mb-3">
                         <label class="form-label fw-bold"><i class="fa-brands fa-instagram text-danger me-2"></i> Instagram Link</label>
                         <input type="text" name="social_instagram" class="form-control" value="<?= htmlspecialchars($db_settings['social_instagram'] ?? '') ?>" placeholder="https://instagram.com/yourprofile">
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label fw-bold"><i class="fa-brands fa-telegram text-info me-2"></i> Telegram Channel / Group Link</label>
+                        <input type="text" name="social_telegram" class="form-control" value="<?= htmlspecialchars($db_settings['social_telegram'] ?? '') ?>" placeholder="https://t.me/yourchannel">
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label fw-bold"><i class="fa-brands fa-whatsapp text-success me-2"></i> WhatsApp Channel / Group Link</label>
+                        <input type="text" name="social_whatsapp" class="form-control" value="<?= htmlspecialchars($db_settings['social_whatsapp'] ?? '') ?>" placeholder="https://whatsapp.com/channel/yourid">
+                        <small class="text-muted">This is for the footer icon link (e.g. your WhatsApp Channel/Group).</small>
                     </div>
                     
                     <h5 class="border-bottom pb-2 mb-4 mt-5 text-warning">Contact Information (Footer)</h5>

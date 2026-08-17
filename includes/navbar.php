@@ -52,6 +52,9 @@ function isServicesActive($current_page) {
         <li class="nav-item">
           <a class="nav-link text-nowrap <?= ($current_page == 'matrimony.php') ? 'active text-danger fw-bold text-decoration-underline' : 'text-danger fw-semibold' ?>" href="<?= BASE_URL ?>matrimony.php">Matrimony <i class="fa-solid fa-heart"></i></a>
         </li>
+        <li class="nav-item">
+          <a class="nav-link text-nowrap <?= isActiveNav('mock-tests.php', $current_page) ?> text-primary fw-bold" href="<?= BASE_URL ?>mock-tests.php">Mock Tests <i class="fa-solid fa-graduation-cap"></i></a>
+        </li>
         <li class="nav-item dropdown">
           <a class="nav-link dropdown-toggle <?= isServicesActive($current_page) ?>" href="#" id="servicesDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
             Services
@@ -218,6 +221,9 @@ function isServicesActive($current_page) {
       </li>
       <li class="nav-item">
         <a class="nav-link <?= ($current_page == 'matrimony.php') ? 'active text-danger fw-bold text-decoration-underline' : 'text-danger fw-semibold' ?>" href="<?= BASE_URL ?>matrimony.php">Matrimony <i class="fa-solid fa-heart"></i></a>
+      </li>
+      <li class="nav-item">
+        <a class="nav-link <?= isActiveNav('mock-tests.php', $current_page) ?> text-primary fw-bold" href="<?= BASE_URL ?>mock-tests.php">Mock Tests <i class="fa-solid fa-graduation-cap"></i></a>
       </li>
       <li class="nav-item">
         <a class="nav-link <?= isActiveNav('events.php', $current_page) ?>" href="<?= BASE_URL ?>events.php">Events</a>

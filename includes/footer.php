@@ -100,6 +100,8 @@
                 $facebook = $global_settings['social_facebook'] ?? '#';
                 $twitter = $global_settings['social_twitter'] ?? '#';
                 $instagram = $global_settings['social_instagram'] ?? '#';
+                $telegram = $global_settings['social_telegram'] ?? ''; // Default to empty so it bypasses the !== '#' check
+                $whatsapp = $global_settings['social_whatsapp'] ?? ''; // Added for WhatsApp channel
                 ?>
                 <div class="col-md-4 col-lg-3 col-xl-3 mx-auto mt-3 mb-4 text-center text-md-start" data-aos="fade-up" data-aos-delay="300">
                     <h5 class="text-uppercase mb-4 font-weight-bold text-warning fw-bold">Contact Us</h5>
@@ -155,10 +157,16 @@
                         </li>
                         <?php endif; ?>
                         <?php if($instagram !== '#'): ?>
-                        <li class="list-inline-item">
+                        <li class="list-inline-item me-2">
                             <a href="<?= htmlspecialchars($instagram) ?>" class="text-white social-icon" target="_blank" rel="noopener noreferrer" aria-label="Instagram"><i class="fab fa-instagram"></i></a>
                         </li>
                         <?php endif; ?>
+                        <li class="list-inline-item me-2">
+                            <a href="<?= htmlspecialchars($telegram !== '' ? $telegram : '#') ?>" class="text-white social-icon" target="_blank" rel="noopener noreferrer" aria-label="Telegram"><i class="fab fa-telegram-plane"></i></a>
+                        </li>
+                        <li class="list-inline-item">
+                            <a href="<?= htmlspecialchars($whatsapp !== '' ? $whatsapp : '#') ?>" class="text-white social-icon" target="_blank" rel="noopener noreferrer" aria-label="WhatsApp"><i class="fab fa-whatsapp"></i></a>
+                        </li>
                     </ul>
                 </div>
             </div>
