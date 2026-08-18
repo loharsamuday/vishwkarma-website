@@ -89,17 +89,24 @@ try {
             setting_key VARCHAR(50) PRIMARY KEY,
             setting_value TEXT
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+        
+        CREATE TABLE IF NOT EXISTS admins (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            username VARCHAR(50) NOT NULL UNIQUE,
+            password VARCHAR(255) NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
     ");
 
     // ==========================================
     // AUTO INSERT DEFAULT DATA (If empty)
     // ==========================================
     try {
+        // Create default user if empty
         $stmt = $pdo->query("SELECT COUNT(*) FROM users");
         if ($stmt && $stmt->fetchColumn() == 0) {
-            // Create default admin
-            $admin_pass = password_hash('admin123', PASSWORD_DEFAULT);
-            $pdo->exec("INSERT INTO users (name, email, password) VALUES ('Admin', 'admin@example.com', '$admin_pass')");
+            $user_pass = password_hash('password123', PASSWORD_DEFAULT);
+            $pdo->exec("INSERT INTO users (name, email, password) VALUES ('Test User', 'user@example.com', '$user_pass')");
             
             // Create default categories
             $pdo->exec("INSERT INTO categories (name) VALUES ('Moral Stories'), ('Fairy Tales'), ('Adventure'), ('Funny Stories')");
@@ -117,6 +124,13 @@ try {
                 ('smtp_port', '587'),
                 ('smtp_user', ''),
                 ('smtp_pass', '')");
+        }
+        
+        // Create default admin if empty
+        $stmt_admin = $pdo->query("SELECT COUNT(*) FROM admins");
+        if ($stmt_admin && $stmt_admin->fetchColumn() == 0) {
+            $admin_pass = password_hash('admin123', PASSWORD_DEFAULT);
+            $pdo->exec("INSERT INTO admins (username, password) VALUES ('admin', '$admin_pass')");
         }
     } catch(PDOException $e) {
         // Ignore errors during initial check
