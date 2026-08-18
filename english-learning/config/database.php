@@ -72,18 +72,20 @@ try {
         
         CREATE TABLE IF NOT EXISTS stories (
             id INT AUTO_INCREMENT PRIMARY KEY,
-            author_id INT NOT NULL,
-            category_id INT NOT NULL,
+            category_id INT NULL,
             title VARCHAR(255) NOT NULL,
+            slug VARCHAR(255) NOT NULL UNIQUE,
             short_description TEXT,
-            content TEXT NOT NULL,
-            difficulty ENUM('Beginner', 'Intermediate', 'Advanced') NOT NULL,
+            content LONGTEXT NOT NULL,
+            difficulty ENUM('Beginner', 'Intermediate', 'Advanced') NOT NULL DEFAULT 'Beginner',
             reading_time INT DEFAULT 5,
-            status ENUM('Draft', 'Published') DEFAULT 'Published',
+            featured_image VARCHAR(255) NULL,
+            status ENUM('Draft', 'Published') DEFAULT 'Draft',
+            seo_title VARCHAR(255) NULL,
+            seo_description TEXT NULL,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-            FOREIGN KEY (author_id) REFERENCES users(id) ON DELETE CASCADE,
-            FOREIGN KEY (category_id) REFERENCES categories(id) ON DELETE CASCADE
+            FOREIGN KEY (category_id) REFERENCES categories(id) ON DELETE SET NULL
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
         
         CREATE TABLE IF NOT EXISTS vocabulary (
@@ -183,6 +185,32 @@ try {
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
     ");
+
+    // ==========================================
+    // AUTO FIX SCHEMA (Add missing columns to existing tables)
+    // ==========================================
+    try {
+        $columns = $pdo->query("SHOW COLUMNS FROM stories")->fetchAll(PDO::FETCH_COLUMN);
+        if (!in_array('slug', $columns)) {
+            $pdo->exec("ALTER TABLE stories ADD COLUMN slug VARCHAR(255) NULL AFTER title");
+            $pdo->exec("ALTER TABLE stories ADD UNIQUE KEY `slug` (`slug`)");
+        }
+        if (!in_array('featured_image', $columns)) {
+            $pdo->exec("ALTER TABLE stories ADD COLUMN featured_image VARCHAR(255) NULL AFTER reading_time");
+        }
+        if (!in_array('seo_title', $columns)) {
+            $pdo->exec("ALTER TABLE stories ADD COLUMN seo_title VARCHAR(255) NULL AFTER status");
+        }
+        if (!in_array('seo_description', $columns)) {
+            $pdo->exec("ALTER TABLE stories ADD COLUMN seo_description TEXT NULL AFTER seo_title");
+        }
+        if (in_array('author_id', $columns)) {
+            try { $pdo->exec("ALTER TABLE stories DROP FOREIGN KEY stories_ibfk_1"); } catch(PDOException $e) {}
+            try { $pdo->exec("ALTER TABLE stories DROP COLUMN author_id"); } catch(PDOException $e) {}
+        }
+    } catch(PDOException $e) {
+        // Ignore column check errors
+    }
 
     // ==========================================
     // AUTO INSERT DEFAULT DATA (If empty)
