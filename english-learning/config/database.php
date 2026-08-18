@@ -38,6 +38,17 @@ try {
     // Set default fetch mode to associative array
     $pdo->setAttribute(PDO::ATTR_DEFAULT_FETCH_MODE, PDO::FETCH_ASSOC);
 
+    // TEMPORARY FIX: If URL has ?reset_db=1, drop all tables to fix schema mismatch
+    if (isset($_GET['reset_db']) && $_GET['reset_db'] == '1') {
+        $pdo->exec("SET FOREIGN_KEY_CHECKS = 0;");
+        $tables = ['users', 'categories', 'stories', 'vocabulary', 'site_settings', 'admins', 'user_stories', 'subscribers', 'student_tasks', 'student_routines', 'student_goals', 'student_focus_sessions', 'student_daily_stats'];
+        foreach($tables as $table) {
+            $pdo->exec("DROP TABLE IF EXISTS `$table`");
+        }
+        $pdo->exec("SET FOREIGN_KEY_CHECKS = 1;");
+        die("Database Reset Successful! All old tables dropped. Now remove ?reset_db=1 from URL and refresh to auto-create them.");
+    }
+
     // ==========================================
     // AUTO CREATE TABLES (If they don't exist)
     // ==========================================
@@ -110,6 +121,65 @@ try {
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL,
             FOREIGN KEY (category_id) REFERENCES categories(id) ON DELETE SET NULL
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+        
+        CREATE TABLE IF NOT EXISTS subscribers (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            email VARCHAR(100) NOT NULL UNIQUE,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+        CREATE TABLE IF NOT EXISTS student_tasks (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            user_id INT,
+            title VARCHAR(255),
+            subject VARCHAR(100),
+            category VARCHAR(50),
+            priority ENUM('Low', 'Medium', 'High') DEFAULT 'Medium',
+            estimated_minutes INT DEFAULT 30,
+            goal_id INT NULL,
+            status ENUM('Pending', 'Completed') DEFAULT 'Pending',
+            task_date DATE,
+            completed_at DATETIME NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+        CREATE TABLE IF NOT EXISTS student_routines (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            user_id INT,
+            title VARCHAR(100),
+            category VARCHAR(50),
+            start_time TIME,
+            end_time TIME,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+        CREATE TABLE IF NOT EXISTS student_goals (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            user_id INT,
+            goal_name VARCHAR(255),
+            current_value INT DEFAULT 0,
+            target_value INT,
+            target_date DATE,
+            status ENUM('Active', 'Completed') DEFAULT 'Active',
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+        CREATE TABLE IF NOT EXISTS student_focus_sessions (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            user_id INT,
+            task_id INT NULL,
+            duration_minutes INT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+        CREATE TABLE IF NOT EXISTS student_daily_stats (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            user_id INT,
+            current_streak INT DEFAULT 0,
+            longest_streak INT DEFAULT 0,
+            last_activity_date DATE,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
     ");
 

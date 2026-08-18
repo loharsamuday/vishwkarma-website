@@ -546,6 +546,37 @@ document.addEventListener("DOMContentLoaded", function() {
         toast.show();
     }
 
+    // Routine Alarm Checker
+    const userRoutines = <?= json_encode($routines ?? []) ?>;
+    const notifiedRoutines = new Set(); 
+
+    setInterval(() => {
+        const now = new Date();
+        const currentTime = now.getHours().toString().padStart(2, '0') + ':' + now.getMinutes().toString().padStart(2, '0');
+        
+        userRoutines.forEach(routine => {
+            if(!routine.start_time || !routine.end_time) return;
+            const startTimeStr = routine.start_time.substring(0, 5);
+            const endTimeStr = routine.end_time.substring(0, 5);
+            
+            if (currentTime === startTimeStr && !notifiedRoutines.has(routine.id + '_start')) {
+                const alarmSound = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3');
+                alarmSound.play().catch(e => console.log('Audio error:', e));
+                showToast(`🔔 Routine Starting: ${routine.title}`);
+                notifiedRoutines.add(routine.id + '_start');
+            }
+            
+            if (currentTime === endTimeStr && !notifiedRoutines.has(routine.id + '_end')) {
+                const alarmSound = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3');
+                alarmSound.play().catch(e => console.log('Audio error:', e));
+                showToast(`✅ Routine Ended: ${routine.title}`);
+                notifiedRoutines.add(routine.id + '_end');
+                // Reload after a few seconds to update timeline styles (current vs past)
+                setTimeout(() => location.reload(), 3000);
+            }
+        });
+    }, 10000); // Check every 10 seconds
+
     // Add Task
     document.getElementById('addTaskForm').addEventListener('submit', function(e) {
         e.preventDefault();
@@ -764,6 +795,10 @@ document.addEventListener("DOMContentLoaded", function() {
 
             if(timerSeconds <= 0) {
                 stopTimerUI();
+                // Play alarm sound
+                const alarmSound = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3');
+                alarmSound.play().catch(e => console.log('Audio play failed due to browser policy:', e));
+                
                 showToast('Time is up! Great focus session.');
             }
         }, 1000);
