@@ -89,7 +89,7 @@ include 'includes/header.php';
                             <tr>
                                 <td><?= $row['id'] ?></td>
                                 <td><?= escape($row['name']) ?></td>
-                                <td><?= escape($row['slug']) ?></td>
+                                <td><?= escape($row['slug'] ?? '') ?></td>
                                 <td class="text-end">
                                     <a href="categories.php?delete=<?= $row['id'] ?>" class="btn btn-sm btn-outline-danger" onclick="return confirm('Are you sure you want to delete this category? Stories under it will become uncategorized.');">
                                         <i class="fas fa-trash"></i>
