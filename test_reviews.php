@@ -1,0 +1,1 @@
+<?php $_SERVER["HTTP_HOST"] = "localhost"; require "english-learning/config/database.php"; try { $stmt = $pdo->query("DESCRIBE student_daily_stats"); print_r($stmt->fetchAll()); } catch(PDOException $e) { echo $e->getMessage(); } ?>

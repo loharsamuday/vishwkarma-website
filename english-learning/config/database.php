@@ -187,6 +187,20 @@ try {
             last_activity_date DATE,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+        CREATE TABLE IF NOT EXISTS student_daily_reviews (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            user_id INT NOT NULL,
+            review_date DATE NOT NULL,
+            study_minutes INT DEFAULT 0,
+            tasks_completed INT DEFAULT 0,
+            tasks_total INT DEFAULT 0,
+            productivity_score INT DEFAULT 0,
+            learning_note TEXT,
+            tomorrow_priority TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
     ");
 
     // ==========================================

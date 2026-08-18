@@ -46,11 +46,11 @@ try {
         
         if (!$stats) {
             // First time ever
-            $stmt = $pdo->prepare("INSERT INTO student_daily_stats (user_id, current_streak, longest_streak, last_active_date) VALUES (?, 1, 1, ?)");
+            $stmt = $pdo->prepare("INSERT INTO student_daily_stats (user_id, current_streak, longest_streak, last_activity_date) VALUES (?, 1, 1, ?)");
             $stmt->execute([$user_id, $today]);
             $streak_awarded = true;
         } else {
-            $last_active = $stats['last_active_date'];
+            $last_active = $stats['last_activity_date'];
             $current_streak = (int)$stats['current_streak'];
             $longest_streak = (int)$stats['longest_streak'];
             $streak_awarded = false;
@@ -66,13 +66,18 @@ try {
                     $longest_streak = $current_streak;
                 }
                 
-                $stmt = $pdo->prepare("UPDATE student_daily_stats SET current_streak = ?, longest_streak = ?, last_active_date = ? WHERE user_id = ?");
+                $stmt = $pdo->prepare("UPDATE student_daily_stats SET current_streak = ?, longest_streak = ?, last_activity_date = ? WHERE user_id = ?");
                 $stmt->execute([$current_streak, $longest_streak, $today, $user_id]);
                 $streak_awarded = true;
             }
         }
         
-        $msg = $streak_awarded ? 'Review saved! Your streak increased 🔥' : 'Review updated successfully!';
+        $current_hour = (int)date('H');
+        if ($current_hour < 17) {
+            $msg = "Abhi evening nahi hua hai, review is under process. Complete record saved for future!";
+        } else {
+            $msg = $streak_awarded ? 'Review saved! Your streak increased 🔥' : 'Review updated successfully!';
+        }
         echo json_encode(['status' => 'success', 'message' => $msg]);
         
     } else {
