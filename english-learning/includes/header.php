@@ -57,12 +57,12 @@ $seo_desc = isset($seo_desc) ? $seo_desc : 'Improve your English reading, vocabu
                         <a class="nav-link" href="categories.php">Categories</a>
                     </li>
                 </ul>
-                <form class="d-flex me-3" action="search.php" method="GET">
+                <form class="d-flex me-lg-3 mt-3 mt-lg-0" action="search.php" method="GET">
                     <input class="form-control me-2 border-0 bg-light" type="search" name="q" placeholder="Search..." aria-label="Search" required>
                     <button class="btn btn-outline-light" type="submit"><i class="fas fa-search"></i></button>
                 </form>
                 
-                <ul class="navbar-nav mb-2 mb-lg-0 me-3">
+                <ul class="navbar-nav mb-2 mb-lg-0 me-lg-3 mt-3 mt-lg-0">
                     <?php if(isset($_SESSION['user_id'])): ?>
                         <li class="nav-item dropdown">
                             <a class="nav-link dropdown-toggle fw-bold text-white" href="#" id="navbarDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
@@ -79,12 +79,12 @@ $seo_desc = isset($seo_desc) ? $seo_desc : 'Improve your English reading, vocabu
                             <a class="nav-link" href="login.php">Log In</a>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link btn btn-sm btn-outline-light ms-2 px-3" href="register.php" style="padding-top: 0.4rem;">Sign Up</a>
+                            <a class="btn btn-sm btn-outline-light ms-lg-2 mt-2 mt-lg-0 px-3" href="register.php" style="padding-top: 0.4rem;">Sign Up</a>
                         </li>
                     <?php endif; ?>
                 </ul>
                 
-                <a href="write-story.php" class="btn btn-success shadow-sm"><i class="fas fa-pen me-2"></i>Write a Story</a>
+                <a href="write-story.php" class="btn btn-success shadow-sm mt-3 mt-lg-0"><i class="fas fa-pen me-2"></i>Write a Story</a>
             </div>
         </div>
     </div>
