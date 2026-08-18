@@ -90,11 +90,14 @@ try {
         
         CREATE TABLE IF NOT EXISTS vocabulary (
             id INT AUTO_INCREMENT PRIMARY KEY,
-            story_id INT NOT NULL,
+            story_id INT NULL,
             word VARCHAR(100) NOT NULL,
-            hindi_meaning VARCHAR(255) NOT NULL,
-            synonyms VARCHAR(255),
-            antonyms VARCHAR(255),
+            part_of_speech VARCHAR(50) NULL,
+            hindi_meaning VARCHAR(255) NULL,
+            english_meaning TEXT NULL,
+            synonym VARCHAR(255) NULL,
+            antonym VARCHAR(255) NULL,
+            example_sentence TEXT NULL,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (story_id) REFERENCES stories(id) ON DELETE CASCADE
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
@@ -190,6 +193,7 @@ try {
     // AUTO FIX SCHEMA (Add missing columns to existing tables)
     // ==========================================
     try {
+        // Fix stories table
         $columns = $pdo->query("SHOW COLUMNS FROM stories")->fetchAll(PDO::FETCH_COLUMN);
         if (!in_array('slug', $columns)) {
             $pdo->exec("ALTER TABLE stories ADD COLUMN slug VARCHAR(255) NULL AFTER title");
@@ -208,6 +212,37 @@ try {
             try { $pdo->exec("ALTER TABLE stories DROP FOREIGN KEY stories_ibfk_1"); } catch(PDOException $e) {}
             try { $pdo->exec("ALTER TABLE stories DROP COLUMN author_id"); } catch(PDOException $e) {}
         }
+
+        // Fix vocabulary table
+        $vocab_cols = $pdo->query("SHOW COLUMNS FROM vocabulary")->fetchAll(PDO::FETCH_COLUMN);
+        if (!in_array('part_of_speech', $vocab_cols)) {
+            $pdo->exec("ALTER TABLE vocabulary ADD COLUMN part_of_speech VARCHAR(50) NULL AFTER word");
+        }
+        if (!in_array('english_meaning', $vocab_cols)) {
+            $pdo->exec("ALTER TABLE vocabulary ADD COLUMN english_meaning TEXT NULL AFTER hindi_meaning");
+        }
+        if (!in_array('example_sentence', $vocab_cols)) {
+            $pdo->exec("ALTER TABLE vocabulary ADD COLUMN example_sentence TEXT NULL");
+        }
+        
+        // Rename synonyms to synonym
+        if (in_array('synonyms', $vocab_cols) && !in_array('synonym', $vocab_cols)) {
+            $pdo->exec("ALTER TABLE vocabulary CHANGE synonyms synonym VARCHAR(255) NULL");
+        } elseif (!in_array('synonyms', $vocab_cols) && !in_array('synonym', $vocab_cols)) {
+            $pdo->exec("ALTER TABLE vocabulary ADD COLUMN synonym VARCHAR(255) NULL");
+        }
+
+        // Rename antonyms to antonym
+        if (in_array('antonyms', $vocab_cols) && !in_array('antonym', $vocab_cols)) {
+            $pdo->exec("ALTER TABLE vocabulary CHANGE antonyms antonym VARCHAR(255) NULL");
+        } elseif (!in_array('antonyms', $vocab_cols) && !in_array('antonym', $vocab_cols)) {
+            $pdo->exec("ALTER TABLE vocabulary ADD COLUMN antonym VARCHAR(255) NULL");
+        }
+
+        // Make story_id and hindi_meaning nullable
+        try { $pdo->exec("ALTER TABLE vocabulary MODIFY story_id INT NULL"); } catch(PDOException $e) {}
+        try { $pdo->exec("ALTER TABLE vocabulary MODIFY hindi_meaning VARCHAR(255) NULL"); } catch(PDOException $e) {}
+        
     } catch(PDOException $e) {
         // Ignore column check errors
     }

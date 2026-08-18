@@ -12,6 +12,16 @@ if (!isset($_SESSION['admin_id'])) {
 
 $error = '';
 $success = '';
+
+if (isset($_SESSION['success_msg'])) {
+    $success = $_SESSION['success_msg'];
+    unset($_SESSION['success_msg']);
+}
+if (isset($_SESSION['error_msg'])) {
+    $error = $_SESSION['error_msg'];
+    unset($_SESSION['error_msg']);
+}
+
 $pre_story_id = isset($_GET['story_id']) ? (int)$_GET['story_id'] : '';
 
 // --- SINGLE UPLOAD LOGIC ---
@@ -87,7 +97,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['upload_csv'])) {
                     }
                 }
                 fclose($handle);
-                $success = "Successfully imported $imported vocabulary words!";
+                $_SESSION['success_msg'] = "Successfully imported $imported vocabulary words!";
+                header("Location: add-vocabulary.php");
+                exit();
             } else {
                 $error = "Failed to open the uploaded file.";
             }
