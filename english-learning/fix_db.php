@@ -6,7 +6,8 @@ require_once 'config/database.php';
 echo "<h2>Database Fix Tool</h2>";
 
 $queries = [
-    "ALTER TABLE stories ADD COLUMN slug VARCHAR(255) NULL AFTER title" => "Adding 'slug' column",
+    "ALTER TABLE categories ADD COLUMN slug VARCHAR(100) NULL AFTER name" => "Adding 'slug' column to categories",
+    "ALTER TABLE stories ADD COLUMN slug VARCHAR(255) NULL AFTER title" => "Adding 'slug' column to stories",
     "ALTER TABLE stories ADD UNIQUE KEY `slug` (`slug`)" => "Adding unique key to 'slug'",
     "ALTER TABLE stories ADD COLUMN featured_image VARCHAR(255) NULL AFTER reading_time" => "Adding 'featured_image' column",
     "ALTER TABLE stories ADD COLUMN seo_title VARCHAR(255) NULL AFTER status" => "Adding 'seo_title' column",

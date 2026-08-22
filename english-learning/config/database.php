@@ -466,6 +466,12 @@ try {
     // AUTO FIX SCHEMA (Add missing columns to existing tables)
     // ==========================================
     try {
+        // Fix categories table
+        $cat_columns = $pdo->query("SHOW COLUMNS FROM categories")->fetchAll(PDO::FETCH_COLUMN);
+        if (!in_array('slug', $cat_columns)) {
+            $pdo->exec("ALTER TABLE categories ADD COLUMN slug VARCHAR(100) NULL AFTER name");
+        }
+        
         // Fix stories table
         $columns = $pdo->query("SHOW COLUMNS FROM stories")->fetchAll(PDO::FETCH_COLUMN);
         if (!in_array('slug', $columns)) {
