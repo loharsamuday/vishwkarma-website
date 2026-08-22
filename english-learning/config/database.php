@@ -32,7 +32,7 @@ if ($is_localhost) {
     $username = 'if0_42277227';
     $password = 'LiAc40aALrDAS';
     if (!defined('EL_BASE_URL')) {
-        define('EL_BASE_URL', '/');
+        define('EL_BASE_URL', '/english-learning/');
     }
 }
 
