@@ -14,6 +14,11 @@ $data = [
     ['Reluctant', 'Adjective', 'अनिच्छुक', 'Unwilling or hesitant', 'Unwilling', 'Willing', 'He was reluctant to accept the offer.']
 ];
 
+// Clean any output buffer before sending headers
+if (ob_get_level()) {
+    ob_end_clean();
+}
+
 // Set headers to force download as CSV
 header('Content-Type: text/csv; charset=utf-8');
 header('Content-Disposition: attachment; filename=sample_vocabulary.csv');

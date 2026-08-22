@@ -18,6 +18,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $mobile = trim($_POST['mobile'] ?? '');
     $password = $_POST['password'];
     $confirm_password = $_POST['confirm_password'];
+    $target_exam = $_POST['target_exam'] ?? '';
     
     if (empty($name) || empty($email) || empty($mobile) || empty($password)) {
         $error = "All fields are required.";
@@ -37,15 +38,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             // Register user
             $hashed_password = password_hash($password, PASSWORD_DEFAULT);
             try {
+                $pdo->beginTransaction();
                 $stmt = $pdo->prepare("INSERT INTO users (name, email, mobile, password) VALUES (?, ?, ?, ?)");
                 $stmt->execute([$name, $email, $mobile, $hashed_password]);
+                $new_user_id = $pdo->lastInsertId();
+                
+                if (!empty($target_exam)) {
+                    $stmt_pref = $pdo->prepare("INSERT INTO student_preferences (user_id, target_exam_id) VALUES (?, ?)");
+                    $stmt_pref->execute([$new_user_id, $target_exam]);
+                }
+                $pdo->commit();
                 $success = "Registration successful! You can now login.";
             } catch(PDOException $e) {
+                $pdo->rollBack();
                 $error = "Registration failed. Please try again later.";
             }
         }
     }
 }
+
+// Fetch active exams for dropdown
+$exams = $pdo->query("SELECT id, name FROM target_exams WHERE status = 'active' ORDER BY id")->fetchAll();
+
 
 $page_title = 'Register';
 include 'includes/header.php';
@@ -78,6 +92,15 @@ include 'includes/header.php';
                             <div class="mb-3">
                                 <label for="mobile" class="form-label fw-bold">Mobile Number</label>
                                 <input type="text" class="form-control form-control-lg bg-light" id="mobile" name="mobile" required value="<?= isset($_POST['mobile']) ? escape($_POST['mobile']) : '' ?>" placeholder="10-digit mobile number">
+                            </div>
+                            <div class="mb-3">
+                                <label for="target_exam" class="form-label fw-bold">Target Exam (Optional)</label>
+                                <select class="form-select form-select-lg bg-light" id="target_exam" name="target_exam">
+                                    <option value="">Select your target exam...</option>
+                                    <?php foreach($exams as $ex): ?>
+                                        <option value="<?= $ex['id'] ?>" <?= (isset($_POST['target_exam']) && $_POST['target_exam'] == $ex['id']) ? 'selected' : '' ?>><?= escape($ex['name']) ?></option>
+                                    <?php endforeach; ?>
+                                </select>
                             </div>
                             <div class="mb-3">
                                 <label for="password" class="form-label fw-bold">Password</label>

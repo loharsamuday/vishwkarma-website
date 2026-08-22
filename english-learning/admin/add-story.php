@@ -53,7 +53,12 @@ include 'includes/header.php';
 
 <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
     <h1 class="h2">Add New Story</h1>
-    <a href="stories.php" class="btn btn-outline-secondary"><i class="fas fa-arrow-left me-1"></i> Back to Stories</a>
+    <div class="btn-toolbar mb-2 mb-md-0 gap-2">
+        <a href="import-stories.php" class="btn btn-sm btn-outline-success">
+            <i class="fas fa-file-csv"></i> Bulk Import Stories
+        </a>
+        <a href="stories.php" class="btn btn-sm btn-outline-secondary"><i class="fas fa-arrow-left me-1"></i> Back to Stories</a>
+    </div>
 </div>
 
 <?php if ($error): ?>

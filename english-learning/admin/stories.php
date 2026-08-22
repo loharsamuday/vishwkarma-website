@@ -30,7 +30,10 @@ $stories = $stmt->fetchAll();
 
 <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
     <h1 class="h2">Manage Stories</h1>
-    <a href="add-story.php" class="btn btn-success"><i class="fas fa-plus me-1"></i> Add New Story</a>
+    <div class="btn-toolbar mb-2 mb-md-0 gap-2">
+        <a href="add-story.php" class="btn btn-success"><i class="fas fa-plus me-1"></i> Add New Story</a>
+        <a href="import-stories.php" class="btn btn-outline-success"><i class="fas fa-file-csv"></i> Bulk Import Stories</a>
+    </div>
 </div>
 
 <?php if(isset($_GET['msg']) && $_GET['msg'] == 'added'): ?>

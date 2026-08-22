@@ -13,9 +13,38 @@ if (!isset($_SESSION['user_id'])) {
 $user_id = $_SESSION['user_id'];
 
 // Fetch user data
-$stmt = $pdo->prepare("SELECT name, email, created_at FROM users WHERE id = ?");
+$stmt = $pdo->prepare("
+    SELECT u.name, u.email, u.created_at, sp.target_exam_id, te.name as target_exam_name
+    FROM users u 
+    LEFT JOIN student_preferences sp ON u.id = sp.user_id 
+    LEFT JOIN target_exams te ON sp.target_exam_id = te.id
+    WHERE u.id = ?
+");
 $stmt->execute([$user_id]);
 $user = $stmt->fetch();
+
+// Update Target Exam logic
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_target_exam'])) {
+    $new_target = $_POST['target_exam_id'];
+    
+    // Check if preference already exists
+    $stmt_check = $pdo->prepare("SELECT id FROM student_preferences WHERE user_id = ?");
+    $stmt_check->execute([$user_id]);
+    if ($stmt_check->rowCount() > 0) {
+        $stmt_upd = $pdo->prepare("UPDATE student_preferences SET target_exam_id = ? WHERE user_id = ?");
+        $stmt_upd->execute([$new_target, $user_id]);
+    } else {
+        $stmt_ins = $pdo->prepare("INSERT INTO student_preferences (user_id, target_exam_id) VALUES (?, ?)");
+        $stmt_ins->execute([$user_id, $new_target]);
+    }
+    
+    // Refresh user data
+    header("Location: profile.php?msg=exam_updated");
+    exit();
+}
+
+$exams = $pdo->query("SELECT id, name FROM target_exams WHERE status = 'active' ORDER BY id")->fetchAll();
+
 
 if (!$user) {
     // Session exists but user deleted?
@@ -58,6 +87,23 @@ include 'includes/header.php';
                     <p class="text-muted mb-3"><?= escape($user['email']) ?></p>
                     <hr>
                     <p class="small text-muted mb-0">Member since: <?= formatDate($user['created_at']) ?></p>
+                    
+                    <hr>
+                    <form method="POST" action="">
+                        <div class="mb-3 text-start">
+                            <label class="form-label fw-bold"><i class="fas fa-bullseye text-danger me-1"></i> Target Exam</label>
+                            <div class="input-group">
+                                <select class="form-select form-select-sm" name="target_exam_id">
+                                    <option value="">Select Target Exam</option>
+                                    <?php foreach($exams as $ex): ?>
+                                        <option value="<?= $ex['id'] ?>" <?= ($user['target_exam_id'] == $ex['id']) ? 'selected' : '' ?>><?= escape($ex['name']) ?></option>
+                                    <?php endforeach; ?>
+                                </select>
+                                <button type="submit" name="update_target_exam" class="btn btn-sm btn-primary">Update</button>
+                            </div>
+                        </div>
+                    </form>
+
                     <div class="d-grid mt-4">
                         <a href="logout.php" class="btn btn-outline-danger">Log Out</a>
                     </div>

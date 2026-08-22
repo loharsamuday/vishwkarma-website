@@ -30,10 +30,10 @@ $s_yt    = $footer_settings['social_youtube'] ?? '#';
             <div class="col-lg-3 col-md-6">
                 <h5 class="text-white mb-3">Quick Links</h5>
                 <ul class="list-unstyled mb-0 lh-lg">
-                    <li><a href="index.php" class="text-white-50 text-decoration-none transition" onmouseover="this.className='text-white text-decoration-none transition'" onmouseout="this.className='text-white-50 text-decoration-none transition'">Home</a></li>
-                    <li><a href="dashboard.php" class="text-white-50 text-decoration-none transition" onmouseover="this.className='text-warning fw-bold text-decoration-none transition'" onmouseout="this.className='text-white-50 text-decoration-none transition'">Smart Dashboard</a></li>
-                    <li><a href="stories.php" class="text-white-50 text-decoration-none transition" onmouseover="this.className='text-white text-decoration-none transition'" onmouseout="this.className='text-white-50 text-decoration-none transition'">Stories</a></li>
-                    <li><a href="vocabulary.php" class="text-white-50 text-decoration-none transition" onmouseover="this.className='text-white text-decoration-none transition'" onmouseout="this.className='text-white-50 text-decoration-none transition'">Vocabulary</a></li>
+                    <li><a href="<?= EL_BASE_URL ?>index.php" class="text-white-50 text-decoration-none transition" onmouseover="this.className='text-white text-decoration-none transition'" onmouseout="this.className='text-white-50 text-decoration-none transition'">Home</a></li>
+                    <li><a href="<?= EL_BASE_URL ?>dashboard/" class="text-white-50 text-decoration-none transition" onmouseover="this.className='text-warning fw-bold text-decoration-none transition'" onmouseout="this.className='text-white-50 text-decoration-none transition'">Smart Dashboard</a></li>
+                    <li><a href="<?= EL_BASE_URL ?>stories.php" class="text-white-50 text-decoration-none transition" onmouseover="this.className='text-white text-decoration-none transition'" onmouseout="this.className='text-white-50 text-decoration-none transition'">Stories</a></li>
+                    <li><a href="<?= EL_BASE_URL ?>vocabulary.php" class="text-white-50 text-decoration-none transition" onmouseover="this.className='text-white text-decoration-none transition'" onmouseout="this.className='text-white-50 text-decoration-none transition'">Vocabulary</a></li>
                 </ul>
             </div>
             
@@ -41,12 +41,12 @@ $s_yt    = $footer_settings['social_youtube'] ?? '#';
                 <h5 class="text-white mb-3">Account</h5>
                 <ul class="list-unstyled mb-0 lh-lg">
                     <?php if(isset($_SESSION['user_id'])): ?>
-                        <li><a href="profile.php" class="text-white-50 text-decoration-none transition" onmouseover="this.className='text-white text-decoration-none transition'" onmouseout="this.className='text-white-50 text-decoration-none transition'">My Account</a></li>
-                        <li><a href="write-story.php" class="text-white-50 text-decoration-none transition" onmouseover="this.className='text-white text-decoration-none transition'" onmouseout="this.className='text-white-50 text-decoration-none transition'">Write a Story</a></li>
-                        <li><a href="logout.php" class="text-white-50 text-decoration-none transition" onmouseover="this.className='text-white text-decoration-none transition'" onmouseout="this.className='text-white-50 text-decoration-none transition'">Log Out</a></li>
+                        <li><a href="<?= EL_BASE_URL ?>profile.php" class="text-white-50 text-decoration-none transition" onmouseover="this.className='text-white text-decoration-none transition'" onmouseout="this.className='text-white-50 text-decoration-none transition'">My Account</a></li>
+                        <li><a href="<?= EL_BASE_URL ?>write-story.php" class="text-white-50 text-decoration-none transition" onmouseover="this.className='text-white text-decoration-none transition'" onmouseout="this.className='text-white-50 text-decoration-none transition'">Write a Story</a></li>
+                        <li><a href="<?= EL_BASE_URL ?>logout.php" class="text-white-50 text-decoration-none transition" onmouseover="this.className='text-white text-decoration-none transition'" onmouseout="this.className='text-white-50 text-decoration-none transition'">Log Out</a></li>
                     <?php else: ?>
-                        <li><a href="login.php" class="text-white-50 text-decoration-none transition" onmouseover="this.className='text-white text-decoration-none transition'" onmouseout="this.className='text-white-50 text-decoration-none transition'">Log In</a></li>
-                        <li><a href="register.php" class="text-white-50 text-decoration-none transition" onmouseover="this.className='text-white text-decoration-none transition'" onmouseout="this.className='text-white-50 text-decoration-none transition'">Sign Up</a></li>
+                        <li><a href="<?= EL_BASE_URL ?>login.php" class="text-white-50 text-decoration-none transition" onmouseover="this.className='text-white text-decoration-none transition'" onmouseout="this.className='text-white-50 text-decoration-none transition'">Log In</a></li>
+                        <li><a href="<?= EL_BASE_URL ?>register.php" class="text-white-50 text-decoration-none transition" onmouseover="this.className='text-white text-decoration-none transition'" onmouseout="this.className='text-white-50 text-decoration-none transition'">Sign Up</a></li>
                     <?php endif; ?>
                 </ul>
             </div>
@@ -83,6 +83,6 @@ $s_yt    = $footer_settings['social_youtube'] ?? '#';
 <!-- Bootstrap 5 JS Bundle with Popper -->
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <!-- Custom JS -->
-<script src="assets/js/script.js"></script>
+<script src="<?= EL_BASE_URL ?>assets/js/script.js"></script>
 </body>
 </html>

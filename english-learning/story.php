@@ -89,6 +89,24 @@ include 'includes/header.php';
                 <?= $content ?>
             </div>
 
+            <?php if (!empty($story['hindi_meaning'])): ?>
+            <!-- Hindi Meaning -->
+            <div class="mb-5 p-4 bg-light rounded-3 border-start border-4 border-success">
+                <h4 class="fw-bold text-success mb-3"><i class="fas fa-language me-2"></i>Hindi Translation</h4>
+                <div class="story-hindi-meaning">
+                    <?= nl2br(escape($story['hindi_meaning'])) ?>
+                </div>
+            </div>
+            <?php endif; ?>
+
+            <?php if (!empty($story['moral'])): ?>
+            <!-- Moral -->
+            <div class="mb-5 p-4 bg-warning bg-opacity-10 rounded-3 border border-warning">
+                <h4 class="fw-bold text-warning-emphasis mb-3"><i class="fas fa-lightbulb me-2 text-warning"></i>Moral of the Story</h4>
+                <p class="mb-0 fs-5 text-dark fw-medium fst-italic">"<?= escape($story['moral']) ?>"</p>
+            </div>
+            <?php endif; ?>
+
             <!-- Vocabulary Section -->
             <?php if (count($vocabularies) > 0): ?>
             <div class="mt-5 pt-4 border-top">

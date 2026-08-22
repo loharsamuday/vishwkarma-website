@@ -1,8 +1,8 @@
 <?php
 // config/database.php
 
-// Check if running on localhost
-$is_localhost = ($_SERVER['HTTP_HOST'] === 'localhost' || $_SERVER['HTTP_HOST'] === '127.0.0.1');
+// Check if running on localhost or CLI
+$is_localhost = (php_sapi_name() === 'cli' || (isset($_SERVER['HTTP_HOST']) && ($_SERVER['HTTP_HOST'] === 'localhost' || $_SERVER['HTTP_HOST'] === '127.0.0.1')));
 
 if ($is_localhost) {
     // -----------------------------------------
@@ -15,6 +15,9 @@ if ($is_localhost) {
     $db_name = 'english_learning';
     $username = 'root';
     $password = '';
+    if (!defined('EL_BASE_URL')) {
+        define('EL_BASE_URL', '/vishwkarma/english-learning/');
+    }
 } else {
     // -----------------------------------------
     // LIVE SERVER CONFIGURATION (InfinityFree)
@@ -28,6 +31,9 @@ if ($is_localhost) {
     $db_name = 'if0_42277227_vishwkarma';
     $username = 'if0_42277227';
     $password = 'LiAc40aALrDAS';
+    if (!defined('EL_BASE_URL')) {
+        define('EL_BASE_URL', '/');
+    }
 }
 
 try {
@@ -77,6 +83,8 @@ try {
             slug VARCHAR(255) NOT NULL UNIQUE,
             short_description TEXT,
             content LONGTEXT NOT NULL,
+            hindi_meaning LONGTEXT NULL,
+            moral TEXT NULL,
             difficulty ENUM('Beginner', 'Intermediate', 'Advanced') NOT NULL DEFAULT 'Beginner',
             reading_time INT DEFAULT 5,
             featured_image VARCHAR(255) NULL,
@@ -201,6 +209,257 @@ try {
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+        CREATE TABLE IF NOT EXISTS exam_categories (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            name VARCHAR(100) NOT NULL,
+            slug VARCHAR(100) NOT NULL UNIQUE,
+            description TEXT,
+            status ENUM('active', 'inactive') DEFAULT 'active',
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+        CREATE TABLE IF NOT EXISTS idioms (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            idiom VARCHAR(255) NOT NULL,
+            slug VARCHAR(255) NOT NULL UNIQUE,
+            english_meaning TEXT,
+            hindi_meaning TEXT,
+            explanation TEXT,
+            example_sentence TEXT,
+            memory_trick TEXT,
+            synonyms TEXT,
+            antonyms TEXT,
+            category_id INT NULL,
+            difficulty ENUM('Easy', 'Moderate', 'Hard', 'Very Important') DEFAULT 'Moderate',
+            exam_type VARCHAR(255) NULL,
+            related_content TEXT NULL,
+            meta_title VARCHAR(255) NULL,
+            meta_description TEXT NULL,
+            meta_keywords TEXT NULL,
+            canonical_url VARCHAR(255) NULL,
+            featured TINYINT(1) DEFAULT 0,
+            status ENUM('Draft', 'Published') DEFAULT 'Draft',
+            views INT DEFAULT 0,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            INDEX (slug),
+            INDEX (status),
+            INDEX (category_id),
+            INDEX (featured),
+            FOREIGN KEY (category_id) REFERENCES exam_categories(id) ON DELETE SET NULL
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+        CREATE TABLE IF NOT EXISTS phrasal_verbs (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            phrasal_verb VARCHAR(255) NOT NULL,
+            slug VARCHAR(255) NOT NULL UNIQUE,
+            english_meaning TEXT,
+            hindi_meaning TEXT,
+            explanation TEXT,
+            example_sentence TEXT,
+            memory_trick TEXT,
+            synonyms TEXT,
+            antonyms TEXT,
+            category_id INT NULL,
+            difficulty ENUM('Easy', 'Moderate', 'Hard', 'Very Important') DEFAULT 'Moderate',
+            exam_type VARCHAR(255) NULL,
+            related_content TEXT NULL,
+            meta_title VARCHAR(255) NULL,
+            meta_description TEXT NULL,
+            meta_keywords TEXT NULL,
+            canonical_url VARCHAR(255) NULL,
+            featured TINYINT(1) DEFAULT 0,
+            status ENUM('Draft', 'Published') DEFAULT 'Draft',
+            views INT DEFAULT 0,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            INDEX (slug),
+            INDEX (status),
+            INDEX (category_id),
+            INDEX (featured),
+            FOREIGN KEY (category_id) REFERENCES exam_categories(id) ON DELETE SET NULL
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+        CREATE TABLE IF NOT EXISTS practice_questions (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            content_type ENUM('idiom', 'phrasal_verb', 'general') DEFAULT 'general',
+            content_id INT NULL,
+            question TEXT NOT NULL,
+            option_a VARCHAR(255) NOT NULL,
+            option_b VARCHAR(255) NOT NULL,
+            option_c VARCHAR(255) NOT NULL,
+            option_d VARCHAR(255) NOT NULL,
+            correct_answer ENUM('A', 'B', 'C', 'D') NOT NULL,
+            explanation TEXT,
+            hindi_explanation TEXT,
+            difficulty ENUM('Easy', 'Moderate', 'Hard', 'Very Important') DEFAULT 'Moderate',
+            exam_type VARCHAR(255) NULL,
+            status ENUM('Draft', 'Published') DEFAULT 'Published',
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+        CREATE TABLE IF NOT EXISTS target_exams (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            name VARCHAR(100) NOT NULL,
+            status ENUM('active', 'inactive') DEFAULT 'active',
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+        CREATE TABLE IF NOT EXISTS student_preferences (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            user_id INT NOT NULL,
+            target_exam_id INT NULL,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+            FOREIGN KEY (target_exam_id) REFERENCES target_exams(id) ON DELETE SET NULL
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+        CREATE TABLE IF NOT EXISTS student_memory (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            user_id INT NOT NULL,
+            item_type ENUM('idiom', 'phrasal_verb', 'vocabulary') NOT NULL,
+            item_id INT NOT NULL,
+            status ENUM('learning', 'need_revision', 'mastered') DEFAULT 'learning',
+            mastery_score INT DEFAULT 0,
+            next_revision_date DATE NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            UNIQUE KEY user_item (user_id, item_type, item_id),
+            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+        CREATE TABLE IF NOT EXISTS mistake_book (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            user_id INT NOT NULL,
+            question_id INT NOT NULL,
+            wrong_answer VARCHAR(255) NULL,
+            status ENUM('active', 'mastered') DEFAULT 'active',
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+        CREATE TABLE IF NOT EXISTS student_activity (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            user_id INT NOT NULL,
+            activity_type VARCHAR(100) NOT NULL,
+            points_earned INT DEFAULT 0,
+            metadata TEXT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+        CREATE TABLE IF NOT EXISTS student_streaks (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            user_id INT NOT NULL,
+            current_streak INT DEFAULT 0,
+            longest_streak INT DEFAULT 0,
+            last_activity_date DATE NULL,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+        CREATE TABLE IF NOT EXISTS battle_results (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            user_id INT NOT NULL,
+            score INT DEFAULT 0,
+            correct INT DEFAULT 0,
+            wrong INT DEFAULT 0,
+            accuracy DECIMAL(5,2) DEFAULT 0.00,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+        CREATE TABLE IF NOT EXISTS levels (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            level_name VARCHAR(100) NOT NULL,
+            min_points INT DEFAULT 0,
+            min_mastered INT DEFAULT 0
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+        CREATE TABLE IF NOT EXISTS badges (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            name VARCHAR(100) NOT NULL,
+            description TEXT NULL,
+            icon_class VARCHAR(100) NULL,
+            type VARCHAR(50) NULL,
+            requirement_value INT DEFAULT 0
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+        CREATE TABLE IF NOT EXISTS student_badges (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            user_id INT NOT NULL,
+            badge_id INT NOT NULL,
+            earned_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+            FOREIGN KEY (badge_id) REFERENCES badges(id) ON DELETE CASCADE
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+        CREATE TABLE IF NOT EXISTS confusion_sets (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            title VARCHAR(255) NOT NULL,
+            description TEXT NULL,
+            status ENUM('Draft', 'Published') DEFAULT 'Draft',
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+        CREATE TABLE IF NOT EXISTS confusion_set_items (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            set_id INT NOT NULL,
+            item_type ENUM('idiom', 'phrasal_verb', 'vocabulary') NOT NULL,
+            item_id INT NOT NULL,
+            FOREIGN KEY (set_id) REFERENCES confusion_sets(id) ON DELETE CASCADE
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+        
+        CREATE TABLE IF NOT EXISTS study_routines (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            user_id INT NULL,
+            guest_id VARCHAR(100) NULL,
+            routine_date DATE NOT NULL,
+            task_title VARCHAR(255) NOT NULL,
+            category VARCHAR(100),
+            start_time TIME,
+            end_time TIME,
+            priority ENUM('High', 'Medium', 'Low') DEFAULT 'Medium',
+            status ENUM('Pending', 'In Progress', 'Completed') DEFAULT 'Pending',
+            notes TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+        CREATE TABLE IF NOT EXISTS study_sessions (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            user_id INT NULL,
+            guest_id VARCHAR(100) NULL,
+            study_date DATE NOT NULL,
+            subject VARCHAR(255) NOT NULL,
+            start_time TIME,
+            end_time TIME,
+            duration_minutes INT DEFAULT 0,
+            notes TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+        CREATE TABLE IF NOT EXISTS daily_targets (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            user_id INT NULL,
+            guest_id VARCHAR(100) NULL,
+            target_date DATE NOT NULL,
+            target_type VARCHAR(100) NOT NULL,
+            target_description VARCHAR(255),
+            target_value INT NOT NULL DEFAULT 0,
+            completed_value INT NOT NULL DEFAULT 0,
+            status ENUM('Pending', 'In Progress', 'Completed') DEFAULT 'Pending',
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
     ");
 
     // ==========================================
@@ -221,6 +480,37 @@ try {
         }
         if (!in_array('seo_description', $columns)) {
             $pdo->exec("ALTER TABLE stories ADD COLUMN seo_description TEXT NULL AFTER seo_title");
+        }
+        
+        // Fix study tables for guests
+        try {
+            $study_routines_cols = $pdo->query("SHOW COLUMNS FROM study_routines")->fetchAll(PDO::FETCH_COLUMN);
+            if (!in_array('guest_id', $study_routines_cols)) {
+                $pdo->exec("ALTER TABLE study_routines MODIFY user_id INT NULL");
+                $pdo->exec("ALTER TABLE study_routines ADD COLUMN guest_id VARCHAR(100) NULL AFTER user_id");
+            }
+        } catch(PDOException $e) {}
+        
+        try {
+            $study_sessions_cols = $pdo->query("SHOW COLUMNS FROM study_sessions")->fetchAll(PDO::FETCH_COLUMN);
+            if (!in_array('guest_id', $study_sessions_cols)) {
+                $pdo->exec("ALTER TABLE study_sessions MODIFY user_id INT NULL");
+                $pdo->exec("ALTER TABLE study_sessions ADD COLUMN guest_id VARCHAR(100) NULL AFTER user_id");
+            }
+        } catch(PDOException $e) {}
+        
+        try {
+            $daily_targets_cols = $pdo->query("SHOW COLUMNS FROM daily_targets")->fetchAll(PDO::FETCH_COLUMN);
+            if (!in_array('guest_id', $daily_targets_cols)) {
+                $pdo->exec("ALTER TABLE daily_targets MODIFY user_id INT NULL");
+                $pdo->exec("ALTER TABLE daily_targets ADD COLUMN guest_id VARCHAR(100) NULL AFTER user_id");
+            }
+        } catch(PDOException $e) {}
+        if (!in_array('hindi_meaning', $columns)) {
+            $pdo->exec("ALTER TABLE stories ADD COLUMN hindi_meaning LONGTEXT NULL AFTER content");
+        }
+        if (!in_array('moral', $columns)) {
+            $pdo->exec("ALTER TABLE stories ADD COLUMN moral TEXT NULL AFTER hindi_meaning");
         }
         if (in_array('author_id', $columns)) {
             try { $pdo->exec("ALTER TABLE stories DROP FOREIGN KEY stories_ibfk_1"); } catch(PDOException $e) {}
@@ -294,6 +584,38 @@ try {
         if ($stmt_admin && $stmt_admin->fetchColumn() == 0) {
             $admin_pass = password_hash('admin123', PASSWORD_DEFAULT);
             $pdo->exec("INSERT INTO admins (username, password) VALUES ('admin', '$admin_pass')");
+        }
+
+        // Create default target exams
+        $stmt_exams = $pdo->query("SELECT COUNT(*) FROM target_exams");
+        if ($stmt_exams && $stmt_exams->fetchColumn() == 0) {
+            $pdo->exec("INSERT INTO target_exams (name) VALUES 
+                ('SBI PO'), ('IBPS PO'), ('SBI Clerk'), ('IBPS Clerk'), 
+                ('RBI Grade B'), ('NABARD'), ('SSC CGL'), ('SSC CHSL'), 
+                ('Railway NTPC'), ('UPSC EPFO'), ('Other')");
+        }
+
+        // Create default levels
+        $stmt_levels = $pdo->query("SELECT COUNT(*) FROM levels");
+        if ($stmt_levels && $stmt_levels->fetchColumn() == 0) {
+            $pdo->exec("INSERT INTO levels (level_name, min_points, min_mastered) VALUES 
+                ('Beginner', 0, 0),
+                ('Learner', 100, 50),
+                ('Smart Learner', 500, 150),
+                ('Exam Ready', 1500, 300),
+                ('Vocabulary Master', 3000, 500)");
+        }
+
+        // Create default badges
+        $stmt_badges = $pdo->query("SELECT COUNT(*) FROM badges");
+        if ($stmt_badges && $stmt_badges->fetchColumn() == 0) {
+            $pdo->exec("INSERT INTO badges (name, description, icon_class, type, requirement_value) VALUES 
+                ('First Step', 'Started your learning journey', 'fas fa-shoe-prints', 'points', 10),
+                ('50 Words', 'Mastered 50 new words/phrases', 'fas fa-book', 'mastery', 50),
+                ('Memory Master', 'Saved 100 items to your memory', 'fas fa-brain', 'saved', 100),
+                ('7 Day Streak', 'Maintained a 7-day learning streak', 'fas fa-fire', 'streak', 7),
+                ('Daily Challenge Champion', 'Completed 10 daily challenges', 'fas fa-trophy', 'challenge', 10),
+                ('Battle Master', 'Won 50 Battles', 'fas fa-khanda', 'battle', 50)");
         }
     } catch(PDOException $e) {
         // Ignore errors during initial check

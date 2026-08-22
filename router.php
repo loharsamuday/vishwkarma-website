@@ -53,7 +53,22 @@ if (strpos($url, '-brides') !== false || strpos($url, '-grooms') !== false) {
     exit;
 }
 
-// 3. Fallback: Check if it's a valid PHP file
+// 3. English Learning - Idioms and Phrasal Verbs
+if ($base_segment === 'english-learning') {
+    if (isset($segments[1])) {
+        if ($segments[1] === 'idioms' && isset($segments[2])) {
+            $_GET['slug'] = $segments[2];
+            require 'english-learning/idioms-phrasal-verbs/view-idiom.php';
+            exit;
+        } elseif ($segments[1] === 'phrasal-verbs' && isset($segments[2])) {
+            $_GET['slug'] = $segments[2];
+            require 'english-learning/idioms-phrasal-verbs/view-phrasal-verb.php';
+            exit;
+        }
+    }
+}
+
+// 4. Fallback: Check if it's a valid PHP file
 if (file_exists($url . '.php')) {
     require $url . '.php';
     exit;

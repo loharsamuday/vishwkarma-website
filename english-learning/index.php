@@ -1,15 +1,16 @@
 <?php
 // index.php
 session_start();
-$page_title = 'Home';
-include 'includes/header.php';
-
-// If user is logged in, show the Smart Dashboard
 if (isset($_SESSION['user_id'])) {
-    include 'includes/student_dashboard.php';
-    include 'includes/footer.php';
-    exit();
+    header("Location: dashboard/");
+    exit;
 }
+
+require_once 'config/database.php';
+require_once 'includes/functions.php';
+
+$page_title = 'Welcome to English Stories & Learning';
+include 'includes/header.php';
 
 // Fetch Latest Stories
 $stmt = $pdo->query("
@@ -94,6 +95,25 @@ $categories = $stmt->fetchAll();
         <?php if(empty($latest_stories)): ?>
             <div class="col-12"><div class="alert alert-info">No stories published yet.</div></div>
         <?php endif; ?>
+    </div>
+
+    <!-- Idioms & Phrasal Verbs Section -->
+    <div class="card border-0 shadow-sm rounded-4 overflow-hidden mb-5 bg-light">
+        <div class="row g-0">
+            <div class="col-md-5 bg-primary d-flex align-items-center justify-content-center py-5">
+                <i class="fas fa-brain text-white opacity-75" style="font-size: 8rem;"></i>
+            </div>
+            <div class="col-md-7 p-5">
+                <h3 class="fw-bold text-primary mb-3">Idioms & Phrasal Verbs</h3>
+                <p class="fs-5 text-muted mb-4">Master English vocabulary for competitive exams like SSC, Banking, and Railway. Learn with easy Hindi explanations, examples, and Memory Tricks!</p>
+                
+                <div class="d-flex gap-3 flex-wrap">
+                    <a href="idioms-phrasal-verbs/idioms.php" class="btn btn-outline-primary"><i class="fas fa-comment-dots me-1"></i> Important Idioms</a>
+                    <a href="idioms-phrasal-verbs/phrasal-verbs.php" class="btn btn-outline-success"><i class="fas fa-layer-group me-1"></i> Phrasal Verbs</a>
+                    <a href="idioms-phrasal-verbs/practice.php" class="btn btn-warning fw-bold"><i class="fas fa-question-circle me-1"></i> Practice MCQ</a>
+                </div>
+            </div>
+        </div>
     </div>
 
     <!-- Categories Section -->
