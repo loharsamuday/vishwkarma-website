@@ -52,7 +52,7 @@ $seo_desc = isset($seo_desc) ? $seo_desc : 'Improve your English reading, vocabu
                             <?php if(isset($_SESSION['user_id'])): ?>
                                 <li><a class="dropdown-item" href="<?= EL_BASE_URL ?>dashboard/"><i class="fas fa-home text-primary me-2"></i>Main Dashboard</a></li>
                             <?php else: ?>
-                                <li><a class="dropdown-item" href="<?= EL_BASE_URL ?>login.php?msg=login_required" onclick="alert('Please log in or sign up to access the Main Dashboard.');"><i class="fas fa-home text-primary me-2"></i>Main Dashboard</a></li>
+                                <li><a class="dropdown-item" href="#" data-bs-toggle="modal" data-bs-target="#loginRequiredModal"><i class="fas fa-home text-primary me-2"></i>Main Dashboard</a></li>
                             <?php endif; ?>
                             <li><hr class="dropdown-divider"></li>
                             <li><h6 class="dropdown-header">Study Tools</h6></li>
@@ -116,5 +116,28 @@ $seo_desc = isset($seo_desc) ? $seo_desc : 'Improve your English reading, vocabu
         </div>
     </div>
 </nav>
+
+<!-- Login Required Modal -->
+<div class="modal fade" id="loginRequiredModal" tabindex="-1" aria-labelledby="loginRequiredModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content border-0 shadow">
+      <div class="modal-header bg-primary text-white border-0">
+        <h5 class="modal-title fw-bold" id="loginRequiredModalLabel"><i class="fas fa-lock me-2"></i>Access Restricted</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body text-center p-4">
+        <div class="mb-3">
+            <i class="fas fa-user-circle fa-4x text-muted opacity-50"></i>
+        </div>
+        <h4 class="fw-bold mb-3">Please Log In</h4>
+        <p class="text-muted mb-4">You need to have an account and be logged in to access the Main Dashboard and save your progress permanently.</p>
+        <div class="d-grid gap-2">
+            <a href="<?= EL_BASE_URL ?>login.php" class="btn btn-primary btn-lg fw-bold"><i class="fas fa-sign-in-alt me-2"></i>Log In to Continue</a>
+            <a href="<?= EL_BASE_URL ?>register.php" class="btn btn-outline-secondary fw-bold">Create New Account</a>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
 
 <main class="min-vh-100 pb-5">
