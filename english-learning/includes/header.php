@@ -17,6 +17,10 @@ $seo_desc = isset($seo_desc) ? $seo_desc : 'Improve your English reading, vocabu
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><?= escape($seo_title) ?></title>
     <meta name="description" content="<?= escape($seo_desc) ?>">
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;1,400&family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <!-- Bootstrap 5 CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <!-- FontAwesome for Icons -->
@@ -26,8 +30,8 @@ $seo_desc = isset($seo_desc) ? $seo_desc : 'Improve your English reading, vocabu
 </head>
 <body>
 
-<nav class="navbar navbar-expand-lg navbar-dark bg-primary-custom shadow-sm">
-    <div class="container">
+<nav class="navbar navbar-expand-lg navbar-dark bg-primary-custom shadow-sm sticky-top" style="z-index: 1030;">
+    <div class="container-fluid px-lg-5">
         <a class="navbar-brand fw-bold" href="<?= EL_BASE_URL ?>index.php">
             <i class="fas fa-book-reader me-2"></i>EnglishStories
         </a>
@@ -85,11 +89,15 @@ $seo_desc = isset($seo_desc) ? $seo_desc : 'Improve your English reading, vocabu
                     </li>
                 </ul>
                 <form class="d-flex me-lg-3 mt-3 mt-lg-0" action="<?= EL_BASE_URL ?>search.php" method="GET">
-                    <input class="form-control me-2 border-0 bg-light" type="search" name="q" placeholder="Search..." aria-label="Search" required>
-                    <button class="btn btn-outline-light" type="submit"><i class="fas fa-search"></i></button>
+                    <div class="input-group rounded-pill overflow-hidden bg-light" style="max-width: 250px;">
+                        <input class="form-control border-0 bg-transparent shadow-none" type="search" name="q" placeholder="Search..." aria-label="Search" required>
+                        <button class="btn border-0 text-muted px-3" type="submit">
+                            <i class="fas fa-search"></i>
+                        </button>
+                    </div>
                 </form>
                 
-                <ul class="navbar-nav mb-2 mb-lg-0 me-lg-3 mt-3 mt-lg-0">
+                <ul class="navbar-nav mb-2 mb-lg-0 me-lg-2 mt-3 mt-lg-0 align-items-lg-center">
                     <?php if(isset($_SESSION['user_id'])): ?>
                         <li class="nav-item dropdown">
                             <a class="nav-link dropdown-toggle fw-bold text-white" href="#" id="navbarDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
@@ -105,13 +113,15 @@ $seo_desc = isset($seo_desc) ? $seo_desc : 'Improve your English reading, vocabu
                         <li class="nav-item">
                             <a class="nav-link" href="<?= EL_BASE_URL ?>login.php">Log In</a>
                         </li>
-                        <li class="nav-item">
-                            <a class="btn btn-sm btn-outline-light ms-lg-2 mt-2 mt-lg-0 px-3" href="<?= EL_BASE_URL ?>register.php" style="padding-top: 0.4rem;">Sign Up</a>
+                        <li class="nav-item ms-lg-2">
+                            <a class="btn btn-sm btn-warning rounded-pill fw-bold text-dark px-4 mt-2 mt-lg-0 shadow-sm header-btn-hover" href="<?= EL_BASE_URL ?>register.php">Sign Up <i class="fas fa-arrow-right ms-1"></i></a>
                         </li>
                     <?php endif; ?>
                 </ul>
                 
-                <a href="<?= EL_BASE_URL ?>write-story.php" class="btn btn-success shadow-sm mt-3 mt-lg-0"><i class="fas fa-pen me-2"></i>Write a Story</a>
+                <a href="<?= EL_BASE_URL ?>write-story.php" class="btn btn-light rounded-pill fw-bold text-primary-custom shadow ms-lg-3 mt-3 mt-lg-0 header-btn-hover px-4">
+                    <i class="fas fa-pen-nib me-2 text-accent"></i>Write a Story
+                </a>
             </div>
         </div>
     </div>

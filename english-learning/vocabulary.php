@@ -107,13 +107,46 @@ include 'includes/header.php';
 
         <!-- Pagination -->
         <?php if ($total_pages > 1): ?>
-        <nav class="mt-4">
+        <?php
+            $query_params = "";
+            if($search) $query_params .= "&search=" . urlencode($search);
+        ?>
+        <nav aria-label="Page navigation" class="mt-5">
             <ul class="pagination justify-content-center">
-                <?php for ($i = 1; $i <= $total_pages; $i++): ?>
-                    <li class="page-item <?= ($page == $i) ? 'active' : '' ?>">
-                        <a class="page-link" href="?page=<?= $i ?>&search=<?= urlencode($search) ?>"><?= $i ?></a>
-                    </li>
-                <?php endfor; ?>
+                <!-- Previous Button -->
+                <li class="page-item <?= ($page <= 1) ? 'disabled' : '' ?>">
+                    <a class="page-link" href="?page=<?= $page - 1 ?><?= $query_params ?>">Previous</a>
+                </li>
+
+                <?php
+                $range = 2;
+                $start = max(1, $page - $range);
+                $end = min($total_pages, $page + $range);
+
+                if ($start > 1) {
+                    echo '<li class="page-item"><a class="page-link" href="?page=1'.$query_params.'">1</a></li>';
+                    if ($start > 2) {
+                        echo '<li class="page-item disabled"><span class="page-link">...</span></li>';
+                    }
+                }
+
+                for ($i = $start; $i <= $end; $i++) {
+                    $active = ($page == $i) ? 'active' : '';
+                    echo '<li class="page-item '.$active.'"><a class="page-link" href="?page='.$i.$query_params.'">'.$i.'</a></li>';
+                }
+
+                if ($end < $total_pages) {
+                    if ($end < $total_pages - 1) {
+                        echo '<li class="page-item disabled"><span class="page-link">...</span></li>';
+                    }
+                    echo '<li class="page-item"><a class="page-link" href="?page='.$total_pages.$query_params.'">'.$total_pages.'</a></li>';
+                }
+                ?>
+
+                <!-- Next Button -->
+                <li class="page-item <?= ($page >= $total_pages) ? 'disabled' : '' ?>">
+                    <a class="page-link" href="?page=<?= $page + 1 ?><?= $query_params ?>">Next</a>
+                </li>
             </ul>
         </nav>
         <?php endif; ?>

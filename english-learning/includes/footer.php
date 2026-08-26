@@ -80,6 +80,75 @@ $s_yt    = $footer_settings['social_youtube'] ?? '#';
     </div>
 </footer>
 
+<!-- Unified Help & Feedback Button -->
+<button class="floating-feedback-btn" data-bs-toggle="modal" data-bs-target="#feedbackModal" title="Help & Feedback">
+    <i class="fas fa-headset"></i>
+</button>
+
+<!-- Support & Feedback Modal -->
+<div class="modal fade" id="feedbackModal" tabindex="-1" aria-labelledby="feedbackModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content border-0 shadow-lg">
+      <div class="modal-header bg-primary-custom text-white border-0">
+        <h5 class="modal-title fw-bold" id="feedbackModalLabel"><i class="fas fa-headset me-2"></i>Support & Feedback</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body p-4">
+        
+        <!-- WhatsApp Section -->
+        <div class="bg-light p-3 rounded-3 mb-4 text-center border-start border-4 border-success">
+            <h6 class="fw-bold mb-2 text-dark">Need immediate assistance?</h6>
+            <p class="small text-muted mb-3">Chat with our support team directly on WhatsApp.</p>
+            <a href="https://wa.me/<?= escape($c_wa) ?>" target="_blank" class="btn btn-success fw-bold rounded-pill shadow-sm px-4">
+                <i class="fab fa-whatsapp fa-lg me-2"></i>Chat on WhatsApp
+            </a>
+        </div>
+
+        <div class="position-relative mb-4 text-center">
+            <hr class="text-muted opacity-25">
+            <span class="position-absolute top-50 start-50 translate-middle bg-white px-3 small text-muted fw-bold">OR</span>
+        </div>
+
+        <!-- Feedback Form -->
+        <h6 class="fw-bold text-center mb-3 text-dark">Leave us your feedback</h6>
+        <form id="feedbackForm" onsubmit="event.preventDefault(); alert('Thank you for your valuable feedback! We appreciate it.'); bootstrap.Modal.getInstance(document.getElementById('feedbackModal')).hide(); this.reset();">
+            <div class="mb-3 text-center">
+                <div class="text-warning fs-3 d-flex justify-content-center gap-2" id="starRating">
+                    <i class="far fa-star" onclick="rateStar(1)" style="cursor:pointer;"></i>
+                    <i class="far fa-star" onclick="rateStar(2)" style="cursor:pointer;"></i>
+                    <i class="far fa-star" onclick="rateStar(3)" style="cursor:pointer;"></i>
+                    <i class="far fa-star" onclick="rateStar(4)" style="cursor:pointer;"></i>
+                    <i class="far fa-star" onclick="rateStar(5)" style="cursor:pointer;"></i>
+                </div>
+                <input type="hidden" id="ratingValue" required>
+            </div>
+            <div class="mb-3">
+                <textarea class="form-control bg-light border-0 shadow-none" rows="3" placeholder="Tell us what you love or what we can do better..." required></textarea>
+            </div>
+            <div class="d-grid mt-3">
+                <button type="submit" class="btn btn-outline-primary fw-bold rounded-pill">Submit Feedback</button>
+            </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+<script>
+function rateStar(stars) {
+    document.getElementById('ratingValue').value = stars;
+    let starElements = document.getElementById('starRating').children;
+    for(let i=0; i<5; i++) {
+        if(i < stars) {
+            starElements[i].classList.remove('far');
+            starElements[i].classList.add('fas');
+        } else {
+            starElements[i].classList.remove('fas');
+            starElements[i].classList.add('far');
+        }
+    }
+}
+</script>
+
 <!-- Bootstrap 5 JS Bundle with Popper -->
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <!-- Custom JS -->

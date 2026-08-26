@@ -55,7 +55,7 @@ $stmt = $pdo->query("SELECT COUNT(*) FROM users");
 $total_users = $stmt->fetchColumn();
 $total_pages = ceil($total_users / $per_page);
 
-$stmt = $pdo->prepare("SELECT id, name, email, status, created_at FROM users ORDER BY created_at DESC LIMIT :limit OFFSET :offset");
+$stmt = $pdo->prepare("SELECT id, name, email, mobile, status, created_at FROM users ORDER BY created_at DESC LIMIT :limit OFFSET :offset");
 $stmt->bindValue(':limit', $per_page, PDO::PARAM_INT);
 $stmt->bindValue(':offset', $offset, PDO::PARAM_INT);
 $stmt->execute();
@@ -84,6 +84,7 @@ include 'includes/header.php';
                         <th>ID</th>
                         <th>Name</th>
                         <th>Email</th>
+                        <th>Mobile</th>
                         <th>Registered Date</th>
                         <th>Status</th>
                         <th>Actions</th>
@@ -96,6 +97,7 @@ include 'includes/header.php';
                             <td><?= $user['id'] ?></td>
                             <td><strong><?= escape($user['name']) ?></strong></td>
                             <td><?= escape($user['email']) ?></td>
+                            <td><?= escape($user['mobile'] ? $user['mobile'] : 'N/A') ?></td>
                             <td><?= formatDate($user['created_at']) ?></td>
                             <td>
                                 <?php if($user['status'] == 'blocked'): ?>
@@ -126,7 +128,7 @@ include 'includes/header.php';
                         </tr>
                         <?php endforeach; ?>
                     <?php else: ?>
-                        <tr><td colspan="6" class="text-center py-4">No registered users found.</td></tr>
+                        <tr><td colspan="7" class="text-center py-4">No registered users found.</td></tr>
                     <?php endif; ?>
                 </tbody>
             </table>
