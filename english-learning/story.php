@@ -317,15 +317,22 @@ function toggleTool(tool) {
     }
 }
 
-// Drawing Logic
-document.addEventListener('mousedown', e => {
-    // Check if clicking inside toolbar
+// Drawing Logic with Mobile Touch Support
+function getCoordinates(e) {
+    if (e.touches && e.touches.length > 0) {
+        return { x: e.touches[0].pageX, y: e.touches[0].pageY };
+    }
+    return { x: e.pageX, y: e.pageY };
+}
+
+function startDrawing(e) {
     if (e.target.closest('.reading-tools-bar')) return;
     
     if (currentTool === 'pen' || currentTool === 'eraser') {
         isDrawing = true;
+        const coords = getCoordinates(e);
         ctx.beginPath();
-        ctx.moveTo(e.pageX, e.pageY);
+        ctx.moveTo(coords.x, coords.y);
         
         if (currentTool === 'pen') {
             ctx.globalCompositeOperation = 'source-over';
@@ -340,16 +347,18 @@ document.addEventListener('mousedown', e => {
             ctx.lineJoin = 'round';
         }
     }
-});
+}
 
-document.addEventListener('mousemove', e => {
+function draw(e) {
     if (isDrawing && (currentTool === 'pen' || currentTool === 'eraser')) {
-        ctx.lineTo(e.pageX, e.pageY);
+        if(e.cancelable) e.preventDefault(); // Prevent mobile scrolling while actively drawing
+        const coords = getCoordinates(e);
+        ctx.lineTo(coords.x, coords.y);
         ctx.stroke();
     }
-});
+}
 
-document.addEventListener('mouseup', function(e) {
+function stopDrawing(e) {
     if (isDrawing) {
         isDrawing = false;
     }
@@ -360,7 +369,6 @@ document.addEventListener('mouseup', function(e) {
     let selection = window.getSelection();
     if (!selection || selection.rangeCount === 0 || selection.isCollapsed) return;
     
-    // Ensure selection is inside the story content
     let range = selection.getRangeAt(0);
     let container = range.commonAncestorContainer;
     if (container.nodeType === 3) container = container.parentNode;
@@ -379,7 +387,17 @@ document.addEventListener('mouseup', function(e) {
     }
     document.designMode = "off";
     selection.removeAllRanges();
-});
+}
+
+// Attach Mouse Events
+document.addEventListener('mousedown', startDrawing);
+document.addEventListener('mousemove', draw, { passive: false });
+document.addEventListener('mouseup', stopDrawing);
+
+// Attach Touch Events for Mobile
+document.addEventListener('touchstart', startDrawing, { passive: false });
+document.addEventListener('touchmove', draw, { passive: false });
+document.addEventListener('touchend', stopDrawing);
 </script>
 
 <?php include 'includes/footer.php'; ?>
