@@ -77,6 +77,11 @@ $requestUri = $_SERVER['REQUEST_URI'];
                 </a>
             </li>
             <li class="nav-item">
+                <a class="nav-link <?= ($currentPage == 'send-updates.php') ? 'active' : '' ?>" href="<?= EL_BASE_URL ?>admin/send-updates.php">
+                    <i class="fas fa-paper-plane me-2"></i> Send Updates
+                </a>
+            </li>
+            <li class="nav-item">
                 <a class="nav-link <?= ($currentPage == 'guest-activity.php') ? 'active' : '' ?>" href="<?= EL_BASE_URL ?>admin/guest-activity.php">
                     <i class="fas fa-user-secret me-2"></i> Guest Activity
                 </a>
@@ -89,6 +94,11 @@ $requestUri = $_SERVER['REQUEST_URI'];
             <li class="nav-item">
                 <a class="nav-link <?= ($currentPage == 'settings.php') ? 'active' : '' ?>" href="<?= EL_BASE_URL ?>admin/settings.php">
                     <i class="fas fa-cogs me-2"></i> Site Settings
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link <?= ($currentPage == 'smtp-settings.php') ? 'active' : '' ?>" href="<?= EL_BASE_URL ?>admin/smtp-settings.php">
+                    <i class="fas fa-envelope me-2"></i> SMTP & Email
                 </a>
             </li>
         </ul>

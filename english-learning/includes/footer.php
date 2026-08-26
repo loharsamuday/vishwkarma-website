@@ -153,5 +153,16 @@ function rateStar(stars) {
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <!-- Custom JS -->
 <script src="<?= EL_BASE_URL ?>assets/js/script.js"></script>
+<script src="<?= EL_BASE_URL ?>assets/js/offline-sync.js"></script>
+<script>
+    // Service Worker Registration
+    if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+            navigator.serviceWorker.register('<?= EL_BASE_URL ?>sw.js')
+                .then(reg => console.log('ServiceWorker registered:', reg.scope))
+                .catch(err => console.log('ServiceWorker registration failed:', err));
+        });
+    }
+</script>
 </body>
 </html>

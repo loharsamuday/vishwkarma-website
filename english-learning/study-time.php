@@ -60,9 +60,9 @@ include 'includes/header.php';
             <h2 class="fw-bold text-warning mb-1"><i class="fas fa-stopwatch me-2 text-dark"></i>Study Time</h2>
             <p class="text-muted mb-0">Record and track your learning hours.</p>
         </div>
-        <div class="mt-3 mt-md-0">
-            <button class="btn btn-warning fw-bold" data-bs-toggle="modal" data-bs-target="#addSessionModal"><i class="fas fa-plus me-1"></i> Record Session</button>
-            <a href="study-dashboard.php" class="btn btn-outline-secondary">Dashboard</a>
+        <div class="mt-3 mt-md-0 d-flex gap-2">
+            <button class="btn btn-warning btn-sm px-3 fw-bold shadow-sm" data-bs-toggle="modal" data-bs-target="#addSessionModal"><i class="fas fa-plus me-1"></i> Session</button>
+            <a href="study-dashboard.php" class="btn btn-outline-secondary btn-sm px-3 shadow-sm">Dashboard</a>
         </div>
     </div>
 </div>

@@ -33,7 +33,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     } elseif (isset($_POST['mark_completed'])) {
         $id = (int)$_POST['routine_id'];
-        $stmt = $pdo->prepare("UPDATE study_routines SET status = 'Completed' WHERE id = ? AND $condition");
+        $stmt = $pdo->prepare("UPDATE study_routines SET status = 'Completed', updated_at = CURRENT_TIMESTAMP WHERE id = ? AND $condition");
         $stmt->execute([$id, $param]);
     } elseif (isset($_POST['delete_routine'])) {
         $id = (int)$_POST['routine_id'];
@@ -43,24 +43,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
-// Fetch Routines
-$stmt = $pdo->prepare("SELECT * FROM study_routines WHERE $condition AND routine_date = ? ORDER BY start_time ASC");
-$stmt->execute([$param, $filter_date]);
+// Fetch Routines (Master Daily Schedule)
+$stmt = $pdo->prepare("SELECT *, IF(DATE(updated_at) < CURRENT_DATE AND status = 'Completed', 'Pending', status) as current_status FROM study_routines WHERE $condition ORDER BY start_time ASC");
+$stmt->execute([$param]);
 $routines = $stmt->fetchAll();
 
-$page_title = 'Daily Routine';
+$page_title = 'Daily Routine Schedule';
 include 'includes/header.php';
 ?>
 
 <div class="bg-light py-4 mb-5 border-bottom">
     <div class="container d-flex flex-column flex-md-row justify-content-between align-items-center">
         <div>
-            <h2 class="fw-bold text-success mb-1"><i class="fas fa-calendar-day me-2"></i>Daily Routine</h2>
-            <p class="text-muted mb-0">Plan and manage your study schedule.</p>
+            <h2 class="fw-bold text-success mb-1"><i class="fas fa-calendar-day me-2"></i>My Daily Schedule</h2>
+            <p class="text-muted mb-0">This is your fixed master routine. It repeats every day automatically.</p>
         </div>
-        <div class="mt-3 mt-md-0">
-            <button class="btn btn-success" data-bs-toggle="modal" data-bs-target="#addRoutineModal"><i class="fas fa-plus me-1"></i> Add Task</button>
-            <a href="study-dashboard.php" class="btn btn-outline-secondary">Dashboard</a>
+        <div class="mt-3 mt-md-0 d-flex gap-2">
+            <button class="btn btn-success btn-sm px-3 shadow-sm" data-bs-toggle="modal" data-bs-target="#addRoutineModal"><i class="fas fa-plus me-1"></i> Task</button>
+            <a href="study-dashboard.php" class="btn btn-outline-secondary btn-sm px-3 shadow-sm">Dashboard</a>
         </div>
     </div>
 </div>
@@ -75,36 +75,18 @@ include 'includes/header.php';
     <?php endif; ?>
 
     <div class="row">
-        <div class="col-lg-3 mb-4">
-            <!-- Filter Card -->
+        <div class="col-lg-12">
             <div class="card border-0 shadow-sm">
-                <div class="card-header bg-white border-0 pt-4 pb-0">
-                    <h5 class="fw-bold"><i class="fas fa-filter me-2 text-primary"></i> Filter</h5>
-                </div>
-                <div class="card-body p-4">
-                    <form action="" method="GET">
-                        <div class="mb-3">
-                            <label class="form-label text-muted small fw-bold">Select Date</label>
-                            <input type="date" name="date" class="form-control" value="<?= htmlspecialchars($filter_date) ?>" onchange="this.form.submit()">
-                        </div>
-                        <div class="d-grid gap-2">
-                            <a href="daily-routine.php" class="btn btn-outline-secondary btn-sm">Today</a>
-                        </div>
-                    </form>
-                </div>
-            </div>
-        </div>
-
-        <div class="col-lg-9">
-            <div class="card border-0 shadow-sm">
-                <div class="card-header bg-white border-0 pt-4 pb-0">
-                    <h4 class="fw-bold">Tasks for <?= date('F d, Y', strtotime($filter_date)) ?></h4>
+                <div class="card-header bg-white border-0 pt-4 pb-0 d-flex justify-content-between align-items-center">
+                    <h4 class="fw-bold"><i class="far fa-clock text-primary me-2"></i> Daily Time Table</h4>
+                    <span class="badge bg-primary rounded-pill">Repeats Daily</span>
                 </div>
                 <div class="card-body p-4">
                     <?php if(empty($routines)): ?>
                         <div class="text-center py-5 text-muted">
                             <i class="fas fa-tasks fa-3x mb-3 opacity-25"></i>
-                            <h5>No tasks scheduled for this date.</h5>
+                            <h5>No tasks in your daily schedule yet.</h5>
+                            <p>Add your fixed study times, and they will reset every day automatically!</p>
                             <button class="btn btn-sm btn-outline-success mt-2" data-bs-toggle="modal" data-bs-target="#addRoutineModal">Create a Task</button>
                         </div>
                     <?php else: ?>
@@ -116,13 +98,13 @@ include 'includes/header.php';
                                         <th>Task</th>
                                         <th>Category</th>
                                         <th>Priority</th>
-                                        <th>Status</th>
+                                        <th>Today's Status</th>
                                         <th class="text-end">Action</th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     <?php foreach($routines as $r): 
-                                        $is_completed = $r['status'] == 'Completed';
+                                        $is_completed = $r['current_status'] == 'Completed';
                                     ?>
                                     <tr class="<?= $is_completed ? 'table-light text-muted' : '' ?>">
                                         <td class="text-nowrap fw-bold small">
@@ -140,8 +122,8 @@ include 'includes/header.php';
                                             <?php else: ?> <span class="badge bg-info">Low</span> <?php endif; ?>
                                         </td>
                                         <td>
-                                            <?php if($is_completed): ?> <span class="badge bg-success"><i class="fas fa-check"></i> Completed</span>
-                                            <?php else: ?> <span class="badge bg-secondary"><?= $r['status'] ?></span> <?php endif; ?>
+                                            <?php if($is_completed): ?> <span class="badge bg-success"><i class="fas fa-check"></i> Done Today</span>
+                                            <?php else: ?> <span class="badge bg-secondary">Pending</span> <?php endif; ?>
                                         </td>
                                         <td class="text-end text-nowrap">
                                             <?php if(!$is_completed): ?>
@@ -150,7 +132,7 @@ include 'includes/header.php';
                                                     <button type="submit" name="mark_completed" class="btn btn-sm btn-success" title="Mark as Completed"><i class="fas fa-check"></i></button>
                                                 </form>
                                             <?php endif; ?>
-                                            <form action="" method="POST" class="d-inline" onsubmit="return confirm('Delete this task?');">
+                                            <form action="" method="POST" class="d-inline" onsubmit="return confirm('Delete this task from your master schedule?');">
                                                 <input type="hidden" name="routine_id" value="<?= $r['id'] ?>">
                                                 <button type="submit" name="delete_routine" class="btn btn-sm btn-danger" title="Delete"><i class="fas fa-trash"></i></button>
                                             </form>
@@ -176,10 +158,7 @@ include 'includes/header.php';
         <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
       </div>
       <div class="modal-body">
-          <div class="mb-3">
-              <label class="form-label fw-bold">Date</label>
-              <input type="date" name="routine_date" class="form-control" value="<?= htmlspecialchars($filter_date) ?>" required>
-          </div>
+          <input type="hidden" name="routine_date" value="<?= date('Y-m-d') ?>">
           <div class="mb-3">
               <label class="form-label fw-bold">Task Title</label>
               <input type="text" name="task_title" class="form-control" placeholder="e.g. Read Chapter 1" required>
