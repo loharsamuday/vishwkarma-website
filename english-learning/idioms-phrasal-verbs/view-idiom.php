@@ -3,9 +3,8 @@
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
-// Since this is included from router.php, the working directory is vishwkarma root.
-require_once 'english-learning/config/database.php';
-require_once 'english-learning/includes/functions.php';
+require_once '../config/database.php';
+require_once '../includes/functions.php';
 
 $slug = $_GET['slug'] ?? '';
 if (empty($slug)) {
@@ -46,16 +45,16 @@ if ($user_id) {
     $memory_status = $stmt_mem->fetchColumn();
 }
 
-require_once 'english-learning/includes/header.php';
+require_once '../includes/header.php';
 ?>
 
 <div class="bg-light py-4 border-bottom mb-4">
     <div class="container">
         <nav aria-label="breadcrumb">
             <ol class="breadcrumb mb-2">
-                <li class="breadcrumb-item"><a href="/vishwkarma/index.php">Home</a></li>
-                <li class="breadcrumb-item"><a href="/vishwkarma/english-learning/idioms-phrasal-verbs/">Vocabulary</a></li>
-                <li class="breadcrumb-item"><a href="/vishwkarma/english-learning/idioms-phrasal-verbs/idioms.php">Idioms</a></li>
+                <li class="breadcrumb-item"><a href="../../index.php">Home</a></li>
+                <li class="breadcrumb-item"><a href="../vocabulary.php">Vocabulary</a></li>
+                <li class="breadcrumb-item"><a href="idioms.php">Idioms</a></li>
                 <li class="breadcrumb-item active" aria-current="page"><?= htmlspecialchars($idiom['idiom']) ?></li>
             </ol>
         </nav>
@@ -66,7 +65,7 @@ require_once 'english-learning/includes/header.php';
                     <?= $memory_status ? '💾 Saved in My Memory' : '❤️ Remember Me' ?>
                 </button>
             <?php else: ?>
-                <a href="/vishwkarma/english-learning/login.php" class="btn btn-outline-danger btn-sm fw-bold shadow-sm">❤️ Remember Me</a>
+                <a href="../login.php" class="btn btn-outline-danger btn-sm fw-bold shadow-sm">❤️ Remember Me</a>
             <?php endif; ?>
         </div>
         <div class="d-flex align-items-center gap-3 text-muted small mt-2">
@@ -156,8 +155,8 @@ require_once 'english-learning/includes/header.php';
 
             <!-- Navigation -->
             <div class="d-flex justify-content-between mb-4">
-                <a href="/vishwkarma/english-learning/idioms-phrasal-verbs/idioms.php" class="btn btn-outline-secondary"><i class="fas fa-arrow-left"></i> Back to List</a>
-                <a href="/vishwkarma/english-learning/idioms-phrasal-verbs/practice.php?type=idiom" class="btn btn-primary">Practice Idioms <i class="fas fa-arrow-right"></i></a>
+                <a href="idioms.php" class="btn btn-outline-secondary"><i class="fas fa-arrow-left"></i> Back to List</a>
+                <a href="practice.php?type=idiom" class="btn btn-primary">Practice Idioms <i class="fas fa-arrow-right"></i></a>
             </div>
         </div>
 
@@ -170,7 +169,7 @@ require_once 'english-learning/includes/header.php';
                 </div>
                 <div class="list-group list-group-flush">
                     <?php foreach($related_idioms as $rel): ?>
-                        <a href="/vishwkarma/english-learning/idioms/<?= htmlspecialchars($rel['slug']) ?>" class="list-group-item list-group-item-action">
+                        <a href="view-idiom.php?slug=<?= htmlspecialchars($rel['slug']) ?>" class="list-group-item list-group-item-action">
                             <?= htmlspecialchars($rel['idiom']) ?>
                         </a>
                     <?php endforeach; ?>
@@ -184,7 +183,7 @@ require_once 'english-learning/includes/header.php';
                     <i class="fas fa-graduation-cap fa-3x mb-3"></i>
                     <h4 class="fw-bold">Test Your Knowledge</h4>
                     <p>Take a quick quiz to see how well you remember idioms and phrasal verbs.</p>
-                    <a href="/vishwkarma/english-learning/idioms-phrasal-verbs/practice.php" class="btn btn-light mt-2 fw-bold text-primary">Start Quiz</a>
+                    <a href="practice.php" class="btn btn-light mt-2 fw-bold text-primary">Start Quiz</a>
                 </div>
             </div>
         </div>
@@ -200,7 +199,7 @@ function handleMemoryAction(action, item_type, item_id) {
     formData.append('item_type', item_type);
     formData.append('item_id', item_id);
 
-    fetch('/vishwkarma/english-learning/ajax/memory_action.php', {
+    fetch('../ajax/memory_action.php', {
         method: 'POST',
         body: formData
     })
@@ -221,4 +220,4 @@ function handleMemoryAction(action, item_type, item_id) {
 }
 </script>
 
-<?php require_once 'english-learning/includes/footer.php'; ?>
+<?php require_once '../includes/footer.php'; ?>

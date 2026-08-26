@@ -108,7 +108,7 @@ $categories = $stmt_cat->fetchAll();
                                 <div class="card-body">
                                     <div class="d-flex justify-content-between align-items-start mb-2">
                                         <h5 class="card-title fw-bold text-primary mb-0">
-                                            <a href="../idioms/<?= htmlspecialchars($item['slug']) ?>" class="text-decoration-none">
+                                            <a href="view-idiom.php?slug=<?= htmlspecialchars($item['slug']) ?>" class="text-decoration-none">
                                                 <?= htmlspecialchars($item['idiom']) ?>
                                             </a>
                                         </h5>
@@ -127,7 +127,7 @@ $categories = $stmt_cat->fetchAll();
                                         <span class="badge bg-light text-dark border">
                                             <?= htmlspecialchars($item['difficulty']) ?>
                                         </span>
-                                        <a href="../idioms/<?= htmlspecialchars($item['slug']) ?>" class="btn btn-sm btn-outline-primary stretched-link">Learn More <i class="fas fa-arrow-right ms-1"></i></a>
+                                        <a href="view-idiom.php?slug=<?= htmlspecialchars($item['slug']) ?>" class="btn btn-sm btn-outline-primary stretched-link">Learn More <i class="fas fa-arrow-right ms-1"></i></a>
                                     </div>
                                 </div>
                             </div>
