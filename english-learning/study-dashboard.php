@@ -92,19 +92,34 @@ $page_title = 'Study Dashboard';
 include 'includes/header.php';
 ?>
 
+<style>
+.clock-focus {
+    border: 2px solid var(--bs-primary) !important;
+    animation: pulse-border 2s infinite cubic-bezier(0.66, 0, 0, 1);
+    border-radius: 6px;
+}
+@keyframes pulse-border {
+    0% { box-shadow: 0 0 0 0 rgba(var(--bs-primary-rgb), 0.5); }
+    70% { box-shadow: 0 0 0 8px rgba(var(--bs-primary-rgb), 0); }
+    100% { box-shadow: 0 0 0 0 rgba(var(--bs-primary-rgb), 0); }
+}
+</style>
+
 <div class="bg-light py-4 mb-5 border-bottom">
     <div class="container d-flex flex-wrap justify-content-between align-items-center gap-3">
         <div>
-            <h4 class="fw-bold text-dark mb-1" id="liveGreeting">
-                Welcome<?= isset($_SESSION['user_name']) ? ' back, <span class="text-primary">' . escape($_SESSION['user_name']) . '</span>' : ' to your Study Dashboard' ?>!
-            </h4>
-            <p class="text-muted small fw-medium mb-0" id="liveDate">Here is your daily study overview.</p>
-        </div>
-        <div class="bg-white px-3 py-2 rounded-pill shadow-sm border d-flex align-items-center gap-3">
-            <div class="text-end">
-                <span class="fw-bold text-primary fs-5" id="liveClock" style="font-family: monospace; letter-spacing: 0.5px;">--:--:-- --</span>
-                <div id="liveStatus" style="font-size: 0.7rem; margin-top: -3px;" class="fw-bold text-muted text-uppercase text-end">UPDATING...</div>
+            <div class="d-flex align-items-center flex-wrap gap-2 mb-1">
+                <h4 class="fw-bold text-dark mb-0" id="liveGreeting">
+                    Welcome<?= isset($_SESSION['user_name']) ? ' back, <span class="text-primary">' . escape($_SESSION['user_name']) . '</span>' : ' to your Study Dashboard' ?>!
+                </h4>
+                <span class="badge bg-white text-dark clock-focus px-2 py-1 fs-6 fw-bold shadow-sm" style="font-family: monospace; letter-spacing: 0.5px;">
+                    <i class="far fa-clock text-primary"></i> <span id="liveClock">--:--:-- --</span>
+                </span>
             </div>
+            <p class="text-muted small fw-medium mb-0">
+                <span id="liveDate">Here is your daily study overview.</span> 
+                <span id="liveStatus" style="font-size: 0.65rem;" class="ms-2 fw-bold text-muted text-uppercase">UPDATING...</span>
+            </p>
         </div>
         <div class="d-flex gap-2 mt-2 mt-md-0 w-100 w-md-auto justify-content-end">
             <a href="daily-routine.php" class="btn btn-primary btn-sm px-3 shadow-sm"><i class="fas fa-plus me-1"></i> Routine</a>
