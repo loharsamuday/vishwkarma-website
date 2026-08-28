@@ -29,10 +29,13 @@ $vocabularies = $stmt->fetchAll();
 // Process story content to highlight vocabulary words
 $content = trim($story['content']);
 
-// Convert double newlines into paragraphs to give reading gaps
-$content = '<p>' . preg_replace("/\n\s*\n/", "</p>\n<p>", $content) . '</p>';
-// Convert remaining single newlines to line breaks
-$content = nl2br($content);
+// Only format newlines if the content is raw text (doesn't already have HTML tags like <p> or <br>)
+if (stripos($content, '<p') === false && stripos($content, '<br') === false) {
+    // Convert double newlines into paragraphs to give reading gaps
+    $content = '<p>' . preg_replace("/\n\s*\n/", "</p>\n<p>", $content) . '</p>';
+    // Convert remaining single newlines to line breaks
+    $content = nl2br($content);
+}
 
 
 // We need to replace words in content with highlighted spans.
@@ -116,13 +119,49 @@ include 'includes/header.php';
             <?php endif; ?>
 
             <!-- Social Actions -->
-            <div class="d-flex align-items-center justify-content-between mb-5 py-3 border-top border-bottom">
-                <div class="d-flex gap-3">
-                    <button class="btn btn-outline-primary rounded-pill px-4" onclick="alert('Liked!')"><i class="far fa-thumbs-up me-2"></i>Like</button>
-                    <button class="btn btn-outline-secondary rounded-pill px-4" onclick="document.getElementById('comments-section').scrollIntoView({behavior: 'smooth'})"><i class="far fa-comment me-2"></i>Comment</button>
+            <style>
+            .social-action-btn {
+                border-radius: 50px;
+                padding: 0.7rem 1.8rem;
+                font-weight: 600;
+                font-size: 1rem;
+                transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+                display: inline-flex;
+                align-items: center;
+                border: 2px solid transparent;
+                background: #fff;
+                box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+                gap: 8px;
+            }
+
+            .btn-like { color: #007bff; border-color: #e6f2ff; }
+            .btn-like:hover { background: #007bff; color: #fff; border-color: #007bff; transform: translateY(-3px); box-shadow: 0 10px 20px rgba(0, 123, 255, 0.25); }
+
+            .btn-comment { color: #6f42c1; border-color: #f3e8ff; }
+            .btn-comment:hover { background: #6f42c1; color: #fff; border-color: #6f42c1; transform: translateY(-3px); box-shadow: 0 10px 20px rgba(111, 66, 193, 0.25); }
+
+            .btn-share { color: #28a745; border-color: #e6f9ec; }
+            .btn-share:hover { background: #28a745; color: #fff; border-color: #28a745; transform: translateY(-3px); box-shadow: 0 10px 20px rgba(40, 167, 69, 0.25); }
+
+            .social-action-btn i { font-size: 1.15rem; transition: transform 0.3s ease; }
+            .btn-like:hover i { transform: scale(1.2) rotate(-15deg); }
+            .btn-comment:hover i { transform: scale(1.1); }
+            .btn-share:hover i { transform: translateX(3px) scale(1.1); }
+            </style>
+            
+            <div class="d-flex flex-wrap align-items-center justify-content-between mb-5 py-4 border-top border-bottom gap-3">
+                <div class="d-flex flex-wrap gap-3">
+                    <button class="social-action-btn btn-like" onclick="alert('Liked!')">
+                        <i class="far fa-thumbs-up"></i> Like
+                    </button>
+                    <button class="social-action-btn btn-comment" onclick="document.getElementById('comments-section').scrollIntoView({behavior: 'smooth'})">
+                        <i class="far fa-comment-dots"></i> Comment
+                    </button>
                 </div>
                 <div>
-                    <button class="btn btn-outline-success rounded-pill px-4" onclick="navigator.clipboard.writeText(window.location.href); alert('Link copied to clipboard!');"><i class="fas fa-share me-2"></i>Share</button>
+                    <button class="social-action-btn btn-share" onclick="navigator.clipboard.writeText(window.location.href); alert('Link copied to clipboard!');">
+                        <i class="fas fa-share-nodes"></i> Share
+                    </button>
                 </div>
             </div>
 

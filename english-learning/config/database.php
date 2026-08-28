@@ -66,6 +66,7 @@ try {
             mobile VARCHAR(20) NULL,
             status ENUM('active', 'blocked') DEFAULT 'active',
             password VARCHAR(255) NOT NULL,
+            profile_photo VARCHAR(255) NULL,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
         
@@ -119,6 +120,8 @@ try {
             id INT AUTO_INCREMENT PRIMARY KEY,
             username VARCHAR(50) NOT NULL UNIQUE,
             password VARCHAR(255) NOT NULL,
+            role ENUM('super_admin', 'guest_admin') DEFAULT 'super_admin',
+            permissions TEXT NULL,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
         
@@ -132,6 +135,7 @@ try {
             difficulty ENUM('Beginner', 'Intermediate', 'Advanced') NOT NULL DEFAULT 'Beginner',
             content TEXT NOT NULL,
             status ENUM('Pending', 'Approved', 'Rejected') DEFAULT 'Pending',
+            admin_note TEXT DEFAULT NULL,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL,
             FOREIGN KEY (category_id) REFERENCES categories(id) ON DELETE SET NULL

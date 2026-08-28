@@ -9,6 +9,9 @@ require_once __DIR__ . '/functions.php';
 $page_title = isset($page_title) ? $page_title : 'English Learning Story Platform';
 $seo_title = isset($seo_title) ? $seo_title : $page_title;
 $seo_desc = isset($seo_desc) ? $seo_desc : 'Improve your English reading, vocabulary and writing skills with our interactive stories.';
+
+$current_page = basename($_SERVER['PHP_SELF']);
+$current_dir = basename(dirname($_SERVER['PHP_SELF']));
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -27,6 +30,24 @@ $seo_desc = isset($seo_desc) ? $seo_desc : 'Improve your English reading, vocabu
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <!-- Custom CSS -->
     <link rel="stylesheet" href="<?= EL_BASE_URL ?>assets/css/style.css">
+    <style>
+        .navbar-nav .nav-link.active-menu {
+            color: #ffc107 !important; /* Warning/Gold color */
+            font-weight: 700;
+            position: relative;
+        }
+        .navbar-nav .nav-link.active-menu::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 30px;
+            height: 3px;
+            background-color: #ffc107;
+            border-radius: 5px;
+        }
+    </style>
 </head>
 <body>
 
@@ -46,10 +67,10 @@ $seo_desc = isset($seo_desc) ? $seo_desc : 'Improve your English reading, vocabu
             <div class="offcanvas-body">
                 <ul class="navbar-nav me-auto mb-2 mb-lg-0">
                     <li class="nav-item">
-                        <a class="nav-link" href="<?= EL_BASE_URL ?>index.php">Home</a>
+                        <a class="nav-link <?= $current_page == 'index.php' ? 'active-menu' : '' ?>" href="<?= EL_BASE_URL ?>index.php">Home</a>
                     </li>
                     <li class="nav-item dropdown">
-                        <a class="nav-link dropdown-toggle fw-bold text-warning" href="#" id="dashboardDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                        <a class="nav-link dropdown-toggle fw-bold <?= (in_array($current_page, ['daily-routine.php', 'study-time.php', 'daily-target.php', 'study-dashboard.php']) || $current_dir == 'dashboard') ? 'active-menu' : 'text-warning' ?>" href="#" id="dashboardDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
                             Smart Dashboard
                         </a>
                         <ul class="dropdown-menu shadow border-0" aria-labelledby="dashboardDropdown">
@@ -67,10 +88,10 @@ $seo_desc = isset($seo_desc) ? $seo_desc : 'Improve your English reading, vocabu
                         </ul>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" href="<?= EL_BASE_URL ?>stories.php">Stories</a>
+                        <a class="nav-link <?= ($current_page == 'stories.php' || $current_page == 'story.php') ? 'active-menu' : '' ?>" href="<?= EL_BASE_URL ?>stories.php">Stories</a>
                     </li>
                     <li class="nav-item dropdown">
-                        <a class="nav-link dropdown-toggle" href="#" id="vocabDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                        <a class="nav-link dropdown-toggle <?= (in_array($current_dir, ['idioms-phrasal-verbs', 'my-memory', 'revision']) || $current_page == 'vocabulary.php') ? 'active-menu' : '' ?>" href="#" id="vocabDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
                             Learning
                         </a>
                         <ul class="dropdown-menu shadow border-0" aria-labelledby="vocabDropdown">
@@ -85,7 +106,7 @@ $seo_desc = isset($seo_desc) ? $seo_desc : 'Improve your English reading, vocabu
                         </ul>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" href="<?= EL_BASE_URL ?>categories.php">Categories</a>
+                        <a class="nav-link <?= $current_page == 'categories.php' ? 'active-menu' : '' ?>" href="<?= EL_BASE_URL ?>categories.php">Categories</a>
                     </li>
                 </ul>
                 <form class="d-flex me-lg-3 mt-3 mt-lg-0" action="<?= EL_BASE_URL ?>search.php" method="GET">

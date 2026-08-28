@@ -14,6 +14,10 @@ $queries = [
     "ALTER TABLE stories ADD COLUMN seo_description TEXT NULL AFTER seo_title" => "Adding 'seo_description' column",
     "ALTER TABLE stories ADD COLUMN hindi_meaning LONGTEXT NULL AFTER content" => "Adding 'hindi_meaning' column",
     "ALTER TABLE stories ADD COLUMN moral TEXT NULL AFTER hindi_meaning" => "Adding 'moral' column",
+    "ALTER TABLE user_stories ADD COLUMN admin_note TEXT NULL AFTER status" => "Adding 'admin_note' column to user_stories",
+    "ALTER TABLE users ADD COLUMN profile_photo VARCHAR(255) NULL AFTER password" => "Adding 'profile_photo' column to users",
+    "ALTER TABLE admins ADD COLUMN role ENUM('super_admin', 'guest_admin') DEFAULT 'super_admin' AFTER password" => "Adding 'role' to admins",
+    "ALTER TABLE admins ADD COLUMN permissions TEXT NULL AFTER role" => "Adding 'permissions' to admins",
     
     // Also fix guest columns just in case
     "ALTER TABLE study_routines MODIFY user_id INT NULL" => "Modifying study_routines user_id",

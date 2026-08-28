@@ -117,6 +117,11 @@ include 'includes/header.php';
     transform: translateY(-2px);
     box-shadow: 0 8px 15px rgba(var(--bs-primary-rgb), 0.3);
 }
+/* Hide native Edge/IE password reveal eye */
+input::-ms-reveal,
+input::-ms-clear {
+    display: none;
+}
 .toggle-password {
     position: absolute;
     right: 15px;

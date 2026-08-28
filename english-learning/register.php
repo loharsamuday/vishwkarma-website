@@ -12,6 +12,10 @@ if (isset($_SESSION['user_id'])) {
 $error = '';
 $success = '';
 
+if (isset($_GET['registered']) && $_GET['registered'] == 1) {
+    $success = "Registration successful! You can now login.";
+}
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $name = trim($_POST['name']);
     $email = trim($_POST['email']);
@@ -19,11 +23,31 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $password = $_POST['password'];
     $confirm_password = $_POST['confirm_password'];
     $target_exam = $_POST['target_exam'] ?? '';
+    $custom_exam = trim($_POST['custom_exam'] ?? '');
+    
+    // Handle custom target exam
+    if ($target_exam === 'other' && !empty($custom_exam)) {
+        $stmtCheck = $pdo->prepare("SELECT id FROM target_exams WHERE name = ?");
+        $stmtCheck->execute([$custom_exam]);
+        $existingExam = $stmtCheck->fetch();
+        
+        if ($existingExam) {
+            $target_exam = $existingExam['id'];
+        } else {
+            $stmtInsert = $pdo->prepare("INSERT INTO target_exams (name, status) VALUES (?, 'active')");
+            $stmtInsert->execute([$custom_exam]);
+            $target_exam = $pdo->lastInsertId();
+        }
+    } elseif ($target_exam === 'other') {
+        $target_exam = null; // If they selected other but didn't type anything
+    }
     
     if (empty($name) || empty($email) || empty($mobile) || empty($password)) {
         $error = "All fields are required.";
     } elseif (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
         $error = "Invalid email format.";
+    } elseif (!preg_match('/^[0-9]{10}$/', $mobile)) {
+        $error = "Mobile number must be exactly 10 digits.";
     } elseif ($password !== $confirm_password) {
         $error = "Passwords do not match.";
     } elseif (strlen($password) < 6) {
@@ -50,8 +74,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $pdo->commit();
                 $success = "Registration successful! You can now login.";
 
-                // --- SEND WELCOME EMAIL VIA SMTP ---
+                // --- SEND WELCOME EMAIL ---
                 try {
+                    // Fallback standard PHP mail()
+                    $to = $email;
+                    $subject = "Welcome to English Learning - Let's Start Your Journey!";
+                    $message = "Hello $name,\n\n";
+                    $message .= "Congratulations and welcome to the English Learning community! We are absolutely thrilled to have you onboard. Your account has been successfully created.\n\n";
+                    $message .= "Our platform is designed to help you master the English language through consistent practice and engaging content. Here are a few things you can do right now to get started:\n\n";
+                    $message .= "1. Update Your Profile: Add a profile picture and select your target exam so we can personalize your experience.\n";
+                    $message .= "2. Write Your First Story: Practice your grammar and vocabulary by writing short stories. Our admins will review them and provide helpful feedback!\n";
+                    $message .= "3. Read & Learn: Browse through stories published by others and discover new vocabulary, idioms, and meanings.\n\n";
+                    $message .= "We believe that with daily practice, you will achieve your English learning goals very soon.\n\n";
+                    $message .= "Happy Learning!\n\n";
+                    $message .= "Warm Regards,\n";
+                    $message .= "The English Learning Team";
+                    
+                    $headers = "From: noreply@" . $_SERVER['SERVER_NAME'];
+                    
+                    // Check if SMTP is configured, else use mail()
                     $stmt_smtp = $pdo->query("SELECT * FROM smtp_settings LIMIT 1");
                     $smtp = $stmt_smtp->fetch();
                     if ($smtp && !empty($smtp['smtp_user'])) {
@@ -60,8 +101,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         require_once 'includes/PHPMailer/SMTP.php';
 
                         $mail = new PHPMailer\PHPMailer\PHPMailer(true);
-                        
-                        // Server settings
                         $mail->isSMTP();
                         $mail->Host       = $smtp['smtp_host'];
                         $mail->SMTPAuth   = true;
@@ -69,26 +108,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         $mail->Password   = $smtp['smtp_pass'];
                         $mail->SMTPSecure = PHPMailer\PHPMailer\PHPMailer::ENCRYPTION_STARTTLS;
                         $mail->Port       = $smtp['smtp_port'];
-
-                        // Recipients
                         $mail->setFrom($smtp['from_email'], $smtp['from_name']);
                         $mail->addAddress($email, $name);
-
-                        // Content
                         $mail->isHTML(true);
-                        $mail->Subject = $smtp['welcome_subject'];
-                        
-                        // Personalize body
+                        $mail->Subject = $smtp['welcome_subject'] ? $smtp['welcome_subject'] : $subject;
                         $body = str_replace(['{name}', '{email}'], [$name, $email], $smtp['welcome_body']);
-                        $mail->Body = $body;
-
+                        $mail->Body = $body ? $body : nl2br($message);
                         $mail->send();
+                    } else {
+                        // Use default mail() if no SMTP settings found
+                        @mail($to, $subject, $message, $headers);
                     }
                 } catch (Exception $e) {
-                    // Fail silently so user still gets registered successfully
-                    error_log("Welcome Email Error: " . $mail->ErrorInfo);
+                    // Fail silently so user still gets registered successfully, but try default mail() just in case table doesn't exist
+                    $fallback_msg = "Hello $name,\n\nCongratulations and welcome to the English Learning community! Your account has been successfully created.\n\nOur platform is designed to help you master the English language through consistent practice. You can now update your profile, read stories, and write your own stories to get feedback from our admins.\n\nHappy Learning!\n\nThe English Learning Team";
+                    @mail($email, "Welcome to English Learning - Let's Start Your Journey!", $fallback_msg, "From: noreply@" . $_SERVER['SERVER_NAME']);
+                    error_log("Welcome Email Error: " . $e->getMessage());
                 }
                 // ------------------------------------
+                
+                // Redirect to avoid form resubmission on refresh
+                header("Location: register.php?registered=1");
+                exit();
             } catch(PDOException $e) {
                 $pdo->rollBack();
                 $error = "Registration failed. Please try again later.";
@@ -181,6 +222,11 @@ include 'includes/header.php';
     transform: translateY(-2px);
     box-shadow: 0 8px 15px rgba(var(--bs-primary-rgb), 0.3);
 }
+/* Hide native Edge/IE password reveal eye */
+input::-ms-reveal,
+input::-ms-clear {
+    display: none;
+}
 .toggle-password {
     position: absolute;
     right: 15px;
@@ -257,7 +303,7 @@ include 'includes/header.php';
                                     <div class="col-md-6">
                                         <div class="mb-3 position-relative">
                                             <i class="fas fa-phone position-absolute text-muted" style="left: 18px; top: 50%; transform: translateY(-50%); z-index: 10;"></i>
-                                            <input type="text" class="form-control form-control-lg custom-input" id="mobile" name="mobile" placeholder="Mobile Number" required value="<?= isset($_POST['mobile']) ? escape($_POST['mobile']) : '' ?>">
+                                            <input type="text" inputmode="numeric" class="form-control form-control-lg custom-input" id="mobile" name="mobile" placeholder="10-digit Mobile No." required pattern="[0-9]{10}" maxlength="10" minlength="10" title="Please enter exactly 10 digits" oninput="this.value = this.value.replace(/[^0-9]/g, '');" value="<?= isset($_POST['mobile']) ? escape($_POST['mobile']) : '' ?>">
                                         </div>
                                     </div>
                                 </div>
@@ -269,12 +315,18 @@ include 'includes/header.php';
 
                                 <div class="mb-4 position-relative">
                                     <i class="fas fa-bullseye position-absolute text-muted" style="left: 18px; top: 50%; transform: translateY(-50%); z-index: 10;"></i>
-                                    <select class="form-select form-select-lg custom-input custom-select" id="target_exam" name="target_exam">
+                                    <select class="form-select form-select-lg custom-input custom-select" id="target_exam" name="target_exam" onchange="toggleCustomExam()">
                                         <option value="">Select Target Exam (Optional)...</option>
                                         <?php foreach($exams as $ex): ?>
                                             <option value="<?= $ex['id'] ?>" <?= (isset($_POST['target_exam']) && $_POST['target_exam'] == $ex['id']) ? 'selected' : '' ?>><?= escape($ex['name']) ?></option>
                                         <?php endforeach; ?>
+                                        <option value="other" <?= (isset($_POST['target_exam']) && $_POST['target_exam'] == 'other') ? 'selected' : '' ?>>Other (Please Specify)</option>
                                     </select>
+                                </div>
+                                
+                                <div class="mb-4 position-relative" id="custom_exam_div" style="display: <?= (isset($_POST['target_exam']) && $_POST['target_exam'] == 'other') ? 'block' : 'none' ?>;">
+                                    <i class="fas fa-edit position-absolute text-muted" style="left: 18px; top: 50%; transform: translateY(-50%); z-index: 10;"></i>
+                                    <input type="text" class="form-control form-control-lg custom-input" id="custom_exam" name="custom_exam" placeholder="Type your exam name" value="<?= isset($_POST['custom_exam']) ? escape($_POST['custom_exam']) : '' ?>">
                                 </div>
 
                                 <div class="row">
@@ -324,6 +376,21 @@ function togglePassword(inputId, icon) {
         input.type = 'password';
         icon.classList.remove('fa-eye-slash');
         icon.classList.add('fa-eye');
+    }
+}
+
+function toggleCustomExam() {
+    const select = document.getElementById('target_exam');
+    const customDiv = document.getElementById('custom_exam_div');
+    const customInput = document.getElementById('custom_exam');
+    
+    if (select.value === 'other') {
+        customDiv.style.display = 'block';
+        customInput.setAttribute('required', 'required');
+    } else {
+        customDiv.style.display = 'none';
+        customInput.removeAttribute('required');
+        customInput.value = '';
     }
 }
 </script>
