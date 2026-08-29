@@ -124,12 +124,41 @@ $phrasal_verbs = $stmt->fetchAll();
     
     <?php if ($total_pages > 1): ?>
     <nav>
-        <ul class="pagination justify-content-center">
-            <?php for ($i = 1; $i <= $total_pages; $i++): ?>
-                <li class="page-item <?= ($i == $page) ? 'active' : '' ?>">
-                    <a class="page-link" href="?page=<?= $i ?>&search=<?= urlencode($search) ?>"><?= $i ?></a>
-                </li>
-            <?php endfor; ?>
+        <ul class="pagination justify-content-center flex-wrap">
+            <!-- Previous Button -->
+            <li class="page-item <?= ($page <= 1) ? 'disabled' : '' ?>">
+                <a class="page-link" href="?page=<?= max(1, $page - 1) ?>&search=<?= urlencode($search) ?>">&laquo; Prev</a>
+            </li>
+            
+            <?php
+            $adjacents = 2;
+            $start = max(1, $page - $adjacents);
+            $end = min($total_pages, $page + $adjacents);
+            
+            if ($start > 1) {
+                echo '<li class="page-item"><a class="page-link" href="?page=1&search='.urlencode($search).'">1</a></li>';
+                if ($start > 2) {
+                    echo '<li class="page-item disabled"><span class="page-link">...</span></li>';
+                }
+            }
+            
+            for ($i = $start; $i <= $end; $i++) {
+                $active = ($i == $page) ? 'active' : '';
+                echo '<li class="page-item '.$active.'"><a class="page-link" href="?page='.$i.'&search='.urlencode($search).'">'.$i.'</a></li>';
+            }
+            
+            if ($end < $total_pages) {
+                if ($end < $total_pages - 1) {
+                    echo '<li class="page-item disabled"><span class="page-link">...</span></li>';
+                }
+                echo '<li class="page-item"><a class="page-link" href="?page='.$total_pages.'&search='.urlencode($search).'">'.$total_pages.'</a></li>';
+            }
+            ?>
+            
+            <!-- Next Button -->
+            <li class="page-item <?= ($page >= $total_pages) ? 'disabled' : '' ?>">
+                <a class="page-link" href="?page=<?= min($total_pages, $page + 1) ?>&search=<?= urlencode($search) ?>">Next &raquo;</a>
+            </li>
         </ul>
     </nav>
     <?php endif; ?>
