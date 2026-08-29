@@ -66,11 +66,27 @@ $phrasal_verbs = $stmt->fetchAll();
         <?php unset($_SESSION['success_msg']); ?>
     <?php endif; ?>
 
-    <div class="row mb-3">
-        <div class="col-md-6">
+    <div class="row mb-3 align-items-center">
+        <div class="col-md-6 mb-2 mb-md-0">
             <form action="" method="GET" class="d-flex">
                 <input type="text" name="search" class="form-control me-2" placeholder="Search..." value="<?= htmlspecialchars($search) ?>">
+                <?php if($limit != 10): ?><input type="hidden" name="limit" value="<?= $limit ?>"><?php endif; ?>
                 <button type="submit" class="btn btn-outline-secondary">Search</button>
+                <?php if(!empty($search)): ?>
+                    <a href="index.php" class="btn btn-outline-danger ms-2" title="Clear Search"><i class="fas fa-times"></i></a>
+                <?php endif; ?>
+            </form>
+        </div>
+        <div class="col-md-6 d-flex justify-content-md-end">
+            <form action="" method="GET" class="d-flex align-items-center">
+                <label class="me-2 fw-bold text-secondary text-nowrap">Show:</label>
+                <?php if(!empty($search)): ?><input type="hidden" name="search" value="<?= htmlspecialchars($search) ?>"><?php endif; ?>
+                <select name="limit" class="form-select w-auto fw-bold" onchange="this.form.submit()">
+                    <option value="10" <?= $limit == 10 ? 'selected' : '' ?>>10 Records</option>
+                    <option value="20" <?= $limit == 20 ? 'selected' : '' ?>>20 Records</option>
+                    <option value="50" <?= $limit == 50 ? 'selected' : '' ?>>50 Records</option>
+                    <option value="100" <?= $limit == 100 ? 'selected' : '' ?>>100 Records</option>
+                </select>
             </form>
         </div>
     </div>
@@ -123,11 +139,11 @@ $phrasal_verbs = $stmt->fetchAll();
     </div>
     
     <?php if ($total_pages > 1): ?>
-    <nav>
-        <ul class="pagination justify-content-center flex-wrap">
+    <nav class="mt-4">
+        <ul class="pagination justify-content-center flex-wrap shadow-sm">
             <!-- Previous Button -->
             <li class="page-item <?= ($page <= 1) ? 'disabled' : '' ?>">
-                <a class="page-link" href="?page=<?= max(1, $page - 1) ?>&search=<?= urlencode($search) ?>">&laquo; Prev</a>
+                <a class="page-link" href="?page=<?= max(1, $page - 1) ?>&search=<?= urlencode($search) ?>&limit=<?= $limit ?>">&laquo; Prev</a>
             </li>
             
             <?php
@@ -136,28 +152,28 @@ $phrasal_verbs = $stmt->fetchAll();
             $end = min($total_pages, $page + $adjacents);
             
             if ($start > 1) {
-                echo '<li class="page-item"><a class="page-link" href="?page=1&search='.urlencode($search).'">1</a></li>';
+                echo '<li class="page-item"><a class="page-link" href="?page=1&search='.urlencode($search).'&limit='.$limit.'">1</a></li>';
                 if ($start > 2) {
-                    echo '<li class="page-item disabled"><span class="page-link">...</span></li>';
+                    echo '<li class="page-item disabled"><span class="page-link text-muted">...</span></li>';
                 }
             }
             
             for ($i = $start; $i <= $end; $i++) {
                 $active = ($i == $page) ? 'active' : '';
-                echo '<li class="page-item '.$active.'"><a class="page-link" href="?page='.$i.'&search='.urlencode($search).'">'.$i.'</a></li>';
+                echo '<li class="page-item '.$active.'"><a class="page-link" href="?page='.$i.'&search='.urlencode($search).'&limit='.$limit.'">'.$i.'</a></li>';
             }
             
             if ($end < $total_pages) {
                 if ($end < $total_pages - 1) {
-                    echo '<li class="page-item disabled"><span class="page-link">...</span></li>';
+                    echo '<li class="page-item disabled"><span class="page-link text-muted">...</span></li>';
                 }
-                echo '<li class="page-item"><a class="page-link" href="?page='.$total_pages.'&search='.urlencode($search).'">'.$total_pages.'</a></li>';
+                echo '<li class="page-item"><a class="page-link" href="?page='.$total_pages.'&search='.urlencode($search).'&limit='.$limit.'">'.$total_pages.'</a></li>';
             }
             ?>
             
             <!-- Next Button -->
             <li class="page-item <?= ($page >= $total_pages) ? 'disabled' : '' ?>">
-                <a class="page-link" href="?page=<?= min($total_pages, $page + 1) ?>&search=<?= urlencode($search) ?>">Next &raquo;</a>
+                <a class="page-link" href="?page=<?= min($total_pages, $page + 1) ?>&search=<?= urlencode($search) ?>&limit=<?= $limit ?>">Next &raquo;</a>
             </li>
         </ul>
     </nav>
