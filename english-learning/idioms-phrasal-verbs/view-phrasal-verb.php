@@ -3,9 +3,9 @@
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
-// Since this is included from router.php, the working directory is vishwkarma root.
-require_once 'english-learning/config/database.php';
-require_once 'english-learning/includes/functions.php';
+// Include configuration and functions
+require_once '../config/database.php';
+require_once '../includes/functions.php';
 
 $slug = $_GET['slug'] ?? '';
 if (empty($slug)) {

@@ -98,7 +98,7 @@ $recent_phrasal_verbs = $stmt->fetchAll();
                             <div class="card border-0 shadow-sm h-100">
                                 <div class="card-body">
                                     <h5 class="card-title fw-bold">
-                                        <a href="../idioms/<?= htmlspecialchars($item['slug']) ?>" class="text-decoration-none text-dark">
+                                        <a href="view-idiom.php?slug=<?= htmlspecialchars($item['slug']) ?>" class="text-decoration-none text-dark">
                                             <?= htmlspecialchars($item['idiom']) ?>
                                         </a>
                                     </h5>
@@ -132,7 +132,7 @@ $recent_phrasal_verbs = $stmt->fetchAll();
                             <div class="card border-0 shadow-sm h-100 border-start border-success border-4">
                                 <div class="card-body">
                                     <h5 class="card-title fw-bold">
-                                        <a href="../phrasal-verbs/<?= htmlspecialchars($item['slug']) ?>" class="text-decoration-none text-dark">
+                                        <a href="view-phrasal-verb.php?slug=<?= htmlspecialchars($item['slug']) ?>" class="text-decoration-none text-dark">
                                             <?= htmlspecialchars($item['phrasal_verb']) ?>
                                         </a>
                                     </h5>

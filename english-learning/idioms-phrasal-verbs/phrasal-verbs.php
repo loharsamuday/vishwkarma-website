@@ -105,7 +105,7 @@ $categories = $stmt_cat->fetchAll();
                                 <div class="card-body">
                                     <div class="d-flex justify-content-between align-items-start mb-2">
                                         <h5 class="card-title fw-bold text-success mb-0">
-                                            <a href="../phrasal-verbs/<?= htmlspecialchars($item['slug']) ?>" class="text-decoration-none text-success">
+                                            <a href="view-phrasal-verb.php?slug=<?= htmlspecialchars($item['slug']) ?>" class="text-decoration-none text-success">
                                                 <?= htmlspecialchars($item['phrasal_verb']) ?>
                                             </a>
                                         </h5>
@@ -124,7 +124,7 @@ $categories = $stmt_cat->fetchAll();
                                         <span class="badge bg-light text-dark border">
                                             <?= htmlspecialchars($item['difficulty']) ?>
                                         </span>
-                                        <a href="../phrasal-verbs/<?= htmlspecialchars($item['slug']) ?>" class="btn btn-sm btn-outline-success stretched-link">Learn More <i class="fas fa-arrow-right ms-1"></i></a>
+                                        <a href="view-phrasal-verb.php?slug=<?= htmlspecialchars($item['slug']) ?>" class="btn btn-sm btn-outline-success stretched-link">Learn More <i class="fas fa-arrow-right ms-1"></i></a>
                                     </div>
                                 </div>
                             </div>
