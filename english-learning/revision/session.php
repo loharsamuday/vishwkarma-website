@@ -116,7 +116,7 @@ function submitRevision(action, item_type, item_id) {
     formData.append('item_type', item_type);
     formData.append('item_id', item_id);
 
-    fetch('/vishwkarma/english-learning/ajax/memory_action.php', {
+    fetch('<?= EL_BASE_URL ?>ajax/memory_action.php', {
         method: 'POST',
         body: formData
     })
