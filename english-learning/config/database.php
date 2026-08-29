@@ -627,6 +627,44 @@ try {
                 ('Daily Challenge Champion', 'Completed 10 daily challenges', 'fas fa-trophy', 'challenge', 10),
                 ('Battle Master', 'Won 50 Battles', 'fas fa-khanda', 'battle', 50)");
         }
+        
+        // ==========================================
+        // AUTOMATIC DATABASE MANAGE SYSTEM
+        // ==========================================
+        // This checks if the latest columns exist. If not, it automatically fixes the database.
+        $stmt_check = $pdo->query("SHOW COLUMNS FROM user_stories LIKE 'admin_note'");
+        if ($stmt_check && $stmt_check->rowCount() == 0) {
+            // The column is missing! This means the live database is outdated.
+            $alter_queries = [
+                "ALTER TABLE categories ADD COLUMN slug VARCHAR(100) NULL AFTER name",
+                "ALTER TABLE stories ADD COLUMN slug VARCHAR(255) NULL AFTER title",
+                "ALTER TABLE stories ADD UNIQUE KEY `slug` (`slug`)",
+                "ALTER TABLE stories ADD COLUMN featured_image VARCHAR(255) NULL AFTER reading_time",
+                "ALTER TABLE stories ADD COLUMN seo_title VARCHAR(255) NULL AFTER status",
+                "ALTER TABLE stories ADD COLUMN seo_description TEXT NULL AFTER seo_title",
+                "ALTER TABLE stories ADD COLUMN hindi_meaning LONGTEXT NULL AFTER content",
+                "ALTER TABLE stories ADD COLUMN moral TEXT NULL AFTER hindi_meaning",
+                "ALTER TABLE user_stories ADD COLUMN admin_note TEXT NULL AFTER status",
+                "ALTER TABLE users ADD COLUMN profile_photo VARCHAR(255) NULL AFTER password",
+                "ALTER TABLE admins ADD COLUMN role ENUM('super_admin', 'guest_admin') DEFAULT 'super_admin' AFTER password",
+                "ALTER TABLE admins ADD COLUMN permissions TEXT NULL AFTER role",
+                "ALTER TABLE study_routines MODIFY user_id INT NULL",
+                "ALTER TABLE study_routines ADD COLUMN guest_id VARCHAR(100) NULL AFTER user_id",
+                "ALTER TABLE study_sessions MODIFY user_id INT NULL",
+                "ALTER TABLE study_sessions ADD COLUMN guest_id VARCHAR(100) NULL AFTER user_id",
+                "ALTER TABLE daily_targets MODIFY user_id INT NULL",
+                "ALTER TABLE daily_targets ADD COLUMN guest_id VARCHAR(100) NULL AFTER user_id"
+            ];
+            
+            foreach ($alter_queries as $q) {
+                try {
+                    $pdo->exec($q);
+                } catch (PDOException $e) {
+                    // Ignore duplicate column errors (1060, 1061)
+                }
+            }
+        }
+        
     } catch(PDOException $e) {
         // Ignore errors during initial check
     }

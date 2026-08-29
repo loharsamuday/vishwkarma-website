@@ -100,7 +100,7 @@ include 'includes/header.php';
                             </div>
                         </div>
 
-                        <textarea class="form-control" id="admin_note" name="admin_note" rows="4" placeholder="Type your message or reason here..."><?= escape($story['admin_note']) ?></textarea>
+                        <textarea class="form-control" id="admin_note" name="admin_note" rows="4" placeholder="Type your message or reason here..."><?= escape($story['admin_note'] ?? '') ?></textarea>
                     </div>
                     
                     <div class="d-grid gap-2">
