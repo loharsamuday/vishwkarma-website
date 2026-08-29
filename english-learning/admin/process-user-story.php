@@ -13,6 +13,24 @@ $id = (int)$_POST['id'];
 $status = $_POST['status'];
 $admin_note = trim($_POST['admin_note']);
 
+// Auto-reject if admin tries to approve a story that is too short (< 100 words)
+if ($status === 'Approved') {
+    $stmt = $pdo->prepare("SELECT content FROM user_stories WHERE id = ?");
+    $stmt->execute([$id]);
+    $u_story = $stmt->fetch();
+    
+    if ($u_story) {
+        $clean_content = trim(strip_tags($u_story['content']));
+        $words = preg_split('/\s+/u', $clean_content, -1, PREG_SPLIT_NO_EMPTY);
+        $word_count = $words ? count($words) : 0;
+        
+        if ($word_count < 100) {
+            $status = 'Rejected';
+            $admin_note = "Auto-Rejected: Your story contains only $word_count words. A minimum of 100 words is required for publishing. Please expand your story and try again.";
+        }
+    }
+}
+
 // Update status
 $stmt = $pdo->prepare("UPDATE user_stories SET status = ?, admin_note = ? WHERE id = ?");
 $stmt->execute([$status, $admin_note, $id]);
