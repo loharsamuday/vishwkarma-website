@@ -12,7 +12,11 @@ if (!isset($_SESSION['admin_id'])) {
 
 $id = isset($_GET['id']) ? (int)$_GET['id'] : 0;
 
-$stmt = $pdo->prepare("SELECT us.*, c.name as category_name FROM user_stories us LEFT JOIN categories c ON us.category_id = c.id WHERE us.id = ?");
+$stmt = $pdo->prepare("SELECT us.*, c.name as category_name, u.name as registered_user_name 
+                       FROM user_stories us 
+                       LEFT JOIN categories c ON us.category_id = c.id 
+                       LEFT JOIN users u ON us.user_id = u.id 
+                       WHERE us.id = ?");
 $stmt->execute([$id]);
 $story = $stmt->fetch();
 
@@ -21,13 +25,22 @@ if (!$story) {
     exit();
 }
 
+$page_title = 'Review User Story';
 include 'includes/header.php';
 ?>
 
-<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
-    <h1 class="h2">Review Submission: <?= escape($story['title']) ?></h1>
-    <a href="user-stories.php" class="btn btn-outline-secondary"><i class="fas fa-arrow-left me-1"></i> Back</a>
-</div>
+<div class="container-fluid px-4 py-4">
+    <?php if (isset($_SESSION['error_msg'])): ?>
+        <div class="alert alert-danger shadow-sm border-0 border-start border-4 border-danger">
+            <i class="fas fa-exclamation-triangle me-2"></i> <?= escape($_SESSION['error_msg']) ?>
+        </div>
+        <?php unset($_SESSION['error_msg']); ?>
+    <?php endif; ?>
+    
+    <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+        <h1 class="h2">Review Submission: <?= escape($story['title']) ?></h1>
+        <a href="user-stories.php" class="btn btn-outline-secondary"><i class="fas fa-arrow-left me-1"></i> Back</a>
+    </div>
 
 <div class="row">
     <div class="col-md-8">
