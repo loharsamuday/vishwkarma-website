@@ -22,22 +22,36 @@ $page_title = 'Manage Vocabulary';
 include 'includes/header.php';
 
 $page = isset($_GET['page']) ? (int)$_GET['page'] : 1;
-$per_page = 15;
-$offset = ($page - 1) * $per_page;
+$limit = isset($_GET['limit']) ? (int)$_GET['limit'] : 15;
+$search = $_GET['search'] ?? '';
+$offset = ($page - 1) * $limit;
 
-$stmt = $pdo->query("SELECT COUNT(*) FROM vocabulary");
-$total_vocab = $stmt->fetchColumn();
-$total_pages = ceil($total_vocab / $per_page);
+$where_clause = "";
+$params = [];
+if (!empty($search)) {
+    $where_clause = "WHERE v.word LIKE ? OR v.hindi_meaning LIKE ?";
+    $params[] = "%$search%";
+    $params[] = "%$search%";
+}
+
+$stmt_total = $pdo->prepare("SELECT COUNT(*) FROM vocabulary v $where_clause");
+$stmt_total->execute($params);
+$total_vocab = $stmt_total->fetchColumn();
+$total_pages = ceil($total_vocab / $limit);
 
 $stmt = $pdo->prepare("
     SELECT v.*, s.title as story_title 
     FROM vocabulary v 
     LEFT JOIN stories s ON v.story_id = s.id 
+    $where_clause
     ORDER BY v.created_at DESC 
     LIMIT :limit OFFSET :offset
 ");
-$stmt->bindValue(':limit', $per_page, PDO::PARAM_INT);
-$stmt->bindValue(':offset', $offset, PDO::PARAM_INT);
+foreach($params as $i => $p) {
+    $stmt->bindValue($i + 1, $p);
+}
+$stmt->bindValue(count($params) + 1, $limit, PDO::PARAM_INT);
+$stmt->bindValue(count($params) + 2, $offset, PDO::PARAM_INT);
 $stmt->execute();
 $vocabularies = $stmt->fetchAll();
 ?>
@@ -67,6 +81,29 @@ $vocabularies = $stmt->fetchAll();
 <?php if(isset($_GET['msg']) && $_GET['msg'] == 'bulk_deleted'): ?>
     <div class="alert alert-success"><?= isset($_GET['count']) ? (int)$_GET['count'] : 0 ?> vocabulary words deleted successfully.</div>
 <?php endif; ?>
+
+<div class="row mb-3">
+    <div class="col-md-8">
+        <form action="" method="GET" class="d-flex">
+            <input type="text" name="search" class="form-control me-2" placeholder="Search Vocabulary..." value="<?= htmlspecialchars($search) ?>">
+            <?php if (isset($_GET['limit'])): ?>
+                <input type="hidden" name="limit" value="<?= (int)$_GET['limit'] ?>">
+            <?php endif; ?>
+            <button type="submit" class="btn btn-outline-secondary">Search</button>
+        </form>
+    </div>
+    <div class="col-md-4 text-end">
+        <form action="" method="GET" class="d-inline-block">
+            <input type="hidden" name="search" value="<?= htmlspecialchars($search) ?>">
+            <label for="limit" class="me-2 fw-bold text-muted small">Per Page:</label>
+            <select name="limit" id="limit" class="form-select form-select-sm d-inline-block w-auto shadow-sm" onchange="this.form.submit()">
+                <option value="15" <?= $limit == 15 ? 'selected' : '' ?>>15</option>
+                <option value="50" <?= $limit == 50 ? 'selected' : '' ?>>50</option>
+                <option value="100" <?= $limit == 100 ? 'selected' : '' ?>>100</option>
+            </select>
+        </form>
+    </div>
+</div>
 
 <div class="card shadow-sm">
     <div class="card-body p-0">
@@ -110,14 +147,44 @@ $vocabularies = $stmt->fetchAll();
     </div>
 </div>
 
-<?php if ($total_pages > 1): ?>
-<nav class="mt-4">
+<?php if ($total_pages > 0): ?>
+<nav class="mt-4" aria-label="Page navigation">
     <ul class="pagination justify-content-center">
-        <?php for ($i = 1; $i <= $total_pages; $i++): ?>
+        <!-- Previous Button -->
+        <li class="page-item <?= ($page <= 1) ? 'disabled' : '' ?>">
+            <a class="page-link" href="<?= ($page <= 1) ? '#' : '?page=' . ($page - 1) . '&search=' . urlencode($search) . '&limit=' . $limit ?>" <?= ($page <= 1) ? 'tabindex="-1" aria-disabled="true"' : '' ?>>Previous</a>
+        </li>
+        
+        <?php 
+        $start_page = max(1, $page - 2);
+        $end_page = min($total_pages, $page + 2);
+        if ($end_page - $start_page < 4) {
+            if ($start_page == 1) {
+                $end_page = min($total_pages, 5);
+            } elseif ($end_page == $total_pages) {
+                $start_page = max(1, $total_pages - 4);
+            }
+        }
+        ?>
+        
+        <?php if ($start_page > 1): ?>
+            <li class="page-item disabled"><span class="page-link">...</span></li>
+        <?php endif; ?>
+        
+        <?php for ($i = $start_page; $i <= $end_page; $i++): ?>
             <li class="page-item <?= ($page == $i) ? 'active' : '' ?>">
-                <a class="page-link" href="?page=<?= $i ?>"><?= $i ?></a>
+                <a class="page-link" href="?page=<?= $i ?>&search=<?= urlencode($search) ?>&limit=<?= $limit ?>"><?= $i ?></a>
             </li>
         <?php endfor; ?>
+        
+        <?php if ($end_page < $total_pages): ?>
+            <li class="page-item disabled"><span class="page-link">...</span></li>
+        <?php endif; ?>
+        
+        <!-- Next Button -->
+        <li class="page-item <?= ($page >= $total_pages) ? 'disabled' : '' ?>">
+            <a class="page-link" href="<?= ($page >= $total_pages) ? '#' : '?page=' . ($page + 1) . '&search=' . urlencode($search) . '&limit=' . $limit ?>" <?= ($page >= $total_pages) ? 'tabindex="-1" aria-disabled="true"' : '' ?>>Next</a>
+        </li>
     </ul>
 </nav>
 <?php endif; ?>

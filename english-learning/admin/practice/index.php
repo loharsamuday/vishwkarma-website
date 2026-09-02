@@ -110,7 +110,7 @@ $questions = $stmt->fetchAll();
 
     <form action="" method="POST" id="bulkDeleteForm">
         <div class="mb-2 d-flex justify-content-between align-items-center">
-            <button type="submit" name="bulk_delete" class="btn btn-sm btn-danger" onclick="return confirm('Are you sure you want to delete all selected questions?');">
+            <button type="submit" name="bulk_delete" value="1" class="btn btn-sm btn-danger" onclick="return confirm('Are you sure you want to delete all selected questions?');">
                 <i class="fas fa-trash-alt me-1"></i> Delete Selected
             </button>
             <span class="text-muted small">Total Questions: <?= $total_records ?></span>
@@ -161,7 +161,7 @@ $questions = $stmt->fetchAll();
         </div>
     </form>
     
-    <?php if ($total_pages > 1): ?>
+    <?php if ($total_pages > 0): ?>
     <nav aria-label="Page navigation">
         <ul class="pagination justify-content-center">
             <!-- Previous Button -->
@@ -170,11 +170,31 @@ $questions = $stmt->fetchAll();
             </li>
             
             <!-- Page Numbers -->
-            <?php for ($i = 1; $i <= $total_pages; $i++): ?>
+            <?php 
+            $start_page = max(1, $page - 2);
+            $end_page = min($total_pages, $page + 2);
+            if ($end_page - $start_page < 4) {
+                if ($start_page == 1) {
+                    $end_page = min($total_pages, 5);
+                } elseif ($end_page == $total_pages) {
+                    $start_page = max(1, $total_pages - 4);
+                }
+            }
+            ?>
+            
+            <?php if ($start_page > 1): ?>
+                <li class="page-item disabled"><span class="page-link">...</span></li>
+            <?php endif; ?>
+            
+            <?php for ($i = $start_page; $i <= $end_page; $i++): ?>
                 <li class="page-item <?= ($i == $page) ? 'active' : '' ?>">
                     <a class="page-link" href="?page=<?= $i ?>&search=<?= urlencode($search) ?>&limit=<?= $limit ?>"><?= $i ?></a>
                 </li>
             <?php endfor; ?>
+            
+            <?php if ($end_page < $total_pages): ?>
+                <li class="page-item disabled"><span class="page-link">...</span></li>
+            <?php endif; ?>
             
             <!-- Next Button -->
             <li class="page-item <?= ($page >= $total_pages) ? 'disabled' : '' ?>">
