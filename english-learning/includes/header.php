@@ -91,7 +91,7 @@ $current_dir = basename(dirname($_SERVER['PHP_SELF']));
                         <a class="nav-link <?= ($current_page == 'stories.php' || $current_page == 'story.php') ? 'active-menu' : '' ?>" href="<?= EL_BASE_URL ?>stories.php">Stories</a>
                     </li>
                     <li class="nav-item dropdown">
-                        <a class="nav-link dropdown-toggle <?= (in_array($current_dir, ['idioms-phrasal-verbs', 'my-memory', 'revision']) || $current_page == 'vocabulary.php') ? 'active-menu' : '' ?>" href="#" id="vocabDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                        <a class="nav-link dropdown-toggle <?= (in_array($current_dir, ['idioms-phrasal-verbs', 'my-memory', 'revision']) || in_array($current_page, ['vocabulary.php', 'vocabulary-test.php'])) ? 'active-menu' : '' ?>" href="#" id="vocabDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
                             Learning
                         </a>
                         <ul class="dropdown-menu shadow border-0" aria-labelledby="vocabDropdown">
@@ -100,6 +100,7 @@ $current_dir = basename(dirname($_SERVER['PHP_SELF']));
                             <li><a class="dropdown-item" href="<?= EL_BASE_URL ?>vocabulary.php">Story Vocabulary</a></li>
                             <li><hr class="dropdown-divider"></li>
                             <li><h6 class="dropdown-header">Practice & Review</h6></li>
+                            <li><a class="dropdown-item" href="<?= EL_BASE_URL ?>vocabulary-test.php"><i class="fas fa-tasks text-success me-2"></i>Vocabulary Test</a></li>
                             <li><a class="dropdown-item" href="<?= EL_BASE_URL ?>my-memory/"><i class="fas fa-brain text-primary me-2"></i>My Memory</a></li>
                             <li><a class="dropdown-item" href="<?= EL_BASE_URL ?>revision/"><i class="fas fa-sync text-warning me-2"></i>Smart Revision</a></li>
                             <li><a class="dropdown-item" href="<?= EL_BASE_URL ?>idioms-phrasal-verbs/practice.php">Practice Questions</a></li>

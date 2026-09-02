@@ -4,6 +4,21 @@ session_start();
 $page_title = 'Manage Vocabulary';
 include 'includes/header.php';
 
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['bulk_delete_by_date'])) {
+    $start_date = $_POST['start_date'] ?? '';
+    $end_date = $_POST['end_date'] ?? '';
+
+    if (!empty($start_date) && !empty($end_date)) {
+        $stmt = $pdo->prepare("DELETE FROM vocabulary WHERE DATE(created_at) >= ? AND DATE(created_at) <= ?");
+        $stmt->execute([$start_date, $end_date]);
+        $deleted_count = $stmt->rowCount();
+        header("Location: vocabulary.php?msg=bulk_deleted&count=" . $deleted_count);
+        exit();
+    } else {
+        $error_msg = "Please select both start and end dates.";
+    }
+}
+
 $page = isset($_GET['page']) ? (int)$_GET['page'] : 1;
 $per_page = 15;
 $offset = ($page - 1) * $per_page;
@@ -27,9 +42,17 @@ $vocabularies = $stmt->fetchAll();
 
 <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
     <h1 class="h2">Manage Vocabulary</h1>
-    <a href="add-vocabulary.php" class="btn btn-success"><i class="fas fa-plus me-1"></i> Add Word</a>
+    <div>
+        <button type="button" class="btn btn-danger me-2" data-bs-toggle="modal" data-bs-target="#bulkDeleteModal">
+            <i class="fas fa-trash-alt me-1"></i> Bulk Delete
+        </button>
+        <a href="add-vocabulary.php" class="btn btn-success"><i class="fas fa-plus me-1"></i> Add Word</a>
+    </div>
 </div>
 
+<?php if(isset($error_msg)): ?>
+    <div class="alert alert-danger"><?= htmlspecialchars($error_msg) ?></div>
+<?php endif; ?>
 <?php if(isset($_GET['msg']) && $_GET['msg'] == 'added'): ?>
     <div class="alert alert-success">Word added successfully.</div>
 <?php endif; ?>
@@ -38,6 +61,9 @@ $vocabularies = $stmt->fetchAll();
 <?php endif; ?>
 <?php if(isset($_GET['msg']) && $_GET['msg'] == 'deleted'): ?>
     <div class="alert alert-success">Word deleted successfully.</div>
+<?php endif; ?>
+<?php if(isset($_GET['msg']) && $_GET['msg'] == 'bulk_deleted'): ?>
+    <div class="alert alert-success"><?= isset($_GET['count']) ? (int)$_GET['count'] : 0 ?> vocabulary words deleted successfully.</div>
 <?php endif; ?>
 
 <div class="card shadow-sm">
@@ -93,5 +119,37 @@ $vocabularies = $stmt->fetchAll();
     </ul>
 </nav>
 <?php endif; ?>
+
+<!-- Bulk Delete Modal -->
+<div class="modal fade" id="bulkDeleteModal" tabindex="-1" aria-labelledby="bulkDeleteModalLabel" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <form action="vocabulary.php" method="POST">
+        <div class="modal-header bg-danger text-white">
+          <h5 class="modal-title" id="bulkDeleteModalLabel"><i class="fas fa-trash-alt me-2"></i>Bulk Delete Vocabulary by Date</h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <p class="text-muted small mb-3">Delete vocabulary words that were added within a specific date range.</p>
+          <div class="mb-3">
+            <label for="start_date" class="form-label fw-bold">Start Date</label>
+            <input type="date" class="form-control" id="start_date" name="start_date" required>
+          </div>
+          <div class="mb-3">
+            <label for="end_date" class="form-label fw-bold">End Date</label>
+            <input type="date" class="form-control" id="end_date" name="end_date" required>
+          </div>
+          <div class="alert alert-warning small mb-0">
+             <i class="fas fa-exclamation-triangle me-1"></i> <strong>Warning:</strong> This action cannot be undone. All vocabulary words created between these dates will be permanently deleted.
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" name="bulk_delete_by_date" class="btn btn-danger" onclick="return confirm('Are you absolutely sure you want to permanently delete these vocabulary words?');">Confirm Delete</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
 
 <?php include 'includes/footer.php'; ?>
