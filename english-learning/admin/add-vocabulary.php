@@ -27,7 +27,8 @@ $pre_story_id = isset($_GET['story_id']) ? (int)$_GET['story_id'] : '';
 // --- SINGLE UPLOAD LOGIC ---
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_single'])) {
     $word = trim($_POST['word']);
-    $story_id = !empty($_POST['story_id']) ? $_POST['story_id'] : null;
+    $is_standalone = isset($_POST['standalone_vocabulary']);
+    $story_id = (!$is_standalone && !empty($_POST['story_id'])) ? $_POST['story_id'] : null;
     $part_of_speech = trim($_POST['part_of_speech']);
     $hindi_meaning = trim($_POST['hindi_meaning']);
     $english_meaning = trim($_POST['english_meaning']);
@@ -59,7 +60,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_single'])) {
 
 // --- BULK UPLOAD LOGIC ---
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['upload_csv'])) {
-    $story_id_bulk = !empty($_POST['story_id_bulk']) ? $_POST['story_id_bulk'] : null;
+    $is_standalone_bulk = isset($_POST['standalone_vocabulary_bulk']);
+    $story_id_bulk = (!$is_standalone_bulk && !empty($_POST['story_id_bulk'])) ? $_POST['story_id_bulk'] : null;
     
     if (isset($_FILES['csv_file']) && $_FILES['csv_file']['error'] == 0) {
         $file_tmp = $_FILES['csv_file']['tmp_name'];
@@ -208,6 +210,11 @@ include 'includes/header.php';
                                 </select>
                                 <small class="text-muted">Linking a word to a story will show it on that story's page.</small>
                             </div>
+                            <div class="form-check mb-3">
+                                <input class="form-check-input" type="checkbox" id="standalone_vocabulary" name="standalone_vocabulary" value="1">
+                                <label class="form-check-label fw-semibold" for="standalone_vocabulary">Standalone Vocabulary (No Story)</label>
+                                <div class="form-text">Use this option to save the word independently, without linking it to any story.</div>
+                            </div>
                             <div class="d-grid gap-2">
                                 <button type="submit" name="save" class="btn btn-primary bg-primary-custom">Save Word</button>
                                 <button type="submit" name="save_and_add_another" class="btn btn-outline-primary" value="1">Save & Add Another</button>
@@ -255,6 +262,11 @@ include 'includes/header.php';
                                 </select>
                                 <div class="form-text">All words in the CSV file will be linked to this story.</div>
                             </div>
+                            <div class="form-check mb-4 p-3 bg-light rounded border">
+                                <input class="form-check-input ms-0 me-2" type="checkbox" id="standalone_vocabulary_bulk" name="standalone_vocabulary_bulk" value="1">
+                                <label class="form-check-label fw-semibold" for="standalone_vocabulary_bulk">Upload as Standalone Vocabulary (No Story)</label>
+                                <div class="form-text ms-0 mt-1">CSV words will be uploaded independently, even if a story is selected above.</div>
+                            </div>
                             
                             <div class="mb-4">
                                 <label for="csv_file" class="form-label fw-bold">Select CSV File</label>
@@ -272,5 +284,21 @@ include 'includes/header.php';
     </div>
     
 </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    function syncStandalone(checkboxId, selectId) {
+        const checkbox = document.getElementById(checkboxId);
+        const select = document.getElementById(selectId);
+        if (!checkbox || !select) return;
+        checkbox.addEventListener('change', function () {
+            select.disabled = this.checked;
+            if (this.checked) select.value = '';
+        });
+    }
+    syncStandalone('standalone_vocabulary', 'story_id');
+    syncStandalone('standalone_vocabulary_bulk', 'story_id_bulk');
+});
+</script>
 
 <?php include 'includes/footer.php'; ?>

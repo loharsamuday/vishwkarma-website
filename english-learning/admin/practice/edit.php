@@ -126,6 +126,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                                 <option value="general" <?= $question_data['content_type'] == 'general' ? 'selected' : '' ?>>General / Mix</option>
                                 <option value="idiom" <?= $question_data['content_type'] == 'idiom' ? 'selected' : '' ?>>Idiom</option>
                                 <option value="phrasal_verb" <?= $question_data['content_type'] == 'phrasal_verb' ? 'selected' : '' ?>>Phrasal Verb</option>
+                                <option value="vocabulary" <?= $question_data['content_type'] == 'vocabulary' ? 'selected' : '' ?>>Vocabulary</option>
                             </select>
                         </div>
                         <div class="mb-3">

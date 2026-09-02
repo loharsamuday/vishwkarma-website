@@ -72,7 +72,7 @@ CREATE TABLE IF NOT EXISTS phrasal_verbs (
 
 CREATE TABLE IF NOT EXISTS practice_questions (
     id INT AUTO_INCREMENT PRIMARY KEY,
-    content_type ENUM('idiom', 'phrasal_verb', 'general') DEFAULT 'general',
+    content_type ENUM('idiom', 'phrasal_verb', 'vocabulary', 'general') DEFAULT 'general',
     content_id INT NULL,
     question TEXT NOT NULL,
     option_a VARCHAR(255) NOT NULL,

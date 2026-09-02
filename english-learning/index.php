@@ -116,6 +116,21 @@ $categories = $stmt->fetchAll();
         </div>
     </div>
 
+    <!-- English Vocabulary Test -->
+    <div class="card border-0 shadow-sm rounded-4 overflow-hidden mb-5">
+        <div class="row g-0">
+            <div class="col-md-4 bg-success d-flex align-items-center justify-content-center py-5">
+                <i class="fas fa-spell-check text-white opacity-75" style="font-size: 7rem;"></i>
+            </div>
+            <div class="col-md-8 p-5">
+                <span class="badge bg-success-subtle text-success-emphasis mb-2">Quick Practice</span>
+                <h3 class="fw-bold text-success mb-3">English Vocabulary Test</h3>
+                <p class="fs-5 text-muted mb-4">Improve your word power with multiple-choice vocabulary questions. Get instant answers and explanations after every question.</p>
+                <a href="vocabulary-test.php" class="btn btn-success fw-bold px-4"><i class="fas fa-play-circle me-2"></i>Start Vocabulary Test</a>
+            </div>
+        </div>
+    </div>
+
     <!-- Categories Section -->
     <div class="row mb-5">
         <div class="col-12 text-center mb-4">

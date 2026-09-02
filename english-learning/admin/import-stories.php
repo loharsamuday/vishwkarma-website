@@ -6,7 +6,6 @@ require_once '../includes/functions.php';
 
 $page_title = "Bulk Import Dashboard";
 require_once 'includes/header.php';
-require_once 'includes/sidebar.php';
 
 $result = null;
 
@@ -19,6 +18,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_FILES['csv_file'])) {
         'success' => 0,
         'failed' => 0,
         'duplicate' => 0,
+        'processed' => 0,
         'errors' => []
     ];
 
@@ -50,15 +50,24 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_FILES['csv_file'])) {
                     
                     $header_flip = array_flip($header);
                     
-                    // Prep statements
+                    // Prepared statements and small in-memory caches keep a 10+ story import fast.
                     $stmt_check = $pdo->prepare("SELECT id FROM stories WHERE title = ?");
+                    $stmt_slug = $pdo->prepare("SELECT id FROM stories WHERE slug = ?");
                     $stmt_cat = $pdo->prepare("SELECT id FROM categories WHERE name = ? LIMIT 1");
                     $stmt_insert_cat = $pdo->prepare("INSERT INTO categories (name, slug) VALUES (?, ?)");
                     $stmt_insert_story = $pdo->prepare("INSERT INTO stories (title, slug, difficulty, category_id, content, hindi_meaning, moral, status) VALUES (?, ?, ?, ?, ?, ?, ?, 'Published')");
+                    $known_titles = [];
+                    $category_cache = [];
 
                     $row_num = 1;
-                    while (($data = fgetcsv($handle, 10000, ",")) !== FALSE) {
+                    while (($data = fgetcsv($handle)) !== FALSE) {
                         $row_num++;
+
+                        // Ignore completely empty lines in a CSV exported from Excel/Google Sheets.
+                        if (count($data) === 1 && trim($data[0]) === '') {
+                            continue;
+                        }
+                        $result['processed']++;
                         
                         $title = trim($data[$header_flip['story_title']] ?? '');
                         $level = trim($data[$header_flip['story_level']] ?? 'Beginner');
@@ -67,42 +76,63 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_FILES['csv_file'])) {
                         $hindi_meaning = trim($data[$header_flip['hindi_meaning']] ?? '');
                         $moral = trim($data[$header_flip['moral']] ?? '');
                         
-                        if (empty($title) || empty($content)) {
+                        if ($title === '' || $content === '') {
                             $result['failed']++;
                             $result['errors'][] = "<span class='text-danger'>Row $row_num - Missing title or content.</span>";
                             continue;
                         }
+                        if (!in_array($level, ['Beginner', 'Intermediate', 'Advanced'], true)) {
+                            $level = 'Beginner';
+                        }
 
-                        // Check Duplicate
+                        // Check duplicates both in the database and in this uploaded CSV.
+                        $title_key = strtolower($title);
+                        if (isset($known_titles[$title_key])) {
+                            $result['duplicate']++;
+                            $result['errors'][] = "<span class='text-warning'>Row $row_num - Duplicate title in this CSV skipped: '" . htmlspecialchars($title) . "'</span>";
+                            continue;
+                        }
                         $stmt_check->execute([$title]);
                         if ($stmt_check->fetch()) {
                             $result['duplicate']++;
-                            $result['errors'][] = "<span class='text-warning'>Row $row_num - Duplicate story skipped: '" . htmlspecialchars($title) . "'</span>";
+                            $result['errors'][] = "<span class='text-warning'>Row $row_num - Story already exists and was skipped: '" . htmlspecialchars($title) . "'</span>";
                             continue;
                         }
+                        $known_titles[$title_key] = true;
 
                         // Handle Category
                         $category_id = null;
                         if (!empty($category_name)) {
-                            $stmt_cat->execute([$category_name]);
-                            $cat_row = $stmt_cat->fetch();
-                            if ($cat_row) {
-                                $category_id = $cat_row['id'];
+                            $category_key = strtolower($category_name);
+                            if (isset($category_cache[$category_key])) {
+                                $category_id = $category_cache[$category_key];
                             } else {
-                                $cat_slug = strtolower(trim(preg_replace('/[^A-Za-z0-9-]+/', '-', $category_name)));
-                                $stmt_insert_cat->execute([$category_name, $cat_slug]);
-                                $category_id = $pdo->lastInsertId();
+                                $stmt_cat->execute([$category_name]);
+                                $cat_row = $stmt_cat->fetch();
+                                if ($cat_row) {
+                                    $category_id = $cat_row['id'];
+                                } else {
+                                    $cat_slug = generateSlug($category_name) ?: 'category-' . time();
+                                    $stmt_insert_cat->execute([$category_name, $cat_slug]);
+                                    $category_id = $pdo->lastInsertId();
+                                }
+                                $category_cache[$category_key] = $category_id;
                             }
                         }
 
-                        // Handle Slug
-                        $slug = strtolower(trim(preg_replace('/[^A-Za-z0-9-]+/', '-', $title)));
+                        // Create a unique slug so similarly named stories do not stop the whole batch.
+                        $slug_base = generateSlug($title) ?: 'story';
+                        $slug = $slug_base;
+                        $suffix = 2;
+                        $stmt_slug->execute([$slug]);
+                        while ($stmt_slug->fetch()) {
+                            $slug = $slug_base . '-' . $suffix++;
+                            $stmt_slug->execute([$slug]);
+                        }
 
                         try {
                             $stmt_insert_story->execute([$title, $slug, $level, $category_id, $content, $hindi_meaning, $moral]);
-                            $new_story_id = $pdo->lastInsertId();
                             $result['success']++;
-                            $result['errors'][] = "<span class='text-success'>Row $row_num - Success! Story ID: <strong>$new_story_id</strong> ('" . htmlspecialchars($title) . "')</span>";
                         } catch (PDOException $e) {
                             $result['failed']++;
                             $result['errors'][] = "<span class='text-danger'>Row $row_num - Error: " . htmlspecialchars($e->getMessage()) . "</span>";
@@ -188,7 +218,7 @@ $total_stories = $pdo->query("SELECT COUNT(*) FROM stories")->fetchColumn();
 $total_vocab = $pdo->query("SELECT COUNT(*) FROM vocabulary")->fetchColumn();
 ?>
 
-<main class="col-md-9 ms-sm-auto col-lg-10 px-md-4">
+<div>
     <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
         <h1 class="h2">Professional Import Dashboard</h1>
         <div class="btn-toolbar mb-2 mb-md-0 gap-2">
@@ -245,6 +275,7 @@ $total_vocab = $pdo->query("SELECT COUNT(*) FROM vocabulary")->fetchColumn();
                         </div>
                     </div>
                 </div>
+                <p class="text-center text-muted small mb-3">Processed <?= $result['processed'] ?> data row(s).</p>
 
                 <?php if (!empty($result['errors'])): ?>
                     <h6 class="fw-bold text-dark mt-3">Import Log:</h6>
@@ -269,15 +300,16 @@ $total_vocab = $pdo->query("SELECT COUNT(*) FROM vocabulary")->fetchColumn();
                     <i class="fas fa-book me-1"></i> IMPORT STORY
                 </div>
                 <div class="card-body">
-                    <p class="text-muted small">Upload a CSV file containing story data. The system will automatically generate a unique <strong>story_id</strong> for each successful import.</p>
-                    <form action="" method="POST" enctype="multipart/form-data">
+                    <p class="text-muted small">Upload up to 10 stories at once (larger batches also supported). Categories and unique story URLs are created automatically.</p>
+                    <div class="alert alert-primary small py-2"><i class="fas fa-bolt me-1"></i> Add one story per CSV row, then upload once.</div>
+                    <form action="" method="POST" enctype="multipart/form-data" class="story-import-form">
                         <input type="hidden" name="import_type" value="story">
                         <div class="mb-3">
-                            <input type="file" class="form-control" name="csv_file" accept=".csv" required>
+                            <input type="file" class="form-control" name="csv_file" accept=".csv,text/csv" required>
                         </div>
                         <div class="d-flex justify-content-between align-items-center">
-                            <button type="submit" class="btn btn-primary"><i class="fas fa-upload me-1"></i> Upload Story</button>
-                            <a href="download_story_csv.php?type=story" class="btn btn-sm btn-outline-primary"><i class="fas fa-download me-1"></i> Download Sample</a>
+                            <button type="submit" class="btn btn-primary import-submit"><i class="fas fa-upload me-1"></i> Import Stories</button>
+                            <a href="download_story_csv.php?type=story" class="btn btn-sm btn-outline-primary"><i class="fas fa-download me-1"></i> Download 10-Story Sample</a>
                         </div>
                     </form>
                 </div>
@@ -306,6 +338,16 @@ $total_vocab = $pdo->query("SELECT COUNT(*) FROM vocabulary")->fetchColumn();
             </div>
         </div>
     </div>
-</main>
+</div>
+
+<script>
+document.querySelectorAll('.story-import-form').forEach(function (form) {
+    form.addEventListener('submit', function () {
+        const button = form.querySelector('.import-submit');
+        button.disabled = true;
+        button.innerHTML = '<span class="spinner-border spinner-border-sm me-1" aria-hidden="true"></span> Importing...';
+    });
+});
+</script>
 
 <?php require_once 'includes/footer.php'; ?>

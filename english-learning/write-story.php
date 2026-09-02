@@ -88,10 +88,43 @@ $categories = $pdo->query("SELECT * FROM categories ORDER BY name ASC")->fetchAl
 include 'includes/header.php';
 ?>
 
-<div class="py-5 mb-5 text-center text-white position-relative" style="background: linear-gradient(135deg, var(--primary-color) 0%, var(--accent-color) 100%);">
+<style>
+    .writer-hero { background: radial-gradient(circle at 15% 10%, rgba(255,255,255,.18), transparent 27%), linear-gradient(135deg, #082b49 0%, #0b3b60 48%, #198754 150%); padding: 4.5rem 0 5.75rem; overflow: hidden; }
+    .writer-hero::before, .writer-hero::after { content: ''; position: absolute; border: 1px solid rgba(255,255,255,.16); border-radius: 50%; }
+    .writer-hero::before { width: 340px; height: 340px; top: -210px; right: -70px; }
+    .writer-hero::after { width: 180px; height: 180px; bottom: -115px; left: 8%; }
+    .writer-eyebrow { display: inline-flex; align-items: center; gap: .45rem; padding: .45rem .85rem; border: 1px solid rgba(255,255,255,.32); border-radius: 999px; background: rgba(255,255,255,.11); font-size: .78rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; }
+    .writer-shell { margin-top: -3.2rem; position: relative; z-index: 3; }
+    .writer-form-card { border: 1px solid rgba(11,59,96,.08); box-shadow: 0 20px 50px rgba(15, 38, 61, .13) !important; }
+    .writer-section-title { display: flex; align-items: center; gap: .8rem; padding-bottom: 1rem; margin-bottom: 1.4rem; border-bottom: 1px solid #e8eef3; }
+    .writer-section-icon { width: 42px; height: 42px; border-radius: 13px; display: inline-flex; align-items: center; justify-content: center; background: #e9f3fb; color: var(--primary-color); }
+    .writer-form-card .form-control, .writer-form-card .form-select { border-color: #d9e2ea; border-radius: .8rem; }
+    .writer-form-card .form-control:focus, .writer-form-card .form-select:focus { border-color: var(--accent-color); box-shadow: 0 0 0 .22rem rgba(52,152,219,.15); }
+    .writer-form-card .form-floating > .form-control, .writer-form-card .form-floating > .form-select { min-height: 60px; }
+    .story-editor { min-height: 300px; resize: vertical; font-family: Lora, Georgia, serif; font-size: 1.05rem; line-height: 1.75; }
+    .writer-tip-card { border: 0; border-radius: 1.15rem; overflow: hidden; box-shadow: 0 12px 30px rgba(15,38,61,.08); }
+    .writer-tip-card .list-group-item { border-color: rgba(255,255,255,.12); background: transparent; }
+    .writer-tip-number { width: 27px; height: 27px; flex: 0 0 27px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; background: rgba(255,255,255,.18); font-size: .78rem; font-weight: 700; }
+    .writer-submit { min-height: 52px; border-radius: .85rem; font-weight: 700; letter-spacing: .01em; }
+    .writer-word-progress { height: 7px; border-radius: 999px; background: #e9eef2; overflow: hidden; }
+    .writer-word-progress > span { display: block; width: 0; height: 100%; background: #dc3545; transition: width .2s ease, background-color .2s ease; }
+    @media (max-width: 767.98px) {
+        .writer-hero { padding: 2.7rem 0 4.4rem; }
+        .writer-hero h1 { font-size: 2rem; line-height: 1.2; }
+        .writer-hero .lead { font-size: 1rem; }
+        .writer-shell { margin-top: -2.45rem; padding-left: .45rem; padding-right: .45rem; }
+        .writer-form-card .card-body { padding: 1.25rem !important; }
+        .writer-section-title { margin-bottom: 1.1rem; }
+        .story-editor { min-height: 250px; font-size: 1rem; }
+        .writer-tip-card { margin-top: 1rem; }
+    }
+</style>
+
+<div class="writer-hero text-center text-white position-relative">
     <div class="container position-relative" style="z-index: 2;">
-        <h1 class="fw-bold mb-3 display-5"><i class="fas fa-feather-alt me-2"></i>Write Your Own Story</h1>
-        <p class="lead max-w-700 mx-auto" style="opacity: 0.9;">Practice your English by writing a story using the vocabulary you've learned. Once approved, it will be published for others to read!</p>
+        <span class="writer-eyebrow mb-3"><i class="fas fa-pen-nib"></i> Your writing space</span>
+        <h1 class="fw-bold mb-3 display-5">Write a Story That Stays With Readers</h1>
+        <p class="lead mb-0 mx-auto" style="max-width: 700px; opacity: .9;">Turn your English practice into a story. Submit it for review and share it with the learning community.</p>
     </div>
     <!-- Decorative shape divider -->
     <div class="position-absolute bottom-0 start-0 w-100 overflow-hidden" style="line-height: 0;">
@@ -101,9 +134,9 @@ include 'includes/header.php';
     </div>
 </div>
 
-<div class="container mb-5 mt-n3">
+<div class="container writer-shell mb-5">
     <div class="row justify-content-center">
-        <div class="col-lg-9">
+        <div class="col-xl-11">
             
             <?php if ($success): ?>
                 <div class="alert alert-success text-center py-5 mb-4 shadow-lg border-0 rounded-4">
@@ -118,16 +151,16 @@ include 'includes/header.php';
                     <div class="alert alert-danger shadow-sm border-0 rounded-3 mb-4"><i class="fas fa-exclamation-circle me-2"></i><?= escape($error) ?></div>
                 <?php endif; ?>
 
-                <div class="card shadow-lg border-0 rounded-4 overflow-hidden">
+                <div class="row g-4 align-items-start">
+                <div class="col-lg-8">
+                <div class="card writer-form-card shadow-lg border-0 rounded-4 overflow-hidden">
                     <div class="card-body p-4 p-md-5">
-                        <form action="" method="POST">
+                        <form action="" method="POST" id="storySubmissionForm">
                             <input type="hidden" name="csrf_token" value="<?= $csrf_token ?>">
                             
-                            <div class="d-flex align-items-center mb-4 pb-2 border-bottom">
-                                <div class="bg-primary-custom text-white rounded-circle d-flex align-items-center justify-content-center me-3" style="width: 40px; height: 40px;">
-                                    <i class="fas fa-user"></i>
-                                </div>
-                                <h4 class="fw-bold text-primary-custom mb-0">About You</h4>
+                            <div class="writer-section-title">
+                                <span class="writer-section-icon"><i class="fas fa-user"></i></span>
+                                <div><h4 class="fw-bold text-primary-custom mb-0">About You</h4><small class="text-muted">Tell us who wrote this story.</small></div>
                             </div>
                             
                             <div class="row mb-4">
@@ -146,11 +179,9 @@ include 'includes/header.php';
                                 </div>
                             </div>
                             
-                            <div class="d-flex align-items-center mb-4 pb-2 border-bottom mt-5">
-                                <div class="bg-primary-custom text-white rounded-circle d-flex align-items-center justify-content-center me-3" style="width: 40px; height: 40px;">
-                                    <i class="fas fa-book-open"></i>
-                                </div>
-                                <h4 class="fw-bold text-primary-custom mb-0">Your Story</h4>
+                            <div class="writer-section-title mt-5">
+                                <span class="writer-section-icon"><i class="fas fa-book-open"></i></span>
+                                <div><h4 class="fw-bold text-primary-custom mb-0">Your Story</h4><small class="text-muted">A title, a level, and your original words.</small></div>
                             </div>
                             
                             <div class="mb-4">
@@ -191,20 +222,40 @@ include 'includes/header.php';
                             
                             <div class="mb-4">
                                 <label for="content" class="form-label fw-bold text-primary-custom ms-1">Story Content *</label>
-                                <textarea class="form-control bg-light border-0" id="content" name="content" rows="12" required placeholder="Once upon a time..." style="box-shadow: inset 0 2px 4px rgba(0,0,0,0.05); padding: 15px;"><?= isset($_POST['content']) ? escape($_POST['content']) : '' ?></textarea>
+                                <textarea class="form-control story-editor" id="content" name="content" rows="12" required placeholder="Once upon a time..." aria-describedby="wordCountHelp"><?= isset($_POST['content']) ? escape($_POST['content']) : '' ?></textarea>
                                 <div class="d-flex justify-content-between align-items-center mt-2 px-1">
-                                    <div class="form-text text-muted small"><i class="fas fa-info-circle me-1"></i> Minimum 100 words required.</div>
-                                    <div id="wordCount" class="badge rounded-pill" style="background-color: #dc3545; font-size: 0.85rem;">Words: 0 / 100 min</div>
+                                    <div id="wordCountHelp" class="form-text text-muted small"><i class="fas fa-info-circle me-1"></i> Minimum 100 words required.</div>
+                                    <div id="wordCount" class="badge rounded-pill bg-danger" style="font-size: .82rem;">0 / 100 words</div>
                                 </div>
+                                <div class="writer-word-progress mt-2"><span id="wordProgress"></span></div>
                             </div>
                             
-                            <div class="text-center mt-5">
-                                <button type="submit" id="submitBtn" class="btn bg-primary-custom text-white px-5 py-2 fs-6 rounded-pill shadow-sm header-btn-hover" style="letter-spacing: 0.5px;">
+                            <div class="d-grid mt-5">
+                                <button type="submit" id="submitBtn" class="btn bg-primary-custom text-white writer-submit shadow-sm header-btn-hover">
                                     <i class="fas fa-paper-plane me-2"></i> Submit Story for Review
                                 </button>
+                                <p class="text-center text-muted small mt-3 mb-0"><i class="fas fa-shield-alt me-1"></i>Your story is reviewed before publication.</p>
                             </div>
                         </form>
                     </div>
+                </div>
+                </div>
+                <aside class="col-lg-4">
+                    <div class="card writer-tip-card bg-primary-custom text-white">
+                        <div class="card-body p-4">
+                            <span class="small text-uppercase fw-bold opacity-75" style="letter-spacing:.08em;">Before you submit</span>
+                            <h4 class="fw-bold mt-2 mb-3">Write with confidence</h4>
+                            <div class="list-group list-group-flush">
+                                <div class="list-group-item text-white d-flex gap-3 px-0 py-3"><span class="writer-tip-number">1</span><span><strong>Start with a hook</strong><br><small class="opacity-75">Give readers a reason to keep reading.</small></span></div>
+                                <div class="list-group-item text-white d-flex gap-3 px-0 py-3"><span class="writer-tip-number">2</span><span><strong>Use new words</strong><br><small class="opacity-75">Practice vocabulary naturally in sentences.</small></span></div>
+                                <div class="list-group-item text-white d-flex gap-3 px-0 py-3"><span class="writer-tip-number">3</span><span><strong>Keep it original</strong><br><small class="opacity-75">Share writing created by you.</small></span></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="card border-0 shadow-sm rounded-4 mt-4">
+                        <div class="card-body p-4"><i class="fas fa-clock text-success me-2"></i><strong>Take your time.</strong><p class="text-muted small mb-0 mt-2">Your draft stays on this page until you submit it.</p></div>
+                    </div>
+                </aside>
                 </div>
             <?php endif; ?>
         </div>
@@ -216,6 +267,7 @@ function toggleCustomCategory() {
     const categorySelect = document.getElementById('category_id');
     const customCategoryDiv = document.getElementById('custom_category_div');
     const customCategoryInput = document.getElementById('custom_category');
+    if (!categorySelect || !customCategoryDiv || !customCategoryInput) return;
     
     if (categorySelect.value === 'other') {
         customCategoryDiv.style.display = 'block';
@@ -230,21 +282,26 @@ function toggleCustomCategory() {
 document.addEventListener('DOMContentLoaded', function() {
     const contentTextarea = document.getElementById('content');
     const wordCountDisplay = document.getElementById('wordCount');
+    const wordProgress = document.getElementById('wordProgress');
     const submitBtn = document.getElementById('submitBtn');
+    const storyForm = document.getElementById('storySubmissionForm');
 
     if (contentTextarea) {
         function updateWordCount() {
             const text = contentTextarea.value.trim();
             const words = text ? text.split(/\s+/).filter(word => word.length > 0).length : 0;
             
-            wordCountDisplay.textContent = `Words: ${words} / 100 min`;
+            wordCountDisplay.textContent = `${words} / 100 words`;
+            wordProgress.style.width = Math.min((words / 100) * 100, 100) + '%';
             
             if (words < 100) {
                 wordCountDisplay.style.backgroundColor = '#dc3545'; // bootstrap danger color
+                wordProgress.style.backgroundColor = '#dc3545';
                 submitBtn.disabled = true;
                 submitBtn.title = "Please write at least 100 words to submit";
             } else {
                 wordCountDisplay.style.backgroundColor = '#198754'; // bootstrap success color
+                wordProgress.style.backgroundColor = '#198754';
                 submitBtn.disabled = false;
                 submitBtn.title = "";
             }
@@ -254,6 +311,14 @@ document.addEventListener('DOMContentLoaded', function() {
         
         // Initial check on load (in case of validation error repopulating the form)
         updateWordCount();
+    }
+
+    if (storyForm) {
+        storyForm.addEventListener('submit', function () {
+            if (!storyForm.checkValidity() || submitBtn.disabled) return;
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span>Submitting your story...';
+        });
     }
     
     // Initial check for category

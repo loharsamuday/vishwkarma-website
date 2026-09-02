@@ -60,12 +60,56 @@ $seo_desc = escape($story['seo_description'] ?: $story['short_description']);
 include 'includes/header.php';
 ?>
 
-<div class="container my-5">
+<style>
+    .reader-progress { position: fixed; top: 56px; left: 0; width: 100%; height: 3px; background: rgba(11,59,96,.08); z-index: 1031; }
+    .reader-progress span { display: block; width: 0; height: 100%; background: linear-gradient(90deg, #3498db, #2ecc71); transition: width .12s linear; }
+    .reader-page { max-width: 1180px; }
+    .reader-crumbs { font-size: .88rem; }
+    .reader-crumbs .breadcrumb-item + .breadcrumb-item::before { color: #8ba0b3; }
+    .reader-hero { position: relative; overflow: hidden; padding: 2.15rem 2rem; border-radius: 1.5rem; background: radial-gradient(circle at 85% 15%, rgba(52,152,219,.3), transparent 28%), linear-gradient(130deg, #072c49, #0b3b60 58%, #145b74); box-shadow: 0 18px 40px rgba(8,43,73,.18); }
+    .reader-hero::after { content: ''; position: absolute; width: 260px; height: 260px; border: 1px solid rgba(255,255,255,.14); border-radius: 50%; right: -95px; bottom: -145px; }
+    .reader-category { display: inline-flex; align-items: center; gap: .45rem; padding: .4rem .75rem; border: 1px solid rgba(255,255,255,.25); border-radius: 99px; background: rgba(255,255,255,.1); font-size: .78rem; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; }
+    .reader-hero h1 { max-width: 850px; font-size: clamp(2rem, 5vw, 3.7rem); line-height: 1.12; letter-spacing: -.035em; }
+    .reader-summary { max-width: 760px; color: rgba(255,255,255,.79); font-size: 1.07rem; }
+    .reader-meta { display: flex; flex-wrap: wrap; gap: .65rem; margin-top: 1.7rem; }
+    .reader-meta span { display: inline-flex; align-items: center; gap: .42rem; padding: .54rem .75rem; background: rgba(255,255,255,.11); border: 1px solid rgba(255,255,255,.13); border-radius: .65rem; color: #fff; font-size: .86rem; }
+    .reader-paper { background: #fff; border: 1px solid #e5edf3; border-radius: 1.2rem; box-shadow: 0 16px 38px rgba(23,55,79,.08); padding: clamp(1.4rem, 5vw, 4rem); }
+    .reader-prose { color: #172b3a; font-family: Lora, Georgia, serif; font-size: clamp(1.06rem, 2.7vw, 1.22rem); line-height: 1.95; }
+    .reader-prose p { margin-bottom: 1.6rem; }
+    .reader-prose p:last-child { margin-bottom: 0; }
+    .reader-paper .vocab-word-highlight { color: #075d87; background: #e0f4fb; border-bottom: 2px solid #32a1c8; padding: .05em .2em; }
+    .reader-paper .vocab-word-highlight:hover { background: #caecf8; }
+    .reader-panel { border: 1px solid #e5edf3; border-radius: 1.05rem; padding: clamp(1.25rem, 4vw, 2rem); box-shadow: 0 8px 24px rgba(23,55,79,.05); }
+    .reader-panel-title { display: flex; align-items: center; gap: .7rem; font-size: 1.1rem; }
+    .reader-panel-title i { width: 36px; height: 36px; display: inline-flex; justify-content: center; align-items: center; border-radius: .7rem; }
+    .reader-hindi { background: #f4fbf7; border-left: 4px solid #2ecc71; }
+    .reader-hindi .reader-panel-title i { color: #198754; background: #dff4e6; }
+    .reader-moral { background: #fffaf0; border-left: 4px solid #f0b429; }
+    .reader-moral .reader-panel-title i { color: #b7791f; background: #fff0c9; }
+    .reader-vocab-heading { display: flex; align-items: center; gap: .7rem; }
+    .reader-vocab-heading i { width: 40px; height: 40px; display: inline-flex; justify-content: center; align-items: center; color: #08759d; background: #e2f4fa; border-radius: .75rem; }
+    .reader-vocab-card { border: 1px solid #e5edf3 !important; border-left: 4px solid #3498db !important; border-radius: 1rem; box-shadow: 0 7px 18px rgba(23,55,79,.05); transition: transform .2s ease, box-shadow .2s ease; }
+    .reader-vocab-card:hover { transform: translateY(-2px); box-shadow: 0 12px 25px rgba(23,55,79,.1); }
+    .reader-cta { background: radial-gradient(circle at 85% 20%, rgba(255,255,255,.16), transparent 26%), linear-gradient(130deg, #0b3b60, #087a78) !important; }
+    @media (max-width: 767.98px) {
+        .reader-progress { top: 56px; }
+        .reader-page { margin-top: 1.4rem !important; }
+        .reader-crumbs { white-space: nowrap; overflow: auto; padding-bottom: .3rem; }
+        .reader-hero { padding: 1.65rem 1.3rem 1.8rem; border-radius: 1.1rem; }
+        .reader-summary { font-size: .98rem; }
+        .reader-meta span { font-size: .78rem; }
+        .reader-paper { border-radius: 1rem; }
+        .reader-prose { line-height: 1.82; }
+        .social-action-btn { flex: 1 1 auto; justify-content: center; padding: .65rem 1rem !important; font-size: .9rem !important; }
+    }
+</style>
+
+<div class="reader-progress" aria-hidden="true"><span id="readerProgressBar"></span></div>
+<div class="container reader-page my-5">
     <div class="row justify-content-center">
         <div class="col-lg-8">
             
-            <!-- Breadcrumb -->
-            <nav aria-label="breadcrumb" class="mb-4">
+            <nav aria-label="breadcrumb" class="reader-crumbs mb-3">
                 <ol class="breadcrumb">
                     <li class="breadcrumb-item"><a href="index.php">Home</a></li>
                     <li class="breadcrumb-item"><a href="stories.php">Stories</a></li>
@@ -74,36 +118,30 @@ include 'includes/header.php';
                 </ol>
             </nav>
 
-            <!-- Story Header -->
-            <div class="text-center mb-5">
-                <div class="mb-3">
-                    <?php if($story['difficulty'] == 'Beginner'): ?>
-                        <span class="badge badge-beginner fs-6 px-3 py-2">Difficulty: Beginner</span>
-                    <?php elseif($story['difficulty'] == 'Intermediate'): ?>
-                        <span class="badge badge-intermediate fs-6 px-3 py-2">Difficulty: Intermediate</span>
-                    <?php else: ?>
-                        <span class="badge badge-advanced fs-6 px-3 py-2">Difficulty: Advanced</span>
-                    <?php endif; ?>
-                    <span class="badge bg-light text-dark border fs-6 px-3 py-2 ms-2"><i class="far fa-clock me-1"></i> Reading Time: <?= $story['reading_time'] ?> min</span>
-                </div>
-                
-                <h1 class="fw-bold display-5 text-primary-custom mb-3"><?= escape($story['title']) ?></h1>
+            <header class="reader-hero text-white mb-4">
+                <span class="reader-category"><i class="fas fa-bookmark"></i><?= escape($story['category_name'] ?: 'English Story') ?></span>
+                <h1 class="fw-bold mt-3 mb-3"><?= escape($story['title']) ?></h1>
                 <?php if($story['short_description']): ?>
-                    <p class="lead text-muted"><?= escape($story['short_description']) ?></p>
+                    <p class="reader-summary mb-0"><?= escape($story['short_description']) ?></p>
                 <?php endif; ?>
-            </div>
+                <div class="reader-meta">
+                    <span><i class="far fa-clock"></i><?= (int)$story['reading_time'] ?> min read</span>
+                    <span><i class="fas fa-signal"></i><?= escape($story['difficulty']) ?> level</span>
+                    <?php if ($vocabularies): ?><span><i class="fas fa-language"></i><?= count($vocabularies) ?> vocabulary words</span><?php endif; ?>
+                </div>
+            </header>
 
             <!-- Story Content -->
-            <div class="story-content mb-5">
-                <div class="story-text-gradient">
+            <div class="story-content reader-paper mb-4">
+                <div class="story-text-gradient reader-prose">
                     <?= $content ?>
                 </div>
             </div>
 
             <?php if (!empty($story['hindi_meaning'])): ?>
             <!-- Hindi Meaning -->
-            <div class="mb-5 p-4 bg-light rounded-3 border-start border-4 border-success">
-                <h4 class="fw-bold text-success mb-3"><i class="fas fa-language me-2"></i>Hindi Translation</h4>
+            <div class="reader-panel reader-hindi mb-4">
+                <h4 class="reader-panel-title fw-bold text-success mb-3"><i class="fas fa-language"></i>Hindi Translation</h4>
                 <div class="story-hindi-meaning">
                     <?= nl2br(escape($story['hindi_meaning'])) ?>
                 </div>
@@ -112,8 +150,8 @@ include 'includes/header.php';
 
             <?php if (!empty($story['moral'])): ?>
             <!-- Moral -->
-            <div class="mb-5 p-4 bg-warning bg-opacity-10 rounded-3 border border-warning">
-                <h4 class="fw-bold text-warning-emphasis mb-3"><i class="fas fa-lightbulb me-2 text-warning"></i>Moral of the Story</h4>
+            <div class="reader-panel reader-moral mb-4">
+                <h4 class="reader-panel-title fw-bold text-warning-emphasis mb-3"><i class="fas fa-lightbulb"></i>Moral of the Story</h4>
                 <p class="mb-0 fs-5 text-dark fw-medium fst-italic">"<?= escape($story['moral']) ?>"</p>
             </div>
             <?php endif; ?>
@@ -182,12 +220,12 @@ include 'includes/header.php';
             <!-- Vocabulary Section -->
             <?php if (count($vocabularies) > 0): ?>
             <div class="mt-5 pt-4 border-top">
-                <h3 class="fw-bold mb-4 text-primary-custom"><i class="fas fa-language me-2"></i>Vocabulary from this story</h3>
+                <h3 class="reader-vocab-heading fw-bold mb-4 text-primary-custom"><i class="fas fa-language"></i>Vocabulary from this story</h3>
                 
                 <div class="row">
                     <?php foreach ($vocabularies as $vocab): ?>
                     <div class="col-12 mb-3">
-                        <div class="card vocab-card border-0 p-3" id="vocab-<?= $vocab['id'] ?>">
+                        <div class="card vocab-card reader-vocab-card border-0 p-3" id="vocab-<?= $vocab['id'] ?>">
                             <div class="row align-items-center">
                                 <div class="col-md-3 border-end-md">
                                     <h5 class="fw-bold text-dark mb-1"><?= escape($vocab['word']) ?></h5>
@@ -234,7 +272,7 @@ include 'includes/header.php';
             <?php endif; ?>
 
             <!-- CTA -->
-            <div class="card bg-primary-custom text-white border-0 rounded-4 p-4 mt-5 text-center shadow">
+            <div class="card reader-cta bg-primary-custom text-white border-0 rounded-4 p-4 mt-5 text-center shadow">
                 <div class="card-body">
                     <h3 class="fw-bold mb-3">Inspired by this story?</h3>
                     <p class="mb-4">Use the new vocabulary you've learned and write your own English story.</p>
@@ -245,6 +283,24 @@ include 'includes/header.php';
         </div>
     </div>
 </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const progress = document.getElementById('readerProgressBar');
+    const readingArea = document.querySelector('.story-content');
+    if (!progress || !readingArea) return;
+
+    function updateReadingProgress() {
+        const rect = readingArea.getBoundingClientRect();
+        const viewportHeight = window.innerHeight || document.documentElement.clientHeight;
+        const total = Math.max(readingArea.offsetHeight - viewportHeight * 0.45, 1);
+        const completed = Math.min(Math.max(-rect.top + viewportHeight * 0.45, 0), total);
+        progress.style.width = (completed / total * 100) + '%';
+    }
+    window.addEventListener('scroll', updateReadingProgress, { passive: true });
+    updateReadingProgress();
+});
+</script>
 
 <?php if (!isset($_SESSION['user_id'])): ?>
 <!-- Registration Prompt Modal -->

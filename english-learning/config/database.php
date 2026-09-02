@@ -288,7 +288,7 @@ try {
 
         CREATE TABLE IF NOT EXISTS practice_questions (
             id INT AUTO_INCREMENT PRIMARY KEY,
-            content_type ENUM('idiom', 'phrasal_verb', 'general') DEFAULT 'general',
+            content_type ENUM('idiom', 'phrasal_verb', 'vocabulary', 'general') DEFAULT 'general',
             content_id INT NULL,
             question TEXT NOT NULL,
             option_a VARCHAR(255) NOT NULL,
@@ -556,6 +556,14 @@ try {
         // Make story_id and hindi_meaning nullable
         try { $pdo->exec("ALTER TABLE vocabulary MODIFY story_id INT NULL"); } catch(PDOException $e) {}
         try { $pdo->exec("ALTER TABLE vocabulary MODIFY hindi_meaning VARCHAR(255) NULL"); } catch(PDOException $e) {}
+
+        // Add the vocabulary quiz type to installations created before this feature.
+        try {
+            $practice_type = $pdo->query("SHOW COLUMNS FROM practice_questions LIKE 'content_type'")->fetch();
+            if ($practice_type && strpos($practice_type['Type'], "'vocabulary'") === false) {
+                $pdo->exec("ALTER TABLE practice_questions MODIFY content_type ENUM('idiom', 'phrasal_verb', 'vocabulary', 'general') DEFAULT 'general'");
+            }
+        } catch(PDOException $e) {}
         
     } catch(PDOException $e) {
         // Ignore column check errors

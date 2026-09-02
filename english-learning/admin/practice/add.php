@@ -112,11 +112,12 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                                 <option value="general">General / Mix</option>
                                 <option value="idiom">Idiom</option>
                                 <option value="phrasal_verb">Phrasal Verb</option>
+                                <option value="vocabulary">Vocabulary</option>
                             </select>
                         </div>
                         <div class="mb-3">
                             <label for="content_id" class="form-label">Content ID (Optional)</label>
-                            <input type="number" class="form-control" id="content_id" name="content_id" placeholder="ID of related Idiom/Phrasal Verb">
+                            <input type="number" class="form-control" id="content_id" name="content_id" placeholder="ID of related content (optional)">
                         </div>
                         <div class="mb-3">
                             <label for="difficulty" class="form-label">Difficulty</label>
