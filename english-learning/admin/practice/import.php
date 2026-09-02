@@ -41,17 +41,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $data = array_pad($data, 12, '');
                     $question = trim($data[0]);
                     $options = array_map('trim', array_slice($data, 1, 4));
-                    $answer = strtoupper(trim($data[5]));
+                    
+                    // Extract first character of answer in case user wrote "A." or " A "
+                    $answerInput = strtoupper(trim($data[5]));
+                    $answer = in_array($answerInput, ['A', 'B', 'C', 'D']) ? $answerInput : (isset($answerInput[0]) && in_array($answerInput[0], ['A', 'B', 'C', 'D']) ? $answerInput[0] : $answerInput);
+                    
                     $explanation = trim($data[6]);
                     $hindiExplanation = trim($data[7]);
-                    $difficulty = trim($data[8]) ?: 'Moderate';
+                    
+                    $difficultyInput = strtolower(trim($data[8]));
+                    if ($difficultyInput === 'easy') $difficulty = 'Easy';
+                    elseif ($difficultyInput === 'hard') $difficulty = 'Hard';
+                    elseif (strpos($difficultyInput, 'very') !== false) $difficulty = 'Very Important';
+                    else $difficulty = 'Moderate';
+                    
                     $examType = trim($data[9]);
-                    $status = trim($data[10]) ?: 'Published';
+                    
+                    $statusInput = strtolower(trim($data[10]));
+                    $status = ($statusInput === 'draft') ? 'Draft' : 'Published';
+                    
                     $contentId = trim($data[11]) !== '' ? (int) $data[11] : null;
 
-                    if ($question === '' || in_array('', $options, true) || !in_array($answer, ['A', 'B', 'C', 'D'], true)
-                        || !in_array($difficulty, ['Easy', 'Moderate', 'Hard', 'Very Important'], true)
-                        || !in_array($status, ['Draft', 'Published'], true)) {
+                    if ($question === '' || in_array('', $options, true) || !in_array($answer, ['A', 'B', 'C', 'D'], true)) {
                         $skipped++;
                         continue;
                     }
