@@ -45,7 +45,7 @@ $stmt = $pdo->prepare("
     LEFT JOIN stories s ON v.story_id = s.id 
     $where_clause
     ORDER BY v.created_at DESC 
-    LIMIT :limit OFFSET :offset
+    LIMIT ? OFFSET ?
 ");
 foreach($params as $i => $p) {
     $stmt->bindValue($i + 1, $p);
