@@ -17,6 +17,23 @@ if (isset($_POST['delete_id'])) {
     }
 }
 
+if (isset($_POST['bulk_delete'])) {
+    if (!empty($_POST['question_ids'])) {
+        $ids = $_POST['question_ids'];
+        $ids = array_map('intval', $ids);
+        $placeholders = implode(',', array_fill(0, count($ids), '?'));
+        
+        $stmt = $pdo->prepare("DELETE FROM practice_questions WHERE id IN ($placeholders)");
+        if ($stmt->execute($ids)) {
+            $success_msg = count($ids) . " questions deleted successfully!";
+        } else {
+            $error_msg = "Failed to delete selected questions.";
+        }
+    } else {
+        $error_msg = "No questions selected for deletion.";
+    }
+}
+
 $search = $_GET['search'] ?? '';
 $page = isset($_GET['page']) ? (int)$_GET['page'] : 1;
 $limit = isset($_GET['limit']) ? (int)$_GET['limit'] : 10;
@@ -60,71 +77,139 @@ $questions = $stmt->fetchAll();
         </div>
         <?php unset($_SESSION['success_msg']); ?>
     <?php endif; ?>
+    
+    <?php if (isset($error_msg)): ?>
+        <div class="alert alert-danger alert-dismissible fade show">
+            <?= htmlspecialchars($error_msg) ?>
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    <?php endif; ?>
 
     <div class="row mb-3">
-        <div class="col-md-6">
+        <div class="col-md-8">
             <form action="" method="GET" class="d-flex">
                 <input type="text" name="search" class="form-control me-2" placeholder="Search Questions..." value="<?= htmlspecialchars($search) ?>">
+                <?php if (isset($_GET['limit'])): ?>
+                    <input type="hidden" name="limit" value="<?= (int)$_GET['limit'] ?>">
+                <?php endif; ?>
                 <button type="submit" class="btn btn-outline-secondary">Search</button>
+            </form>
+        </div>
+        <div class="col-md-4 text-end">
+            <form action="" method="GET" class="d-inline-block">
+                <input type="hidden" name="search" value="<?= htmlspecialchars($search) ?>">
+                <label for="limit" class="me-2 fw-bold text-muted small">Per Page:</label>
+                <select name="limit" id="limit" class="form-select form-select-sm d-inline-block w-auto shadow-sm" onchange="this.form.submit()">
+                    <option value="10" <?= $limit == 10 ? 'selected' : '' ?>>10</option>
+                    <option value="50" <?= $limit == 50 ? 'selected' : '' ?>>50</option>
+                    <option value="100" <?= $limit == 100 ? 'selected' : '' ?>>100</option>
+                </select>
             </form>
         </div>
     </div>
 
-    <div class="table-responsive">
-        <table class="table table-striped table-hover align-middle">
-            <thead class="table-dark">
-                <tr>
-                    <th>ID</th>
-                    <th>Question</th>
-                    <th>Type</th>
-                    <th>Difficulty</th>
-                    <th>Status</th>
-                    <th>Actions</th>
-                </tr>
-            </thead>
-            <tbody>
-                <?php if (count($questions) > 0): ?>
-                    <?php foreach ($questions as $row): ?>
-                        <tr>
-                            <td><?= $row['id'] ?></td>
-                            <td><?= htmlspecialchars(substr($row['question'], 0, 50)) ?>...</td>
-                            <td><?= ucfirst($row['content_type']) ?></td>
-                            <td><?= htmlspecialchars($row['difficulty']) ?></td>
-                            <td>
-                                <?php if ($row['status'] == 'Published'): ?>
-                                    <span class="badge bg-success">Published</span>
-                                <?php else: ?>
-                                    <span class="badge bg-secondary">Draft</span>
-                                <?php endif; ?>
-                            </td>
-                            <td>
-                                <a href="edit.php?id=<?= $row['id'] ?>" class="btn btn-sm btn-outline-primary"><i class="fas fa-edit"></i></a>
-                                <form action="" method="POST" class="d-inline" onsubmit="return confirm('Are you sure you want to delete this question?');">
-                                    <input type="hidden" name="delete_id" value="<?= $row['id'] ?>">
-                                    <button type="submit" class="btn btn-sm btn-outline-danger"><i class="fas fa-trash"></i></button>
-                                </form>
-                            </td>
-                        </tr>
-                    <?php endforeach; ?>
-                <?php else: ?>
+    <form action="" method="POST" id="bulkDeleteForm">
+        <div class="mb-2 d-flex justify-content-between align-items-center">
+            <button type="submit" name="bulk_delete" class="btn btn-sm btn-danger" onclick="return confirm('Are you sure you want to delete all selected questions?');">
+                <i class="fas fa-trash-alt me-1"></i> Delete Selected
+            </button>
+            <span class="text-muted small">Total Questions: <?= $total_records ?></span>
+        </div>
+        <div class="table-responsive">
+            <table class="table table-striped table-hover align-middle">
+                <thead class="table-dark">
                     <tr>
-                        <td colspan="6" class="text-center">No questions found.</td>
+                        <th width="40"><input type="checkbox" id="selectAll" title="Select All"></th>
+                        <th>ID</th>
+                        <th>Question</th>
+                        <th>Type</th>
+                        <th>Difficulty</th>
+                        <th>Status</th>
+                        <th>Actions</th>
                     </tr>
-                <?php endif; ?>
-            </tbody>
-        </table>
-    </div>
+                </thead>
+                <tbody>
+                    <?php if (count($questions) > 0): ?>
+                        <?php foreach ($questions as $row): ?>
+                            <tr>
+                                <td><input type="checkbox" name="question_ids[]" value="<?= $row['id'] ?>" class="question-checkbox"></td>
+                                <td><?= $row['id'] ?></td>
+                                <td><?= htmlspecialchars(substr($row['question'], 0, 50)) ?>...</td>
+                                <td><?= ucfirst($row['content_type']) ?></td>
+                                <td><?= htmlspecialchars($row['difficulty']) ?></td>
+                                <td>
+                                    <?php if ($row['status'] == 'Published'): ?>
+                                        <span class="badge bg-success">Published</span>
+                                    <?php else: ?>
+                                        <span class="badge bg-secondary">Draft</span>
+                                    <?php endif; ?>
+                                </td>
+                                <td>
+                                    <a href="edit.php?id=<?= $row['id'] ?>" class="btn btn-sm btn-outline-primary"><i class="fas fa-edit"></i></a>
+                                    <!-- Use a button with form="" attribute to avoid nesting forms or just keep it as link, wait we can't nest forms -->
+                                    <button type="submit" name="delete_id" value="<?= $row['id'] ?>" class="btn btn-sm btn-outline-danger" onclick="return confirm('Are you sure you want to delete this question?');" form="bulkDeleteForm"><i class="fas fa-trash"></i></button>
+                                </td>
+                            </tr>
+                        <?php endforeach; ?>
+                    <?php else: ?>
+                        <tr>
+                            <td colspan="7" class="text-center">No questions found.</td>
+                        </tr>
+                    <?php endif; ?>
+                </tbody>
+            </table>
+        </div>
+    </form>
     
     <?php if ($total_pages > 1): ?>
-    <nav>
+    <nav aria-label="Page navigation">
         <ul class="pagination justify-content-center">
+            <!-- Previous Button -->
+            <li class="page-item <?= ($page <= 1) ? 'disabled' : '' ?>">
+                <a class="page-link" href="<?= ($page <= 1) ? '#' : '?page=' . ($page - 1) . '&search=' . urlencode($search) . '&limit=' . $limit ?>" <?= ($page <= 1) ? 'tabindex="-1" aria-disabled="true"' : '' ?>>Previous</a>
+            </li>
+            
+            <!-- Page Numbers -->
             <?php for ($i = 1; $i <= $total_pages; $i++): ?>
                 <li class="page-item <?= ($i == $page) ? 'active' : '' ?>">
-                    <a class="page-link" href="?page=<?= $i ?>&search=<?= urlencode($search) ?>"><?= $i ?></a>
+                    <a class="page-link" href="?page=<?= $i ?>&search=<?= urlencode($search) ?>&limit=<?= $limit ?>"><?= $i ?></a>
                 </li>
             <?php endfor; ?>
+            
+            <!-- Next Button -->
+            <li class="page-item <?= ($page >= $total_pages) ? 'disabled' : '' ?>">
+                <a class="page-link" href="<?= ($page >= $total_pages) ? '#' : '?page=' . ($page + 1) . '&search=' . urlencode($search) . '&limit=' . $limit ?>" <?= ($page >= $total_pages) ? 'tabindex="-1" aria-disabled="true"' : '' ?>>Next</a>
+            </li>
         </ul>
     </nav>
     <?php endif; ?>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const selectAll = document.getElementById('selectAll');
+            const checkboxes = document.querySelectorAll('.question-checkbox');
+            
+            if (selectAll) {
+                selectAll.addEventListener('change', function() {
+                    checkboxes.forEach(cb => {
+                        cb.checked = this.checked;
+                    });
+                });
+            }
+            
+            // Uncheck "Select All" if one of the items is manually unchecked
+            checkboxes.forEach(cb => {
+                cb.addEventListener('change', function() {
+                    if (!this.checked) {
+                        selectAll.checked = false;
+                    } else {
+                        // Check if all are checked
+                        const allChecked = Array.from(checkboxes).every(c => c.checked);
+                        selectAll.checked = allChecked;
+                    }
+                });
+            });
+        });
+    </script>
 </main>
 <?php require_once '../includes/footer.php'; ?>
