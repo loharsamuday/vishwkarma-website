@@ -1,8 +1,7 @@
 <?php
 // admin/vocabulary.php
 session_start();
-$page_title = 'Manage Vocabulary';
-include 'includes/header.php';
+require_once __DIR__ . '/../config/database.php'; // Required for early POST processing
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['bulk_delete_by_date'])) {
     $start_date = $_POST['start_date'] ?? '';
@@ -18,6 +17,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['bulk_delete_by_date']
         $error_msg = "Please select both start and end dates.";
     }
 }
+
+$page_title = 'Manage Vocabulary';
+include 'includes/header.php';
 
 $page = isset($_GET['page']) ? (int)$_GET['page'] : 1;
 $per_page = 15;
