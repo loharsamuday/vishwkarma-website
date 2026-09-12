@@ -1,0 +1,11 @@
+; Supervisor config for Linux production server
+; Save to /etc/supervisor/conf.d/tg_quiz_worker.conf
+
+[program:tg_quiz_worker]
+command=python3 /path/to/vishwkarma/python/tg_quiz_worker.py
+directory=/path/to/vishwkarma/python
+autostart=true
+autorestart=true
+stderr_logfile=/var/log/tg_quiz_worker.err.log
+stdout_logfile=/var/log/tg_quiz_worker.out.log
+user=www-data

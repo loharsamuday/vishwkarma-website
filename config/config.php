@@ -27,6 +27,11 @@ if ($host == 'localhost') {
 define('GOOGLE_CLIENT_ID', 'YOUR_GOOGLE_OAUTH_CLIENT_ID');
 define('GOOGLE_OAUTH_PROVIDER', 'google');
 
+// Telegram Quiz Manager — Bot Token Encryption Key
+// CHANGE THIS to a unique 32+ character random string before use
+// Must match the TG_ENCRYPTION_KEY in python/.env
+define('TG_ENCRYPTION_KEY', 'change-this-to-32-char-random-key!');
+
 // Other global configuration settings
 define('SITE_NAME', 'Vishwakarma');
 define('ADMIN_EMAIL', 'admin@vishwkarma.local');
