@@ -1110,4 +1110,47 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 </script>
 
+<?php if (!isset($_SESSION['user_id'])): ?>
+<!-- 30-Second Login Ad Popup for Guests -->
+<div class="modal fade app-modal" id="guestLoginAdModal" tabindex="-1" aria-hidden="true" data-bs-backdrop="static">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content" style="border: 2px solid var(--accent-blue); box-shadow: 0 0 30px rgba(79,156,249,0.25);">
+      <div class="modal-header border-0 pb-0 justify-content-end">
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body text-center px-4 pb-5 pt-0">
+        <div class="mb-4">
+          <i class="fas fa-user-lock fa-4x" style="color: var(--accent-blue); filter: drop-shadow(0 0 10px rgba(79,156,249,0.5));"></i>
+        </div>
+        <h3 class="fw-bold mb-3" style="color: #fff;">Unlock Full Features!</h3>
+        <p class="mb-4" style="color: var(--app-muted); font-size: 0.95rem;">
+          You are currently using the dashboard as a guest. Log in or create a free account to save your progress permanently, unlock advanced statistics, and access all study tools anywhere.
+        </p>
+        <div class="d-grid gap-3">
+          <a href="<?= EL_BASE_URL ?>login.php" class="btn fw-bold py-2" style="background: linear-gradient(135deg, var(--accent-blue), #818cf8); color: white; border: none; box-shadow: 0 4px 15px rgba(79,156,249,0.4);">
+            <i class="fas fa-sign-in-alt me-2"></i>Log In Now
+          </a>
+          <a href="<?= EL_BASE_URL ?>register.php" class="btn fw-bold py-2" style="background: rgba(255,255,255,0.05); color: #fff; border: 1px solid var(--app-border);">
+            Create Free Account
+          </a>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Show login ad popup after 30 seconds for guest users
+    setTimeout(function() {
+        if (typeof bootstrap !== 'undefined') {
+            var loginAdModal = new bootstrap.Modal(document.getElementById('guestLoginAdModal'));
+            loginAdModal.show();
+        }
+    }, 30000);
+});
+</script>
+<?php endif; ?>
+
 <?php include 'includes/footer.php'; ?>
+
