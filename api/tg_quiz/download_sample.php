@@ -18,13 +18,13 @@ if (!in_array($format, ['csv', 'xlsx'])) $format = 'csv';
 // Sample questions data (Hindi + English)
 $sample_rows = [
     // Header
-    ['question_number', 'question', 'option_a', 'option_b', 'option_c', 'option_d', 'correct_answer', 'explanation'],
+    ['question_number', 'question', 'option_a', 'option_b', 'option_c', 'option_d', 'correct_answer', 'explanation', 'time_limit'],
     // Sample rows
-    [1, 'भारत की राजधानी क्या है?', 'मुंबई', 'नई दिल्ली', 'पटना', 'जयपुर', 'B', 'भारत की राजधानी नई दिल्ली है।'],
-    [2, 'RBI की स्थापना कब हुई?', '1930', '1935', '1940', '1947', 'B', 'RBI की स्थापना 1 अप्रैल 1935 को हुई।'],
-    [3, 'भारत का राष्ट्रीय खेल कौन सा है?', 'क्रिकेट', 'हॉकी', 'कबड्डी', 'फुटबॉल', 'B', 'भारत का राष्ट्रीय खेल हॉकी है।'],
-    [4, 'Who is known as Father of Computer?', 'Alan Turing', 'Charles Babbage', 'Bill Gates', 'Steve Jobs', 'B', 'Charles Babbage is known as the Father of Computer.'],
-    [5, 'Constitution of India came into effect on?', '15 Aug 1947', '26 Jan 1950', '26 Nov 1949', '2 Oct 1950', 'B', 'The Constitution of India came into effect on 26 January 1950.'],
+    [1, 'भारत की राजधानी क्या है?', 'मुंबई', 'नई दिल्ली', 'पटना', 'जयपुर', 'B', 'भारत की राजधानी नई दिल्ली है।', 15],
+    [2, 'RBI की स्थापना कब हुई?', '1930', '1935', '1940', '1947', 'B', 'RBI की स्थापना 1 अप्रैल 1935 को हुई।', 20],
+    [3, 'भारत का राष्ट्रीय खेल कौन सा है?', 'क्रिकेट', 'हॉकी', 'कबड्डी', 'फुटबॉल', 'B', 'भारत का राष्ट्रीय खेल हॉकी है।', 30],
+    [4, 'Who is known as Father of Computer?', 'Alan Turing', 'Charles Babbage', 'Bill Gates', 'Steve Jobs', 'B', 'Charles Babbage is known as the Father of Computer.', 15],
+    [5, 'Constitution of India came into effect on?', '15 Aug 1947', '26 Jan 1950', '26 Nov 1949', '2 Oct 1950', 'B', 'The Constitution of India came into effect on 26 January 1950.', 20],
 ];
 
 // ─── CSV Format ───────────────────────────────────────────────────────────────

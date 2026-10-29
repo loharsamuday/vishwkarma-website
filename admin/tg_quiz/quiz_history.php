@@ -154,6 +154,9 @@ require_once '../includes/header.php';
               </td>
               <td>
                 <div class="d-flex gap-1">
+                  <a href="quiz_results.php?session_id=<?= (int)$s['id'] ?>" class="btn btn-xs btn-outline-primary py-0 px-1" title="View Results">
+                    <i class="fa-solid fa-trophy"></i>
+                  </a>
                   <?php if (in_array($s['status'], ['RUNNING','PAUSED'])): ?>
                   <a href="quiz_live.php?session_id=<?= $s['id'] ?>" class="btn btn-xs btn-outline-success py-0 px-1" title="Monitor">
                     <i class="fa-solid fa-satellite-dish"></i>

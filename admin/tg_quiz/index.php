@@ -39,10 +39,19 @@ try {
 
 // Quick stats
 $total_sets = $total_sessions = $running = 0;
+$active_sessions = [];
 try {
     $total_sets     = $pdo->prepare("SELECT COUNT(*) FROM tg_quiz_sets WHERE admin_id=?")->execute([$_SESSION['admin_id']]) ? $pdo->query("SELECT COUNT(*) FROM tg_quiz_sets WHERE admin_id={$_SESSION['admin_id']}")->fetchColumn() : 0;
     $total_sessions = $pdo->query("SELECT COUNT(*) FROM tg_quiz_sessions WHERE admin_id={$_SESSION['admin_id']}")->fetchColumn();
     $running        = $pdo->query("SELECT COUNT(*) FROM tg_quiz_sessions WHERE admin_id={$_SESSION['admin_id']} AND status='RUNNING'")->fetchColumn();
+    $activeStmt = $pdo->prepare("
+        SELECT id, title, chat_title, status, questions_sent, total_questions, timer_seconds
+        FROM tg_quiz_sessions
+        WHERE admin_id = ? AND status IN ('RUNNING', 'PAUSED')
+        ORDER BY updated_at DESC
+    ");
+    $activeStmt->execute([$_SESSION['admin_id']]);
+    $active_sessions = $activeStmt->fetchAll();
 } catch (PDOException $e) {}
 
 require_once '../includes/header.php';
@@ -96,6 +105,38 @@ require_once '../includes/header.php';
       </div>
     </div>
   </div>
+
+  <?php if (!empty($active_sessions)): ?>
+  <div class="card border-0 shadow-sm mb-4">
+    <div class="card-header bg-success text-white fw-bold">
+      <i class="fa-solid fa-circle-play me-2"></i>Running Quizzes
+    </div>
+    <div class="list-group list-group-flush">
+      <?php foreach ($active_sessions as $active): ?>
+      <div class="list-group-item d-flex flex-wrap justify-content-between align-items-center gap-2" id="active-session-<?= (int)$active['id'] ?>">
+        <div>
+          <div class="fw-bold"><?= htmlspecialchars($active['title'] ?? 'Telegram Quiz') ?></div>
+          <small class="text-muted">
+            <?= htmlspecialchars($active['chat_title'] ?? '') ?> ·
+            <?= (int)$active['questions_sent'] ?>/<?= (int)$active['total_questions'] ?> questions ·
+            <?= (int)$active['timer_seconds'] ?> sec/question ·
+            <span class="badge bg-<?= $active['status'] === 'RUNNING' ? 'success' : 'warning' ?>"><?= htmlspecialchars($active['status']) ?></span>
+          </small>
+        </div>
+        <div class="d-flex gap-2">
+          <a href="quiz_live.php?session_id=<?= (int)$active['id'] ?>" class="btn btn-outline-primary btn-sm">
+            <i class="fa-solid fa-satellite-dish me-1"></i>Monitor
+          </a>
+          <button type="button" class="btn btn-danger btn-sm" onclick="stopQuiz(<?= (int)$active['id'] ?>, this)">
+            <i class="fa-solid fa-stop me-1"></i>Stop Quiz
+          </button>
+        </div>
+      </div>
+      <?php endforeach; ?>
+    </div>
+    <div id="stopQuizResult" class="px-3 pt-3"></div>
+  </div>
+  <?php endif; ?>
 
   <div class="row g-4">
     <!-- BOT SETUP CARD -->
@@ -183,10 +224,16 @@ require_once '../includes/header.php';
                   <span class="badge bg-warning ms-1">⚠ Check Perms</span>
                 <?php endif; ?>
               </div>
-              <button class="btn btn-outline-danger btn-sm"
-                onclick="deleteChat(<?= $chat['id'] ?>)">
-                <i class="fa-solid fa-trash"></i>
-              </button>
+              <div class="d-flex gap-1">
+                <button class="btn btn-outline-primary btn-sm" title="Send a test quiz poll to this group"
+                  onclick="sendTestPoll('<?= $chat['chat_id'] ?>', this)">
+                  <i class="fa-solid fa-paper-plane me-1"></i>Test Poll
+                </button>
+                <button class="btn btn-outline-danger btn-sm" title="Remove Chat"
+                  onclick="deleteChat(<?= $chat['id'] ?>)">
+                  <i class="fa-solid fa-trash"></i>
+                </button>
+              </div>
             </div>
             <?php endforeach; ?>
           </div>
@@ -249,6 +296,7 @@ require_once '../includes/header.php';
 const CSRF = '<?= htmlspecialchars($_SESSION['csrf_token']) ?>';
 const API_BOT  = '<?= BASE_URL ?>api/tg_quiz/bot.php';
 const API_CHAT = '<?= BASE_URL ?>api/tg_quiz/chat.php';
+const API_SESSION = '<?= BASE_URL ?>api/tg_quiz/session.php';
 
 async function apiPost(url, data) {
   data.csrf_token = CSRF;
@@ -261,6 +309,37 @@ async function apiPost(url, data) {
 function showResult(elId, res) {
   const el = document.getElementById(elId);
   el.innerHTML = `<div class="alert alert-${res.success ? 'success' : 'danger'} py-2">${res.message || JSON.stringify(res)}</div>`;
+}
+
+async function stopQuiz(sessionId, button) {
+  if (!confirm('Stop this quiz now? No more questions will be sent.')) return;
+
+  const originalHtml = button.innerHTML;
+  button.disabled = true;
+  button.innerHTML = '<i class="fa-solid fa-spinner fa-spin me-1"></i>Stopping...';
+
+  const result = document.getElementById('stopQuizResult');
+  const data = new FormData();
+  data.append('action', 'stop');
+  data.append('session_id', sessionId);
+  data.append('csrf_token', CSRF);
+
+  try {
+    const response = await fetch(API_SESSION, {method: 'POST', body: data});
+    const res = await response.json();
+    result.innerHTML = `<div class="alert alert-${res.success ? 'success' : 'danger'} py-2">${res.message || 'Unable to stop quiz.'}</div>`;
+    if (res.success) {
+      document.getElementById(`active-session-${sessionId}`)?.remove();
+      setTimeout(() => location.reload(), 1000);
+    } else {
+      button.disabled = false;
+      button.innerHTML = originalHtml;
+    }
+  } catch (error) {
+    result.innerHTML = '<div class="alert alert-danger py-2">Could not contact the server. Please try again.</div>';
+    button.disabled = false;
+    button.innerHTML = originalHtml;
+  }
 }
 
 async function connectBot() {
@@ -300,6 +379,26 @@ async function verifyChat() {
     setTimeout(() => location.reload(), 2000);
   } else {
     el.innerHTML = `<div class="alert alert-danger py-2">${res.message}</div>`;
+  }
+}
+
+async function sendTestPoll(chatId, btn) {
+  const origHtml = btn.innerHTML;
+  btn.disabled = true;
+  btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
+  try {
+    const res = await apiPost(API_CHAT + '?action=test_send', {action:'test_send', chat_id: chatId});
+    const el = document.getElementById('chatResult');
+    if (res.success) {
+      el.innerHTML = `<div class="alert alert-success py-2"><i class="fa-solid fa-circle-check me-2"></i>${res.message}</div>`;
+    } else {
+      el.innerHTML = `<div class="alert alert-danger py-2"><i class="fa-solid fa-circle-exclamation me-2"></i>${res.message}</div>`;
+    }
+  } catch(e) {
+    alert('Request failed');
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = origHtml;
   }
 }
 

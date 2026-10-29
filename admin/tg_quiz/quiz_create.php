@@ -3,8 +3,8 @@
 // Create/Edit Quiz Set — Question Manager (Add/Upload/Edit/Delete)
 
 $page_title = "Manage Questions";
-require_once '../../includes/db.php';
-require_once '../../includes/session.php';
+require_once __DIR__ . '/../../includes/db.php';
+require_once __DIR__ . '/../../includes/session.php';
 
 if (!isset($_SESSION['admin_id'])) { header("Location: ../index.php"); exit; }
 
@@ -22,7 +22,7 @@ if ($quiz_set_id) {
     } catch (PDOException $e) {}
 }
 
-require_once '../includes/header.php';
+require_once __DIR__ . '/../includes/header.php';
 ?>
 
 <div class="main-content">
@@ -138,6 +138,13 @@ require_once '../includes/header.php';
               </select>
             </div>
           </div>
+          <div class="row g-3 mb-3">
+            <div class="col-md-4">
+              <label class="form-label fw-bold">Time Limit (seconds)</label>
+              <input type="number" class="form-control" id="addTimeLimit" min="1" step="1" value="<?= (int)($quiz_set['default_timer'] ?? 15) ?>" placeholder="15">
+              <small class="text-muted">Leave blank to use quiz default <?= (int)($quiz_set['default_timer'] ?? 15) ?>s</small>
+            </div>
+          </div>
           <div class="mb-3">
             <label class="form-label">Explanation</label>
             <textarea class="form-control" id="addExpl" rows="2" placeholder="Optional explanation..."></textarea>
@@ -180,11 +187,12 @@ require_once '../includes/header.php';
               <i class="fa-solid fa-circle-info mt-1 flex-shrink-0"></i>
               <div>
                 <strong>Required Columns (with or without header row):</strong><br>
-                <code class="small">question_number | question | option_a | option_b | option_c | option_d | correct_answer | explanation</code><br>
+                <code class="small">question_number | question | option_a | option_b | option_c | option_d | correct_answer | explanation | time_limit</code><br>
                 <small class="text-muted">
                   • <strong>correct_answer</strong> must be A, B, C, or D &nbsp;•&nbsp;
-                  option_c, option_d और explanation optional हैं &nbsp;•&nbsp;
-                  Supports <strong>UTF-8 Hindi</strong> text
+                  option_c, option_d, explanation, और time_limit optional हैं &nbsp;•&nbsp;
+                  Supports <strong>UTF-8 Hindi</strong> text &nbsp;•&nbsp;
+                  If time_limit is missing, the quiz default value is used: <strong><?= (int)($quiz_set['default_timer'] ?? 15) ?> sec</strong>
                 </small>
               </div>
             </div>
@@ -194,42 +202,55 @@ require_once '../includes/header.php';
           <div class="mb-3">
             <small class="text-muted fw-bold d-block mb-1">Example rows:</small>
             <div class="bg-dark text-success rounded p-2 small font-monospace" style="overflow-x:auto;white-space:nowrap">
-              <div>question_number,question,option_a,option_b,option_c,option_d,correct_answer,explanation</div>
-              <div>1,भारत की राजधानी क्या है?,मुंबई,नई दिल्ली,पटना,जयपुर,B,भारत की राजधानी नई दिल्ली है।</div>
-              <div>2,RBI की स्थापना कब हुई?,1930,1935,1940,1947,B,RBI की स्थापना 1 अप्रैल 1935 को हुई।</div>
+              <div>question_number,question,option_a,option_b,option_c,option_d,correct_answer,explanation,time_limit</div>
+              <div>1,भारत की राजधानी क्या है?,मुंबई,नई दिल्ली,पटना,जयपुर,B,भारत की राजधानी नई दिल्ली है।,15</div>
+              <div>2,RBI की स्थापना कब हुई?,1930,1935,1940,1947,B,RBI की स्थापना 1 अप्रैल 1935 को हुई।,20</div>
             </div>
           </div>
 
-          <form id="uploadForm" enctype="multipart/form-data">
-            <!-- Drag & Drop Upload Zone -->
-            <div id="dropZone" class="border border-2 border-dashed rounded text-center p-4 mb-3"
-                 style="border-color:#dee2e6; cursor:pointer; transition:all 0.2s"
+          <div class="row g-3 mb-3">
+            <div class="col-md-4">
+              <label class="form-label fw-bold small">Default Time Limit (seconds)</label>
+              <input type="number" class="form-control" id="defaultTimeLimit" min="1" step="1" value="<?= (int)($quiz_set['default_timer'] ?? 15) ?>">
+            </div>
+          </div>
+
+          <form id="uploadForm" enctype="multipart/form-data" onsubmit="event.preventDefault(); handleBulkUpload();">
+            <!-- Standard File Input with Browse Button -->
+            <div class="mb-3">
+              <label class="form-label fw-bold small text-dark"><i class="fa-solid fa-file-csv me-1 text-primary"></i> Select CSV or Excel File *</label>
+              <div class="input-group">
+                <input type="file" class="form-control" id="csvUploadInput" name="file" accept=".csv,.xlsx,.txt" onchange="showFileName(this)">
+                <button class="btn btn-outline-secondary" type="button" onclick="clearUpload()"><i class="fa-solid fa-xmark me-1"></i>Clear</button>
+              </div>
+              <div id="selectedFileName" class="mt-2 p-2 rounded bg-light border border-success text-success fw-bold small d-none"></div>
+            </div>
+
+            <!-- Drag & Drop Upload Zone (Optional Shortcut) -->
+            <div id="dropZone" class="border border-2 border-dashed rounded text-center p-3 mb-3 bg-light"
+                 style="border-color:#ced4da; cursor:pointer; transition:all 0.2s"
                  ondragover="handleDragOver(event)"
                  ondragleave="handleDragLeave(event)"
                  ondrop="handleDrop(event)"
-                 onclick="document.getElementById('uploadFile').click()">
-              <i class="fa-solid fa-cloud-arrow-up fa-3x text-muted mb-2"></i>
-              <p class="mb-1 fw-bold">Click to select or drag & drop file here</p>
-              <p class="text-muted small mb-0">Supports CSV and Excel XLSX • Max 10MB • Hindi text supported</p>
-              <div id="selectedFileName" class="mt-2 text-success fw-bold d-none"></div>
+                 onclick="if(!isDropping) document.getElementById('csvUploadInput').click()">
+              <i class="fa-solid fa-cloud-arrow-up fa-2x text-muted mb-1"></i>
+              <p class="mb-0 fw-bold small text-secondary">Or drag & drop file here (Supports CSV and Excel XLSX • Max 10MB)</p>
             </div>
-            <input type="file" class="d-none" id="uploadFile" name="file" accept=".csv,.xlsx"
-                   onchange="showFileName(this)">
 
             <div class="row g-3 mb-3">
-              <div class="col-md-6">
+              <div class="col-md-8">
                 <label class="form-label fw-bold small">Import Mode</label>
                 <div class="d-flex gap-3">
                   <div class="form-check">
                     <input class="form-check-input" type="radio" name="uploadMode" id="modeAppend" value="append" checked>
-                    <label class="form-check-label" for="modeAppend">
-                      <i class="fa-solid fa-plus text-success me-1"></i>Append (existing questions रहेंगे)
+                    <label class="form-check-label small" for="modeAppend">
+                      <i class="fa-solid fa-plus text-success me-1"></i><strong>Append</strong> (मौजूदा questions बने रहेंगे, नए नीचे जुड़ेंगे)
                     </label>
                   </div>
                   <div class="form-check">
                     <input class="form-check-input" type="radio" name="uploadMode" id="modeReplace" value="replace">
-                    <label class="form-check-label" for="modeReplace">
-                      <i class="fa-solid fa-rotate text-warning me-1"></i>Replace (सब delete होंगे)
+                    <label class="form-check-label small" for="modeReplace">
+                      <i class="fa-solid fa-rotate text-danger me-1"></i><strong>Replace</strong> (पुराने questions हटाकर नए डालेंगे)
                     </label>
                   </div>
                 </div>
@@ -239,11 +260,11 @@ require_once '../includes/header.php';
             <!-- Upload Progress -->
             <div id="uploadProgress" class="d-none mb-3">
               <div class="d-flex justify-content-between mb-1">
-                <small class="fw-bold">Uploading & Parsing...</small>
-                <small id="uploadPct">0%</small>
+                <small class="fw-bold text-primary"><i class="fa-solid fa-spinner fa-spin me-1"></i>Uploading & Parsing questions...</small>
+                <small id="uploadPct" class="fw-bold">0%</small>
               </div>
-              <div class="progress" style="height:10px">
-                <div class="progress-bar progress-bar-striped progress-bar-animated bg-warning"
+              <div class="progress" style="height:12px">
+                <div class="progress-bar progress-bar-striped progress-bar-animated bg-success"
                      id="uploadProgressBar" style="width:0%"></div>
               </div>
             </div>
@@ -251,11 +272,11 @@ require_once '../includes/header.php';
             <div id="uploadResult" class="mb-3"></div>
 
             <div class="d-flex gap-2">
-              <button type="button" class="btn btn-warning fw-bold px-4" onclick="uploadFile()">
+              <button type="button" id="uploadBtn" class="btn btn-warning fw-bold px-4 shadow-sm" onclick="handleBulkUpload()">
                 <i class="fa-solid fa-file-arrow-up me-2"></i>Upload & Import
               </button>
               <button type="button" class="btn btn-outline-secondary" onclick="clearUpload()">
-                <i class="fa-solid fa-rotate-left me-1"></i>Clear
+                <i class="fa-solid fa-rotate-left me-1"></i>Reset
               </button>
             </div>
           </form>
@@ -294,6 +315,10 @@ require_once '../includes/header.php';
               <option>A</option><option>B</option><option>C</option><option>D</option>
             </select>
           </div>
+          <div class="col-md-4">
+            <label class="form-label fw-bold">Time Limit (seconds)</label>
+            <input type="number" class="form-control" id="editTimeLimit" min="1" step="1" value="<?= (int)($quiz_set['default_timer'] ?? 15) ?>">
+          </div>
         </div>
         <div class="mb-3">
           <label class="form-label">Explanation</label>
@@ -317,11 +342,27 @@ const QS_ID  = <?= $quiz_set_id ?>;
 const API_Q  = '<?= BASE_URL ?>api/tg_quiz/questions.php';
 let currentPage = 1;
 let editModal;
+let selectedUploadFile = null;
+let loadedQuestions = {};
 
 document.addEventListener('DOMContentLoaded', () => {
   editModal = new bootstrap.Modal(document.getElementById('editModal'));
   loadQuestions();
   document.getElementById('searchInput').addEventListener('keyup', e => { if(e.key==='Enter') loadQuestions(); });
+
+  // Handle URL hash or auto-open upload tab if set is empty
+  const isUploadHash = (window.location.hash === '#tabUpload' || <?= (int)($quiz_set['total_questions'] ?? 0) ?> === 0);
+  if (isUploadHash) {
+    const triggerEl = document.querySelector('a[href="#tabUpload"]');
+    if (triggerEl) {
+      bootstrap.Tab.getOrCreateInstance(triggerEl).show();
+    }
+  } else if (window.location.hash) {
+    const triggerEl = document.querySelector(`a[href="${window.location.hash}"]`);
+    if (triggerEl) {
+      bootstrap.Tab.getOrCreateInstance(triggerEl).show();
+    }
+  }
 });
 
 async function loadQuestions(page=1) {
@@ -335,10 +376,13 @@ async function loadQuestions(page=1) {
   if (!res.success) { wrapper.innerHTML = `<div class="alert alert-danger">${res.message}</div>`; return; }
 
   document.getElementById('qCount').textContent = res.total;
+  loadedQuestions = {};
   if (!res.questions.length) {
     wrapper.innerHTML = '<div class="text-center py-5 text-muted"><i class="fa-solid fa-inbox fa-3x mb-3"></i><p>No questions found.</p></div>';
     return;
   }
+
+  res.questions.forEach(q => { loadedQuestions[q.id] = q; });
 
   wrapper.innerHTML = `
     <div class="table-responsive">
@@ -349,6 +393,7 @@ async function loadQuestions(page=1) {
           <th>Question</th>
           <th>A</th><th>B</th><th>C</th><th>D</th>
           <th class="text-center">Correct</th>
+          <th class="text-center">Time</th>
           <th>Actions</th>
         </tr>
       </thead>
@@ -362,9 +407,10 @@ async function loadQuestions(page=1) {
           <td class="text-truncate" style="max-width:100px">${escHtml(q.option_c||'-')}</td>
           <td class="text-truncate" style="max-width:100px">${escHtml(q.option_d||'-')}</td>
           <td class="text-center"><span class="badge bg-success fs-6">${q.correct_answer}</span></td>
+          <td class="text-center"><span class="badge bg-secondary">${q.time_limit ? q.time_limit + 's' : 'Default'}</span></td>
           <td>
             <div class="d-flex gap-1">
-              <button class="btn btn-xs btn-outline-primary py-0 px-1" onclick="openEdit(${JSON.stringify(q).replace(/"/g,'&quot;')})" title="Edit"><i class="fa-solid fa-pencil"></i></button>
+              <button class="btn btn-xs btn-outline-primary py-0 px-1" onclick="openEditById(${q.id})" title="Edit"><i class="fa-solid fa-pencil"></i></button>
               <button class="btn btn-xs btn-outline-secondary py-0 px-1" onclick="dupQ(${q.id})" title="Duplicate"><i class="fa-solid fa-copy"></i></button>
               <button class="btn btn-xs btn-outline-dark py-0 px-1" onclick="reorderQ(${q.id},'up')" title="Move Up"><i class="fa-solid fa-arrow-up"></i></button>
               <button class="btn btn-xs btn-outline-dark py-0 px-1" onclick="reorderQ(${q.id},'down')" title="Move Down"><i class="fa-solid fa-arrow-down"></i></button>
@@ -391,6 +437,11 @@ async function loadQuestions(page=1) {
 
 function escHtml(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 
+function openEditById(id) {
+  const q = loadedQuestions[id];
+  if (q) openEdit(q);
+}
+
 function openEdit(q) {
   document.getElementById('editId').value      = q.id;
   document.getElementById('editQ').value       = q.question_text;
@@ -399,6 +450,7 @@ function openEdit(q) {
   document.getElementById('editC').value       = q.option_c || '';
   document.getElementById('editD').value       = q.option_d || '';
   document.getElementById('editCorrect').value = q.correct_answer;
+  document.getElementById('editTimeLimit').value = q.time_limit || <?= (int)($quiz_set['default_timer'] ?? 15) ?>;
   document.getElementById('editExpl').value    = q.explanation || '';
   document.getElementById('editResult').innerHTML = '';
   editModal.show();
@@ -416,6 +468,7 @@ async function saveEdit() {
   fd.append('option_d', document.getElementById('editD').value);
   fd.append('correct_answer', document.getElementById('editCorrect').value);
   fd.append('explanation', document.getElementById('editExpl').value);
+  fd.append('time_limit', document.getElementById('editTimeLimit').value);
   const res = await fetch(API_Q+'?action=update', {method:'POST',body:fd}).then(r=>r.json());
   document.getElementById('editResult').innerHTML = `<div class="alert alert-${res.success?'success':'danger'} py-2">${res.message}</div>`;
   if (res.success) { setTimeout(() => { editModal.hide(); loadQuestions(currentPage); }, 800); }
@@ -432,6 +485,7 @@ async function addQuestion(continueAdding) {
   fd.append('option_d', document.getElementById('addD').value);
   fd.append('correct_answer', document.getElementById('addCorrect').value);
   fd.append('explanation', document.getElementById('addExpl').value);
+  fd.append('time_limit', document.getElementById('addTimeLimit').value);
   const res = await fetch(API_Q+'?action=add', {method:'POST',body:fd}).then(r=>r.json());
   document.getElementById('addResult').innerHTML = `<div class="alert alert-${res.success?'success':'danger'} py-2">${res.message}</div>`;
   if (res.success) {
@@ -469,125 +523,273 @@ async function reorderQ(id, direction) {
   loadQuestions(currentPage);
 }
 
+let isDropping = false;
+
 function showFileName(input) {
   const el = document.getElementById('selectedFileName');
-  if (input.files[0]) {
-    el.textContent = '📎 ' + input.files[0].name + ' (' + (input.files[0].size/1024).toFixed(1) + ' KB)';
+  const resEl = document.getElementById('uploadResult');
+  resEl.innerHTML = '';
+  if (input.files && input.files[0]) {
+    selectedUploadFile = input.files[0];
+    const f = selectedUploadFile;
+    const ext = f.name.split('.').pop().toLowerCase();
+    const isOkExt = ['csv', 'xlsx', 'txt'].includes(ext);
+    const badgeClass = isOkExt ? 'bg-success' : 'bg-danger';
+    el.innerHTML = `<div class="d-flex justify-content-between align-items-center">
+      <span><i class="fa-solid fa-file-circle-check text-success me-2 fa-lg"></i><strong>${escHtml(f.name)}</strong> (${(f.size/1024).toFixed(1)} KB)</span>
+      <span class="badge ${badgeClass} text-uppercase">${ext} Ready</span>
+    </div>`;
     el.classList.remove('d-none');
-    document.getElementById('dropZone').style.borderColor = '#28a745';
+    document.getElementById('dropZone').style.borderColor = '#198754';
+    document.getElementById('dropZone').style.background  = '#f8fff9';
+  } else {
+    selectedUploadFile = null;
+    el.classList.add('d-none');
   }
 }
 
 function handleDragOver(e) {
   e.preventDefault();
+  e.stopPropagation();
   document.getElementById('dropZone').style.borderColor = '#0d6efd';
   document.getElementById('dropZone').style.background  = '#f0f7ff';
 }
 
 function handleDragLeave(e) {
-  document.getElementById('dropZone').style.borderColor = '#dee2e6';
-  document.getElementById('dropZone').style.background  = '';
+  e.preventDefault();
+  e.stopPropagation();
+  document.getElementById('dropZone').style.borderColor = '#ced4da';
+  document.getElementById('dropZone').style.background  = '#f8f9fa';
 }
 
 function handleDrop(e) {
   e.preventDefault();
+  e.stopPropagation();
+  isDropping = true;
+  setTimeout(() => { isDropping = false; }, 400);
+
   handleDragLeave(e);
   const files = e.dataTransfer.files;
-  if (files.length) {
-    const fileInput = document.getElementById('uploadFile');
-    const dt = new DataTransfer();
-    dt.items.add(files[0]);
-    fileInput.files = dt.files;
+  if (files && files.length) {
+    selectedUploadFile = files[0];
+    const fileInput = document.getElementById('csvUploadInput');
+    try {
+      const dt = new DataTransfer();
+      dt.items.add(files[0]);
+      fileInput.files = dt.files;
+    } catch(err) {}
     showFileName(fileInput);
   }
 }
 
-function clearUpload() {
-  document.getElementById('uploadFile').value = '';
+function resetFileInputOnly() {
+  selectedUploadFile = null;
+  document.getElementById('csvUploadInput').value = '';
   document.getElementById('selectedFileName').classList.add('d-none');
-  document.getElementById('dropZone').style.borderColor = '#dee2e6';
-  document.getElementById('dropZone').style.background  = '';
-  document.getElementById('uploadResult').innerHTML = '';
+  document.getElementById('dropZone').style.borderColor = '#ced4da';
+  document.getElementById('dropZone').style.background  = '#f8f9fa';
   document.getElementById('uploadProgress').classList.add('d-none');
 }
 
-async function uploadFile() {
-  const file = document.getElementById('uploadFile').files[0];
-  if (!file) { alert('Please select a CSV or XLSX file first'); return; }
-
-  // Validate extension client-side
-  const ext = file.name.split('.').pop().toLowerCase();
-  if (!['csv','xlsx'].includes(ext)) {
-    document.getElementById('uploadResult').innerHTML = '<div class="alert alert-danger py-2">❌ Only CSV and XLSX files allowed</div>';
-    return;
+function clearUpload() {
+  resetFileInputOnly();
+  document.getElementById('uploadResult').innerHTML = '';
+  const btn = document.getElementById('uploadBtn');
+  if (btn) {
+    btn.disabled = false;
+    btn.innerHTML = '<i class="fa-solid fa-file-arrow-up me-2"></i>Upload & Import';
   }
+}
 
-  // File size check (10MB)
-  if (file.size > 10 * 1024 * 1024) {
-    document.getElementById('uploadResult').innerHTML = '<div class="alert alert-danger py-2">❌ File too large. Max 10MB allowed.</div>';
-    return;
+function switchToListTab() {
+  const triggerEl = document.querySelector('a[href="#tabList"]');
+  if (triggerEl) {
+    bootstrap.Tab.getOrCreateInstance(triggerEl).show();
   }
+}
 
+async function handleBulkUpload() {
+  const fileInput  = document.getElementById('csvUploadInput');
+  const file       = selectedUploadFile || (fileInput.files ? fileInput.files[0] : null);
   const resultEl   = document.getElementById('uploadResult');
   const progressEl = document.getElementById('uploadProgress');
   const barEl      = document.getElementById('uploadProgressBar');
   const pctEl      = document.getElementById('uploadPct');
+  const uploadBtn  = document.getElementById('uploadBtn');
 
   resultEl.innerHTML = '';
-  progressEl.classList.remove('d-none');
-  barEl.style.width  = '10%';
-  pctEl.textContent  = 'Uploading...';
 
-  const fd = new FormData();
-  fd.append('action','upload'); fd.append('csrf_token',CSRF);
-  fd.append('quiz_set_id', QS_ID); fd.append('file', file);
-
-  // Use XMLHttpRequest for progress tracking
-  const xhr = new XMLHttpRequest();
-  xhr.upload.addEventListener('progress', (e) => {
-    if (e.lengthComputable) {
-      const pct = Math.round((e.loaded / e.total) * 70); // 0-70% for upload
-      barEl.style.width = pct + '%';
-      pctEl.textContent = pct + '%';
+  try {
+    // 1. Check if a file is actually selected
+    if (!file) {
+      resultEl.innerHTML = `
+        <div class="alert alert-danger py-3 shadow-sm border-2">
+          <i class="fa-solid fa-triangle-exclamation fa-lg me-2"></i>
+          <strong>कोई फ़ाइल नहीं चुनी गई है! (No file chosen)</strong><br>
+          <span class="small">कृपया पहले ऊपर <strong>"Choose File"</strong> बटन पर क्लिक करके अपनी CSV या XLSX फ़ाइल चुनें, फिर <strong>"Upload & Import"</strong> दबाएं।</span>
+        </div>`;
+      fileInput.focus();
+      fileInput.classList.add('is-invalid');
+      resultEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      alert('कृपया पहले फ़ाइल चुनें (Choose File par click karein)!');
+      setTimeout(() => fileInput.classList.remove('is-invalid'), 3000);
+      return;
     }
-  });
 
-  xhr.onload = function() {
-    barEl.style.width = '100%';
-    pctEl.textContent = '100%';
-    setTimeout(() => progressEl.classList.add('d-none'), 1000);
-
-    let res;
-    try { res = JSON.parse(xhr.responseText); }
-    catch(e) { resultEl.innerHTML = '<div class="alert alert-danger py-2">❌ Server error. Check PHP logs.</div>'; return; }
-
-    let html = `<div class="alert alert-${res.success?'success':'danger'} py-2">
-      <i class="fa-solid fa-${res.success?'circle-check':'circle-xmark'} me-2"></i>${res.message}
-    </div>`;
-
-    if (res.errors && res.errors.length) {
-      html += `<div class="alert alert-warning py-2">
-        <strong><i class="fa-solid fa-triangle-exclamation me-2"></i>Warnings (${res.errors.length}):</strong>
-        <ul class="mb-0 mt-1 small">${res.errors.map(e=>`<li>${e}</li>`).join('')}</ul>
-      </div>`;
+    // 2. Validate extension client-side
+    const ext = file.name.split('.').pop().toLowerCase();
+    if (!['csv', 'xlsx', 'txt'].includes(ext)) {
+      resultEl.innerHTML = '<div class="alert alert-danger py-2"><i class="fa-solid fa-circle-xmark me-2"></i>गलत फ़ाइल फॉर्मेट! केवल <strong>CSV</strong> या <strong>XLSX</strong> फ़ाइल ही मान्य है।</div>';
+      alert('गलत फ़ाइल फॉर्मेट! केवल CSV या XLSX फ़ाइल ही मान्य है।');
+      return;
     }
-    resultEl.innerHTML = html;
 
-    if (res.success) {
-      const newCount = parseInt(document.getElementById('qCount').textContent) + (res.imported||0);
-      document.getElementById('qCount').textContent = newCount;
-      clearUpload();
-      setTimeout(() => loadQuestions(1), 1200);
+    // 3. File size check (10MB)
+    if (file.size > 10 * 1024 * 1024) {
+      resultEl.innerHTML = '<div class="alert alert-danger py-2"><i class="fa-solid fa-circle-xmark me-2"></i>फ़ाइल का साइज़ बहुत बड़ा है। अधिकतम 10MB तक की फ़ाइल अनुमत है।</div>';
+      alert('फ़ाइल का साइज़ बहुत बड़ा है (अधिकतम 10MB)');
+      return;
     }
-  };
 
-  xhr.onerror = function() {
-    progressEl.classList.add('d-none');
-    resultEl.innerHTML = '<div class="alert alert-danger py-2">❌ Network error. Please try again.</div>';
-  };
+    // 4. Set loading state on button
+    uploadBtn.disabled = true;
+    uploadBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin me-2"></i>Uploading & Importing Questions...';
 
-  xhr.open('POST', API_Q + '?action=upload');
-  xhr.send(fd);
+    progressEl.classList.remove('d-none');
+    barEl.style.width  = '15%';
+    pctEl.textContent  = '15%';
+
+    // 5. Build FormData
+    const fd = new FormData();
+    fd.append('action', 'upload');
+    fd.append('csrf_token', CSRF);
+    fd.append('quiz_set_id', QS_ID);
+    fd.append('default_time_limit', document.getElementById('defaultTimeLimit').value || <?= (int)($quiz_set['default_timer'] ?? 15) ?>);
+    fd.append('file', file);
+
+    const uploadMode = document.querySelector('input[name="uploadMode"]:checked')?.value || 'append';
+    fd.append('uploadMode', uploadMode);
+
+    // 6. Send via XMLHttpRequest with progress tracking
+    const xhr = new XMLHttpRequest();
+    xhr.upload.addEventListener('progress', (e) => {
+      if (e.lengthComputable) {
+        const pct = Math.max(15, Math.round((e.loaded / e.total) * 85));
+        barEl.style.width = pct + '%';
+        pctEl.textContent = pct + '%';
+      }
+    });
+
+    xhr.onload = function() {
+      barEl.style.width = '100%';
+      pctEl.textContent = '100%';
+      setTimeout(() => progressEl.classList.add('d-none'), 800);
+
+      uploadBtn.disabled = false;
+      uploadBtn.innerHTML = '<i class="fa-solid fa-file-arrow-up me-2"></i>Upload & Import';
+
+      let res = null;
+      try {
+        res = JSON.parse(xhr.responseText);
+      } catch(err) {
+        resultEl.innerHTML = `
+          <div class="alert alert-danger py-2">
+            <strong><i class="fa-solid fa-circle-xmark me-2"></i>Server Response Error (${xhr.status}):</strong>
+            <pre class="small mb-0 mt-1" style="max-height:120px;overflow:auto">${escHtml(xhr.responseText || 'Empty response from server')}</pre>
+          </div>`;
+        resultEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        return;
+      }
+
+      if (!res) {
+        resultEl.innerHTML = '<div class="alert alert-danger py-2">❌ Unknown server error</div>';
+        return;
+      }
+
+      if (res.success) {
+        const added = parseInt(res.imported || 0);
+        const currentCount = parseInt(document.getElementById('qCount').textContent || '0');
+        const newTotal = (uploadMode === 'replace') ? added : (currentCount + added);
+        document.getElementById('qCount').textContent = newTotal;
+
+        // Reset file input only — PRESERVE success message
+        resetFileInputOnly();
+
+        let successHtml = `
+          <div class="alert alert-success py-3 shadow border border-success">
+            <div class="d-flex align-items-start">
+              <i class="fa-solid fa-circle-check fa-2x text-success me-3 mt-1"></i>
+              <div class="flex-grow-1">
+                <h5 class="fw-bold mb-1 text-success">✅ ${added} Questions Successfully Imported!</h5>
+                <div class="text-dark">${res.message || ''}</div>
+                <div class="small text-muted mt-1">Total questions in this set: <strong>${newTotal}</strong></div>
+                <div class="d-flex gap-2 mt-3">
+                  <button type="button" class="btn btn-outline-primary btn-sm fw-bold" onclick="switchToListTab()">
+                    <i class="fa-solid fa-list me-1"></i>View Questions Table
+                  </button>
+                  <a href="quiz_settings.php?id=${QS_ID}" class="btn btn-success btn-sm fw-bold">
+                    <i class="fa-solid fa-play me-1"></i>Start Quiz Now
+                  </a>
+                </div>
+              </div>
+            </div>
+          </div>`;
+
+        if (res.errors && res.errors.length) {
+          successHtml += `<div class="alert alert-warning py-2 small mt-2">
+            <strong><i class="fa-solid fa-triangle-exclamation me-1"></i>Row Notices / Warnings (${res.errors.length}):</strong>
+            <ul class="mb-0 mt-1 ps-3">${res.errors.map(e => `<li>${escHtml(e)}</li>`).join('')}</ul>
+          </div>`;
+        }
+
+        resultEl.innerHTML = successHtml;
+        resultEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        loadQuestions(1);
+      } else {
+        let errHtml = `<div class="alert alert-danger py-3 shadow-sm border border-danger">
+          <div class="d-flex align-items-center">
+            <i class="fa-solid fa-circle-xmark fa-2x text-danger me-3"></i>
+            <div>
+              <h6 class="fw-bold mb-1">Import Failed</h6>
+              <div>${res.message || ''}</div>
+            </div>
+          </div>
+          <div class="mt-2 pt-2 border-top border-danger-subtle d-flex gap-2 align-items-center">
+            <small class="text-muted">Need a ready-to-use template?</small>
+            <a href="<?= BASE_URL ?>api/tg_quiz/download_sample.php?format=csv" class="btn btn-outline-danger btn-xs fw-bold" download>
+              <i class="fa-solid fa-download me-1"></i>Download Sample CSV
+            </a>
+          </div>
+        </div>`;
+
+        if (res.errors && res.errors.length) {
+          errHtml += `<div class="alert alert-warning py-2 small mt-2">
+            <strong><i class="fa-solid fa-triangle-exclamation me-1"></i>Parsing Notices (${res.errors.length}):</strong>
+            <ul class="mb-0 mt-1 ps-3">${res.errors.map(e => `<li>${escHtml(e)}</li>`).join('')}</ul>
+          </div>`;
+        }
+
+        resultEl.innerHTML = errHtml;
+        resultEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      }
+    };
+
+    xhr.onerror = function() {
+      progressEl.classList.add('d-none');
+      uploadBtn.disabled = false;
+      uploadBtn.innerHTML = '<i class="fa-solid fa-file-arrow-up me-2"></i>Upload & Import';
+      resultEl.innerHTML = '<div class="alert alert-danger py-2"><i class="fa-solid fa-wifi me-2"></i>Network connection error. Server unreachable. Please try again.</div>';
+      alert('Network error connecting to API.');
+    };
+
+    xhr.open('POST', API_Q + '?action=upload');
+    xhr.send(fd);
+  } catch(err) {
+    console.error('Upload Error:', err);
+    alert('Upload error: ' + err.message);
+    uploadBtn.disabled = false;
+    uploadBtn.innerHTML = '<i class="fa-solid fa-file-arrow-up me-2"></i>Upload & Import';
+  }
 }
 </script>
 
@@ -599,4 +801,4 @@ async function uploadFile() {
 </style>
 
 
-<?php require_once '../includes/footer.php'; ?>
+<?php require_once __DIR__ . '/../includes/footer.php'; ?>

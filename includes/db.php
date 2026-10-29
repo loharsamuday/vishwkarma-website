@@ -8,6 +8,8 @@ try {
     $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
     // Set default fetch mode to associative array
     $pdo->setAttribute(PDO::ATTR_DEFAULT_FETCH_MODE, PDO::FETCH_ASSOC);
+    // Synchronize timezone with PHP (Asia/Kolkata)
+    try { $pdo->exec("SET time_zone = '+05:30'"); } catch (Exception $e) {}
     // Auto-seed default roles if table is empty
     $stmt = $pdo->query("SELECT COUNT(*) FROM roles");
     if ($stmt->fetchColumn() == 0) {
@@ -83,6 +85,18 @@ try {
     } catch (PDOException $e) {
         // Ignore if columns already exist
     }
+
+    // Telegram Quiz schema upgrades for per-question time limits and pause/resume state
+    try {
+        $pdo->exec("ALTER TABLE tg_quiz_questions ADD COLUMN time_limit INT UNSIGNED NULL AFTER explanation");
+    } catch (PDOException $e) {}
+    try {
+        $pdo->exec("ALTER TABLE tg_quiz_sessions ADD COLUMN current_question_id INT UNSIGNED NULL AFTER current_question");
+        $pdo->exec("ALTER TABLE tg_quiz_sessions ADD COLUMN remaining_time INT UNSIGNED DEFAULT 0 AFTER timer_seconds");
+        $pdo->exec("ALTER TABLE tg_quiz_sessions ADD COLUMN started_at DATETIME NULL AFTER start_question");
+        $pdo->exec("ALTER TABLE tg_quiz_sessions ADD COLUMN paused_at DATETIME NULL AFTER start_time");
+        $pdo->exec("ALTER TABLE tg_quiz_sessions ADD COLUMN stopped_at DATETIME NULL AFTER paused_at");
+    } catch (PDOException $e) {}
 
     // Email OTP Verification Table
     $pdo->exec("

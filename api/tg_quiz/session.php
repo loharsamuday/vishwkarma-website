@@ -7,6 +7,7 @@ header('X-Content-Type-Options: nosniff');
 
 require_once __DIR__ . '/../../includes/db.php';
 require_once __DIR__ . '/../../includes/session.php';
+require_once __DIR__ . '/tg_helper.php';
 
 if (!isset($_SESSION['admin_id'])) {
     http_response_code(401);
@@ -36,7 +37,9 @@ switch ($action) {
         validateCsrfToken();
         $quiz_set_id    = (int)($_POST['quiz_set_id'] ?? 0);
         $chat_id        = trim($_POST['chat_id'] ?? '');
-        $timer          = max(5, min(120, (int)($_POST['timer'] ?? 15)));
+        $timer          = max(5, min(300, (int)($_POST['timer'] ?? 15)));
+        $correct_mark   = round((float)($_POST['correct_mark'] ?? 1), 2);
+        $wrong_mark     = round((float)($_POST['wrong_mark'] ?? -0.25), 2);
         $order          = ($_POST['question_order'] ?? 'original') === 'random' ? 'random' : 'original';
         $start_q        = max(1, (int)($_POST['start_question'] ?? 1));
         $end_q          = max(0, (int)($_POST['end_question'] ?? 0));
@@ -44,6 +47,10 @@ switch ($action) {
 
         if (!$quiz_set_id || !$chat_id) {
             echo json_encode(['success' => false, 'message' => 'Quiz set and chat ID required']);
+            break;
+        }
+        if ($correct_mark < 0 || $correct_mark > 1000 || $wrong_mark > 0 || $wrong_mark < -1000) {
+            echo json_encode(['success' => false, 'message' => 'Marks must be between 0 and 1000; wrong-answer marks must be between -1000 and 0']);
             break;
         }
 
@@ -84,19 +91,40 @@ switch ($action) {
         $title = $custom_title ?: $quiz_set['title'];
         $total = count($filtered);
 
-        // next_question_at = NOW() + 3 seconds (small delay to let worker pick up)
-        $next_at = date('Y-m-d H:i:s', time() + 3);
-
-        $ins = $pdo->prepare("INSERT INTO tg_quiz_sessions (quiz_set_id, admin_id, chat_id, chat_title, title, status, total_questions, current_question, questions_sent, question_order, question_ids_json, timer_seconds, start_question, end_question, start_time, next_question_at) VALUES (?,?,?,?,?,'RUNNING',?,0,0,?,?,?,?,?,NOW(),?)");
+        $ins = $pdo->prepare("INSERT INTO tg_quiz_sessions (quiz_set_id, admin_id, chat_id, chat_title, title, status, total_questions, current_question, questions_sent, question_order, question_ids_json, timer_seconds, correct_mark, wrong_mark, start_question, end_question, start_time, next_question_at) VALUES (?,?,?,?,?,'RUNNING',?,0,0,?,?,?,?,?,?,?,NOW(),NOW())");
         $ins->execute([
             $quiz_set_id, $admin_id, $chat_id, $chatRow['chat_title'], $title,
             $total, $order, json_encode(array_values($filtered)), $timer,
-            $start_q, $end_q, $next_at
+            $correct_mark, $wrong_mark, $start_q, $end_q
         ]);
-        $session_id = $pdo->lastInsertId();
+        $session_id = (int)$pdo->lastInsertId();
+
+        // 1. Immediately send Question #1 to Telegram
+        $dispatchRes = dispatchSessionQuestion($pdo, $session_id, true);
+
+        // 2. Try launching background Python worker if on local/VPS with CLI access
+        if (strtoupper(substr(PHP_OS, 0, 3)) === 'WIN' && function_exists('popen')) {
+            $workerScript = realpath(__DIR__ . '/../../python/tg_quiz_worker.py');
+            if ($workerScript && file_exists($workerScript)) {
+                @pclose(@popen("start /B python \"{$workerScript}\"", "r"));
+            }
+        }
 
         logActivity("Started quiz session #{$session_id}: {$title}", 'admin', null, $admin_id);
-        echo json_encode(['success'=>true, 'message'=>'Quiz session started! Worker will begin sending questions.', 'session_id'=>(int)$session_id]);
+
+        $msg = 'Quiz session started!';
+        if (!empty($dispatchRes['success']) && ($dispatchRes['status'] ?? '') === 'sent') {
+            $msg = 'Quiz started successfully! Question 1 sent to Telegram.';
+        } elseif (!empty($dispatchRes['message'])) {
+            $msg = 'Quiz started: ' . $dispatchRes['message'];
+        }
+
+        echo json_encode([
+            'success'     => true,
+            'message'     => $msg,
+            'session_id'  => $session_id,
+            'dispatch'    => $dispatchRes
+        ]);
         break;
 
     // --------------------------------------------------------
@@ -158,16 +186,37 @@ switch ($action) {
         $sess = $check->fetch();
         if (!$sess) { echo json_encode(['success'=>false,'message'=>'Session not found']); break; }
 
-        $next_at = date('Y-m-d H:i:s', time() + 3);
-        $pdo->prepare("UPDATE tg_quiz_sessions SET status='RUNNING', current_question=0, questions_sent=0, start_time=NOW(), end_time=NULL, next_question_at=?, error_message=NULL, retry_count=0, updated_at=NOW() WHERE id=?")->execute([$next_at, $session_id]);
-        // Clear logs for this session
+        $pdo->prepare("UPDATE tg_quiz_sessions SET status='RUNNING', current_question=0, questions_sent=0, start_time=NOW(), end_time=NULL, next_question_at=NOW(), error_message=NULL, retry_count=0, updated_at=NOW() WHERE id=?")->execute([$session_id]);
         $pdo->prepare("DELETE FROM tg_quiz_logs WHERE session_id=?")->execute([$session_id]);
+        $pdo->prepare("DELETE FROM tg_quiz_responses WHERE session_id=?")->execute([$session_id]);
+
+        // Immediately send Question 1 on restart
+        $dispatchRes = dispatchSessionQuestion($pdo, $session_id, true);
+
         logActivity("Restarted quiz session #{$session_id}", 'admin', null, $admin_id);
-        echo json_encode(['success'=>true, 'message'=>'Quiz restarted from beginning!']);
+        echo json_encode(['success'=>true, 'message'=>'Quiz restarted! Question 1 sent to Telegram.', 'dispatch'=>$dispatchRes]);
         break;
 
     // --------------------------------------------------------
-    // GET status — real-time status for live dashboard
+    // POST dispatch — manually or programmatically force send due/next question
+    // --------------------------------------------------------
+    case 'dispatch':
+        validateCsrfToken();
+        $session_id = (int)($_POST['session_id'] ?? 0);
+        $check = $pdo->prepare("SELECT id FROM tg_quiz_sessions WHERE id=? AND admin_id=? AND status='RUNNING'");
+        $check->execute([$session_id, $admin_id]);
+        if (!$check->fetchColumn()) { echo json_encode(['success'=>false,'message'=>'Session not running']); break; }
+
+        $dispatchRes = dispatchSessionQuestion($pdo, $session_id, true); // force immediate send
+        echo json_encode([
+            'success' => !empty($dispatchRes['success']),
+            'message' => $dispatchRes['message'] ?? 'Dispatched',
+            'result'  => $dispatchRes
+        ]);
+        break;
+
+    // --------------------------------------------------------
+    // GET status — real-time status for live dashboard + auto-dispatch
     // --------------------------------------------------------
     case 'status':
         $session_id = (int)($_GET['session_id'] ?? 0);
@@ -184,6 +233,19 @@ switch ($action) {
         $session = $stmt->fetch();
         if (!$session) { echo json_encode(['success'=>false,'message'=>'Session not found']); break; }
 
+        // AUTO-DISPATCH CHECK:
+        // If session is RUNNING and next_question_at <= NOW(), dispatch next question!
+        $dispatchInfo = null;
+        if ($session['status'] === 'RUNNING' && $session['next_question_at']) {
+            $next_ts = strtotime($session['next_question_at']);
+            if ($next_ts <= time()) {
+                $dispatchInfo = dispatchSessionQuestion($pdo, $session_id, false);
+                // Re-fetch updated session state
+                $stmt->execute([$session_id, $admin_id]);
+                $session = $stmt->fetch();
+            }
+        }
+
         // Calculate time remaining for current question
         $seconds_remaining = 0;
         if ($session['status'] === 'RUNNING' && $session['next_question_at']) {
@@ -191,11 +253,58 @@ switch ($action) {
             $seconds_remaining = max(0, $next_ts - time());
         }
 
+        $remaining_questions = max(0, ((int)$session['total_questions']) - ((int)$session['questions_sent']));
+
         echo json_encode([
-            'success'           => true,
-            'session'           => $session,
-            'seconds_remaining' => $seconds_remaining,
-            'progress_pct'      => $session['total_questions'] > 0 ? round(($session['questions_sent'] / $session['total_questions']) * 100, 1) : 0,
+            'success'             => true,
+            'session'             => $session,
+            'seconds_remaining'   => $seconds_remaining,
+            'remaining_questions' => $remaining_questions,
+            'last_dispatch'       => $dispatchInfo,
+            'progress_pct'        => $session['total_questions'] > 0 ? round(($session['questions_sent'] / $session['total_questions']) * 100, 1) : 0,
+        ]);
+        break;
+
+    // --------------------------------------------------------
+    // GET results — per-user quiz scores for this admin's session
+    // --------------------------------------------------------
+    case 'results':
+        $session_id = (int)($_GET['session_id'] ?? 0);
+        $sessionStmt = $pdo->prepare("
+            SELECT id, title, chat_title, status, total_questions, questions_sent,
+                   correct_mark, wrong_mark, start_time, end_time
+            FROM tg_quiz_sessions
+            WHERE id = ? AND admin_id = ?
+        ");
+        $sessionStmt->execute([$session_id, $admin_id]);
+        $resultSession = $sessionStmt->fetch(PDO::FETCH_ASSOC);
+        if (!$resultSession) {
+            http_response_code(404);
+            echo json_encode(['success' => false, 'message' => 'Quiz session not found']);
+            break;
+        }
+
+        $resultStmt = $pdo->prepare("
+            SELECT r.user_id, MAX(r.username) AS username, MAX(r.first_name) AS first_name,
+                   MAX(r.last_name) AS last_name,
+                   COUNT(*) AS answered_count,
+                   SUM(r.is_correct = 1) AS correct_count,
+                   SUM(r.is_correct = 0) AS wrong_count,
+                   SUM(CASE WHEN r.is_correct = 1 THEN s.correct_mark ELSE s.wrong_mark END) AS score
+            FROM tg_quiz_responses r
+            JOIN tg_quiz_sessions s ON s.id = r.session_id
+            WHERE r.session_id = ?
+            GROUP BY r.user_id
+            ORDER BY score DESC, correct_count DESC, answered_count DESC, r.user_id ASC
+        ");
+        $resultStmt->execute([$session_id]);
+        $results = $resultStmt->fetchAll(PDO::FETCH_ASSOC);
+
+        echo json_encode([
+            'success' => true,
+            'session' => $resultSession,
+            'results' => $results,
+            'participants' => count($results),
         ]);
         break;
 
@@ -212,13 +321,12 @@ switch ($action) {
         $params = [$admin_id];
         if ($status_filter) { $where .= " AND s.status=?"; $params[] = $status_filter; }
 
-        $stmt = $pdo->prepare("SELECT s.id, s.title, s.chat_title, s.status, s.total_questions, s.questions_sent, s.timer_seconds, s.start_time, s.end_time, qs.title as quiz_set_title FROM tg_quiz_sessions s JOIN tg_quiz_sets qs ON qs.id=s.quiz_set_id {$where} ORDER BY s.created_at DESC LIMIT ? OFFSET ?");
-        array_push($params, $limit, $offset);
+        $stmt = $pdo->prepare("SELECT s.id, s.title, s.chat_title, s.status, s.total_questions, s.questions_sent, s.timer_seconds, s.start_time, s.end_time, qs.title as quiz_set_title FROM tg_quiz_sessions s JOIN tg_quiz_sets qs ON qs.id=s.quiz_set_id {$where} ORDER BY s.created_at DESC LIMIT {$limit} OFFSET {$offset}");
         $stmt->execute($params);
         $sessions = $stmt->fetchAll();
 
         $countStmt = $pdo->prepare("SELECT COUNT(*) FROM tg_quiz_sessions s {$where}");
-        $countStmt->execute(array_slice($params, 0, count($params) - 2));
+        $countStmt->execute($params);
         $total = (int)$countStmt->fetchColumn();
 
         echo json_encode(['success'=>true, 'sessions'=>$sessions, 'total'=>$total, 'page'=>$page]);
@@ -240,7 +348,7 @@ switch ($action) {
         validateCsrfToken();
         $title = strip_tags(trim($_POST['title'] ?? ''));
         $desc  = strip_tags(trim($_POST['description'] ?? ''));
-        $timer = max(5, min(120, (int)($_POST['default_timer'] ?? 15)));
+        $timer = max(5, min(300, (int)($_POST['default_timer'] ?? 15)));
         if (empty($title)) { echo json_encode(['success'=>false,'message'=>'Quiz title required']); break; }
 
         $ins = $pdo->prepare("INSERT INTO tg_quiz_sets (admin_id, title, description, default_timer) VALUES (?,?,?,?)");
@@ -258,7 +366,7 @@ switch ($action) {
         $id    = (int)($_POST['id'] ?? 0);
         $title = strip_tags(trim($_POST['title'] ?? ''));
         $desc  = strip_tags(trim($_POST['description'] ?? ''));
-        $timer = max(5, min(120, (int)($_POST['default_timer'] ?? 15)));
+        $timer = max(5, min(300, (int)($_POST['default_timer'] ?? 15)));
         if (empty($title)) { echo json_encode(['success'=>false,'message'=>'Quiz title required']); break; }
 
         $check = $pdo->prepare("SELECT id FROM tg_quiz_sets WHERE id=? AND admin_id=?");

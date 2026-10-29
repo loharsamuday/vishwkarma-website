@@ -80,7 +80,12 @@ require_once '../includes/header.php';
 
           <!-- Quiz Set -->
           <div class="mb-4">
-            <label class="form-label fw-bold">Select Quiz Set *</label>
+            <div class="d-flex justify-content-between align-items-center mb-2">
+              <label class="form-label fw-bold mb-0">Select Quiz Set *</label>
+              <a href="quiz_create.php?id=<?= $quiz_set_id ?>#tabUpload" id="btnUploadLink" class="btn btn-outline-primary btn-sm fw-bold shadow-sm">
+                <i class="fa-solid fa-file-csv me-1 text-success"></i>Upload CSV / Manage Questions
+              </a>
+            </div>
             <select class="form-select form-select-lg" id="quizSetSelect" onchange="updateSetInfo()">
               <option value="">-- Select Quiz Set --</option>
               <?php foreach ($all_sets as $s): ?>
@@ -152,6 +157,19 @@ require_once '../includes/header.php';
             </div>
           </div>
 
+          <!-- Score Settings -->
+          <div class="row g-3 mb-4">
+            <div class="col-md-6">
+              <label class="form-label fw-bold" for="correctMark">Marks for correct answer</label>
+              <input type="number" class="form-control" id="correctMark" min="0" max="1000" step="0.25" value="1">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label fw-bold" for="wrongMark">Marks for wrong answer</label>
+              <input type="number" class="form-control" id="wrongMark" min="-1000" max="0" step="0.25" value="-0.25">
+              <small class="text-muted">Negative value deducts marks; use 0 for no penalty.</small>
+            </div>
+          </div>
+
           <!-- Question Range -->
           <div class="mb-4">
             <label class="form-label fw-bold">Questions to Send</label>
@@ -210,14 +228,25 @@ function updateSetInfo() {
   const sel = document.getElementById('quizSetSelect');
   const opt = sel.selectedOptions[0];
   if (!opt || !opt.value) { document.getElementById('setInfoBox').classList.add('d-none'); return; }
-  const q = opt.dataset.q;
+  const q = parseInt(opt.dataset.q) || 0;
   const timer = opt.dataset.timer;
+
+  const uploadLink = document.getElementById('btnUploadLink');
+  if (uploadLink) {
+    uploadLink.href = `quiz_create.php?id=${opt.value}#tabUpload`;
+  }
+
   document.getElementById('timerSelect').value = [5,10,15,20,30,60].includes(parseInt(timer)) ? timer : 'custom';
   if (document.getElementById('timerSelect').value === 'custom') {
     document.getElementById('customTimer').classList.remove('d-none');
     document.getElementById('customTimer').value = timer;
   }
-  document.getElementById('setInfoText').textContent = `${q} questions available`;
+
+  if (q === 0) {
+    document.getElementById('setInfoText').innerHTML = `<strong>0 questions found in this set!</strong> <a href="quiz_create.php?id=${opt.value}#tabUpload" class="alert-link text-decoration-underline ms-1">Click here to upload CSV questions</a> before starting the quiz.`;
+  } else {
+    document.getElementById('setInfoText').textContent = `${q} questions available in this set`;
+  }
   document.getElementById('rangeEnd').placeholder = `max ${q}`;
   document.getElementById('setInfoBox').classList.remove('d-none');
   updatePreview();
@@ -260,6 +289,8 @@ async function startQuiz() {
   const title       = document.getElementById('quizTitle').value;
   const order       = document.querySelector('input[name="qOrder"]:checked').value;
   const timer       = getTimer();
+  const correctMark = parseFloat(document.getElementById('correctMark').value);
+  const wrongMark   = parseFloat(document.getElementById('wrongMark').value);
   const rangeType   = document.querySelector('input[name="qRange"]:checked').value;
   const start_q     = rangeType === 'custom' ? (parseInt(document.getElementById('rangeStart').value)||1) : 1;
   const end_q       = rangeType === 'custom' ? (parseInt(document.getElementById('rangeEnd').value)||0) : 0;
@@ -267,6 +298,8 @@ async function startQuiz() {
   if (!quiz_set_id) return alert('Please select a quiz set');
   if (!chat_id)     return alert('Please select a Telegram chat');
   if (timer < 5)    return alert('Timer must be at least 5 seconds');
+  if (!Number.isFinite(correctMark) || correctMark < 0 || correctMark > 1000) return alert('Correct marks must be between 0 and 1000');
+  if (!Number.isFinite(wrongMark) || wrongMark < -1000 || wrongMark > 0) return alert('Wrong-answer marks must be between -1000 and 0');
 
   const btn = document.getElementById('startBtn');
   btn.disabled = true;
@@ -276,11 +309,22 @@ async function startQuiz() {
   fd.append('action','start'); fd.append('csrf_token',CSRF);
   fd.append('quiz_set_id', quiz_set_id); fd.append('chat_id', chat_id);
   fd.append('title', title); fd.append('timer', timer);
+  fd.append('correct_mark', correctMark); fd.append('wrong_mark', wrongMark);
   fd.append('question_order', order);
   fd.append('start_question', start_q); fd.append('end_question', end_q);
 
-  const res = await fetch(API, {method:'POST', body:fd}).then(r=>r.json());
   const el = document.getElementById('launchResult');
+  let res;
+  try {
+    const response = await fetch(API, {method:'POST', body:fd});
+    res = await response.json();
+  } catch (error) {
+    el.innerHTML = '<div class="alert alert-danger py-2">Quiz start response could not be read. Check the Live Monitor or Quiz History before trying again, to avoid starting a duplicate session.</div>';
+    btn.disabled = false;
+    btn.innerHTML = '<i class="fa-solid fa-play me-2"></i>START QUIZ';
+    return;
+  }
+
   el.innerHTML = `<div class="alert alert-${res.success?'success':'danger'} py-2">${res.message}</div>`;
 
   if (res.success) {

@@ -44,6 +44,9 @@ require_once '../includes/header.php';
       </h4>
     </div>
     <div class="d-flex gap-2">
+      <?php if ($session): ?>
+      <a href="quiz_results.php?session_id=<?= (int)$session['id'] ?>" class="btn btn-outline-primary btn-sm"><i class="fa-solid fa-trophy me-1"></i>Results</a>
+      <?php endif; ?>
       <a href="quiz_sets.php" class="btn btn-outline-secondary btn-sm"><i class="fa-solid fa-layer-group me-1"></i>Quiz Sets</a>
       <a href="quiz_history.php" class="btn btn-outline-dark btn-sm"><i class="fa-solid fa-clock-rotate-left me-1"></i>History</a>
     </div>
@@ -77,35 +80,44 @@ require_once '../includes/header.php';
             </div>
           </div>
 
+          <!-- Engine Mode Notice -->
+          <div class="alert alert-info py-2 px-3 small d-flex align-items-center mb-4 rounded-3 shadow-sm border-0">
+            <i class="fa-solid fa-circle-nodes me-2 fs-5 text-primary"></i>
+            <div>
+              <strong>Active Quiz Engine:</strong> Live Web Driver is actively dispatching questions while this page is open.
+              <span class="text-muted">Browser close karne par bhi quiz chalane ke liye terminal me <code>python python/tg_quiz_worker.py</code> run karein. Voter-wise results ke liye worker zaroori hai aur bot par webhook configured nahi hona chahiye.</span>
+            </div>
+          </div>
+
           <!-- Current Info Grid -->
           <div class="row g-3 mb-4">
             <div class="col-md-3 col-6">
-              <div class="text-center bg-light rounded p-3">
-                <div class="fs-2 fw-bold text-primary" id="currentQ">—</div>
-                <small class="text-muted">Current Question</small>
+              <div class="text-center bg-light rounded p-3 shadow-sm">
+                <div class="fs-2 fw-bold text-primary" id="totalQ">—</div>
+                <small class="text-muted fw-semibold">Total Questions</small>
               </div>
             </div>
             <div class="col-md-3 col-6">
-              <div class="text-center bg-light rounded p-3">
-                <div class="fs-2 fw-bold text-success" id="totalQ">—</div>
-                <small class="text-muted">Total Questions</small>
+              <div class="text-center bg-light rounded p-3 shadow-sm">
+                <div class="fs-2 fw-bold text-success" id="sentQ">—</div>
+                <small class="text-muted fw-semibold">Sent Questions</small>
               </div>
             </div>
             <div class="col-md-3 col-6">
-              <div class="text-center bg-light rounded p-3">
-                <div class="fs-2 fw-bold text-warning" id="timerDisplay">—</div>
-                <small class="text-muted">Seconds Until Next</small>
+              <div class="text-center bg-light rounded p-3 shadow-sm">
+                <div class="fs-2 fw-bold text-danger" id="remainingQ">—</div>
+                <small class="text-muted fw-semibold">Remaining Questions</small>
               </div>
             </div>
             <div class="col-md-3 col-6">
-              <div class="text-center bg-light rounded p-3">
+              <div class="text-center bg-light rounded p-3 shadow-sm">
                 <div class="fs-2 fw-bold text-info" id="timerSet">—</div>
-                <small class="text-muted">Timer per Q</small>
+                <small class="text-muted fw-semibold">Timer per Q</small>
               </div>
             </div>
           </div>
 
-          <!-- Timer Progress Ring -->
+          <!-- Timer Progress Ring & Countdown -->
           <div class="text-center mb-4">
             <div class="position-relative d-inline-block">
               <svg width="150" height="150" viewBox="0 0 150 150">
@@ -116,13 +128,25 @@ require_once '../includes/header.php';
               </svg>
               <div class="position-absolute top-50 start-50 translate-middle text-center">
                 <div class="fs-1 fw-bold" id="timerRingText">—</div>
-                <small class="text-muted">sec</small>
+                <small class="text-muted">sec left</small>
               </div>
             </div>
+            <div class="small text-muted mt-2">Next question countdown: <span id="timerDisplay" class="fw-bold text-dark">—</span></div>
           </div>
 
-          <!-- Error display -->
-          <div id="errorBox" class="alert alert-warning d-none py-2 mb-3"></div>
+          <!-- Telegram API Status / Error Box -->
+          <div class="card border-0 bg-light p-3 mb-3 rounded-3 shadow-sm">
+            <div class="d-flex justify-content-between align-items-center">
+              <div>
+                <small class="text-muted text-uppercase fw-bold d-block">Telegram API Status</small>
+                <div id="tgStatusText" class="fw-bold text-success mt-1">
+                  <i class="fa-solid fa-circle-check me-1"></i>Connected & Operational
+                </div>
+              </div>
+              <span class="badge bg-white text-dark border px-2 py-1 small">Native Quiz Poll</span>
+            </div>
+            <div id="errorBox" class="alert alert-danger py-2 mt-2 mb-0 d-none"></div>
+          </div>
 
         </div>
 
@@ -134,6 +158,9 @@ require_once '../includes/header.php';
             </button>
             <button class="btn btn-success btn-lg fw-bold px-4" id="btnResume" onclick="sessionAction('resume')" disabled>
               <i class="fa-solid fa-play me-2"></i>RESUME
+            </button>
+            <button class="btn btn-primary btn-lg fw-bold px-4" id="btnDispatch" onclick="sessionAction('dispatch')" title="Send next question immediately without waiting for timer" disabled>
+              <i class="fa-solid fa-forward-step me-2"></i>SEND NEXT NOW
             </button>
             <button class="btn btn-danger btn-lg fw-bold px-4" id="btnStop" onclick="sessionAction('stop')">
               <i class="fa-solid fa-stop me-2"></i>STOP
@@ -216,6 +243,7 @@ const SESSION_ID = <?= $session_id ?>;
 const TOTAL_Q   = <?= (int)$session['total_questions'] ?>;
 let pollInterval;
 let logs = [];
+let lastSentCount = -1;
 
 const statusColors = {
   'RUNNING':   {bg:'bg-success',    text:'🟢 RUNNING'},
@@ -242,11 +270,30 @@ function updateUI(data) {
   document.getElementById('progressText').textContent = `${s.questions_sent} / ${s.total_questions} (${pct}%)`;
 
   // Numbers
-  document.getElementById('currentQ').textContent = s.questions_sent > 0 ? s.questions_sent : (s.current_question || 0);
-  document.getElementById('totalQ').textContent   = s.total_questions;
-  document.getElementById('timerSet').textContent = s.timer_seconds + 's';
+  const sent = parseInt(s.questions_sent) || 0;
+  const total = parseInt(s.total_questions) || 0;
+  const remaining = Math.max(0, total - sent);
+
+  document.getElementById('totalQ').textContent       = total;
+  document.getElementById('sentQ').textContent        = sent;
+  document.getElementById('remainingQ').textContent   = remaining;
+  document.getElementById('timerSet').textContent     = (s.timer_seconds || 15) + 's';
   document.getElementById('timerDisplay').textContent = secs + 's';
   document.getElementById('timerRingText').textContent = secs;
+
+  // Telegram status & error
+  const tgStatus = document.getElementById('tgStatusText');
+  const errorBox = document.getElementById('errorBox');
+  if (s.error_message) {
+    tgStatus.className = 'fw-bold text-danger mt-1';
+    tgStatus.innerHTML = '<i class="fa-solid fa-triangle-exclamation me-1"></i>Telegram API Error Reported';
+    errorBox.textContent = 'Last Telegram API Error: ' + s.error_message;
+    errorBox.classList.remove('d-none');
+  } else {
+    tgStatus.className = 'fw-bold text-success mt-1';
+    tgStatus.innerHTML = '<i class="fa-solid fa-circle-check me-1"></i>Connected & Operational (Polls Delivering)';
+    errorBox.classList.add('d-none');
+  }
 
   // Ring progress
   const maxSecs = s.timer_seconds || 15;
@@ -255,15 +302,12 @@ function updateUI(data) {
   document.getElementById('timerRing').style.strokeDashoffset = Math.max(0, dashOffset);
   document.getElementById('timerRing').style.stroke = secs > 5 ? '#28a745' : '#dc3545';
 
-  // Error
-  if (s.error_message) {
-    document.getElementById('errorBox').textContent = '⚠ ' + s.error_message;
-    document.getElementById('errorBox').classList.remove('d-none');
-  }
-
   // Buttons
   document.getElementById('btnPause').disabled  = s.status !== 'RUNNING';
   document.getElementById('btnResume').disabled = s.status !== 'PAUSED';
+  if (document.getElementById('btnDispatch')) {
+    document.getElementById('btnDispatch').disabled = (s.status !== 'RUNNING' || remaining <= 0);
+  }
   document.getElementById('btnStop').style.display   = ['RUNNING','PAUSED'].includes(s.status) ? '' : 'none';
   document.getElementById('btnRestart').style.display = ['COMPLETED','STOPPED','FAILED'].includes(s.status) ? '' : 'none';
 
@@ -288,7 +332,14 @@ function addLog(msg, type='info') {
 async function pollStatus() {
   try {
     const res = await fetch(`${API}?action=status&session_id=${SESSION_ID}`).then(r=>r.json());
-    if (res.success) updateUI(res);
+    if (res.success) {
+      updateUI(res);
+      const curSent = parseInt(res.session.questions_sent) || 0;
+      if (lastSentCount !== -1 && curSent > lastSentCount) {
+        addLog(`🎯 Question #${curSent} dispatched to Telegram group!`, 'success');
+      }
+      lastSentCount = curSent;
+    }
   } catch(e) { /* network error, keep trying */ }
 }
 

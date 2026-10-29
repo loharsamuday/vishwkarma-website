@@ -1,0 +1,21 @@
+2026-10-30 01:53:24,729 [INFO] ============================================================
+2026-10-30 01:53:24,755 [INFO] Telegram Quiz Worker started — HTTP Sync API Mode
+2026-10-30 01:53:24,756 [INFO] Sync API URL: https://vishwkarma.great-site.net/api/tg_quiz/worker_sync.php
+2026-10-30 01:53:24,756 [INFO] Poll interval: 5s | Max retries: 3
+2026-10-30 01:53:24,757 [INFO] ============================================================
+2026-10-30 01:53:29,311 [ERROR] Cannot connect to Sync API: Expecting value: line 1 column 1 (char 0)
+2026-10-30 01:53:29,394 [ERROR] Check SYNC_API_URL and WORKER_SECRET in .env
+2026-10-30 02:02:54,780 [INFO] ============================================================
+2026-10-30 02:02:54,787 [INFO] Telegram Quiz Worker started — HTTP Sync API Mode
+2026-10-30 02:02:54,789 [INFO] Sync API URL: https://vishwkarma.great-site.net/api/tg_quiz/worker_sync.php
+2026-10-30 02:02:54,790 [INFO] Poll interval: 5s | Max retries: 3
+2026-10-30 02:02:54,791 [INFO] ============================================================
+2026-10-30 02:02:55,874 [ERROR] Cannot connect to Sync API: Expecting value: line 1 column 1 (char 0)
+2026-10-30 02:02:55,884 [ERROR] Check SYNC_API_URL and WORKER_SECRET in .env
+2026-10-30 02:14:04,476 [INFO] ============================================================
+2026-10-30 02:14:04,479 [INFO] Telegram Quiz Worker started — HTTP Sync API Mode
+2026-10-30 02:14:04,480 [INFO] Sync API URL: https://vishwkarma.great-site.net/api/tg_quiz/worker_sync.php
+2026-10-30 02:14:04,480 [INFO] Poll interval: 5s | Max retries: 3
+2026-10-30 02:14:04,481 [INFO] ============================================================
+2026-10-30 02:14:07,106 [ERROR] Cannot connect to Sync API: Expecting value: line 1 column 1 (char 0)
+2026-10-30 02:14:07,112 [ERROR] Check SYNC_API_URL and WORKER_SECRET in .env

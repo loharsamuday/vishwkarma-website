@@ -165,6 +165,54 @@ switch ($action) {
         break;
 
     // --------------------------------------------------------
+    // POST test_send — send a test poll to chat to verify permissions
+    // --------------------------------------------------------
+    case 'test_send':
+        validateCsrfToken();
+        $chat_id = trim($_POST['chat_id'] ?? '');
+        if (empty($chat_id)) {
+            echo json_encode(['success' => false, 'message' => 'Chat ID required']);
+            break;
+        }
+
+        $stmt = $pdo->prepare("SELECT bot_token_encrypted FROM tg_bots WHERE admin_id = ? AND is_active = 1 LIMIT 1");
+        $stmt->execute([$admin_id]);
+        $row = $stmt->fetch();
+        if (!$row) {
+            echo json_encode(['success' => false, 'message' => 'No active bot configured. Connect a bot first.']);
+            break;
+        }
+        $token = decryptToken($row['bot_token_encrypted']);
+
+        require_once __DIR__ . '/tg_helper.php';
+        $testQuestion = [
+            'question_text'  => '🎯 [Test Question] भारत की राजधानी क्या है?',
+            'option_a'       => 'मुंबई',
+            'option_b'       => 'नई दिल्ली',
+            'option_c'       => 'पटना',
+            'option_d'       => 'जयपुर',
+            'correct_answer' => 'B',
+            'explanation'    => 'भारत की राजधानी नई दिल्ली है।'
+        ];
+
+        $pollRes = sendQuizPoll($token, $chat_id, $testQuestion);
+
+        if (!empty($pollRes['ok'])) {
+            echo json_encode([
+                'success' => true,
+                'message' => '✅ Test quiz poll successfully sent to group! Check your Telegram group.',
+                'poll_id' => $pollRes['result']['poll']['id'] ?? null
+            ]);
+        } else {
+            echo json_encode([
+                'success' => false,
+                'message' => 'Telegram Error: ' . ($pollRes['description'] ?? 'Failed to send poll'),
+                'error_code' => $pollRes['error_code'] ?? null
+            ]);
+        }
+        break;
+
+    // --------------------------------------------------------
     // POST delete — remove a chat record
     // --------------------------------------------------------
     case 'delete':
