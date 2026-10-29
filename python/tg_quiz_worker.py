@@ -174,6 +174,9 @@ class SyncAPIClient:
     def sync_poll_answers(self) -> dict:
         return self._get('sync_poll_answers')
 
+    def finalize_due_sessions(self) -> dict:
+        return self._get('finalize_due_sessions')
+
     def get_pending_tasks(self) -> list:
         result = self._get('get_pending_tasks')
         if result.get('success'):
@@ -238,10 +241,9 @@ def process_task_api(client: SyncAPIClient, task: dict):
     question_id  = task['question_id']
     question_num = task['question_number']
 
-    # All questions sent?
+    # All questions sent; wait for the last poll to close before publishing results.
     if current_q >= total_q:
-        client.mark_completed(session_id)
-        log.info(f"Session #{session_id} COMPLETED ✅")
+        log.info(f"Session #{session_id}: Waiting for final poll timer before publishing results")
         return
 
     # Decrypt bot token
@@ -323,6 +325,10 @@ def main_api_mode():
             sync_result = client.sync_poll_answers()
             if not sync_result.get('success'):
                 log.warning(f"Could not sync Telegram poll answers: {sync_result.get('message', 'Unknown error')}")
+
+            finalization = client.finalize_due_sessions()
+            if not finalization.get('success'):
+                log.warning(f"Could not publish final quiz results: {finalization.get('message', 'Unknown error')}")
 
             tasks = client.get_pending_tasks()
 
@@ -493,14 +499,108 @@ def sync_poll_answers_db(conn):
                 log.exception(f"Could not save Telegram update for bot #{bot['id']}")
                 break
 
-    if all_caught_up:
+def finalize_due_sessions_db(conn):
+    """Post the final per-user scores once the last question timer expires."""
+    with conn.cursor() as cur:
+        cur.execute("""
+            SELECT s.*, b.id AS bot_id, b.bot_token_encrypted
+            FROM tg_quiz_sessions s
+            JOIN tg_bots b ON b.admin_id=s.admin_id AND b.is_active=1
+            WHERE s.status='RUNNING' AND s.current_question >= s.total_questions
+              AND s.next_question_at <= NOW() AND s.results_announced_at IS NULL
+            ORDER BY s.next_question_at ASC
+            LIMIT 10
+        """)
+        sessions = cur.fetchall()
+
+    for session in sessions:
         with conn.cursor() as cur:
             cur.execute("""
                 UPDATE tg_quiz_sessions
-                SET status='COMPLETED', end_time=NOW(), updated_at=NOW()
-                WHERE status='RUNNING' AND current_question >= total_questions
+                SET results_claimed_at=NOW(), updated_at=NOW()
+                WHERE id=%s AND status='RUNNING' AND results_announced_at IS NULL
+                  AND (results_claimed_at IS NULL OR results_claimed_at < DATE_SUB(NOW(), INTERVAL 5 MINUTE))
                   AND next_question_at <= NOW()
-            """)
+            """, (session['id'],))
+            if cur.rowcount != 1:
+                conn.rollback()
+                continue
+        conn.commit()
+
+        token = decrypt_token(session['bot_token_encrypted'])
+        if not token:
+            log.error(f"Cannot publish results for session #{session['id']}: bot token decryption failed")
+            with conn.cursor() as cur:
+                cur.execute("UPDATE tg_quiz_sessions SET results_claimed_at=NULL WHERE id=%s", (session['id'],))
+            conn.commit()
+            continue
+
+        with conn.cursor() as cur:
+            cur.execute("""
+                SELECT r.user_id, MAX(r.username) AS username, MAX(r.first_name) AS first_name,
+                       MAX(r.last_name) AS last_name, COUNT(*) AS answered_count,
+                       SUM(r.is_correct=1) AS correct_count, SUM(r.is_correct=0) AS wrong_count,
+                       SUM(CASE WHEN r.is_correct=1 THEN s.correct_mark ELSE s.wrong_mark END) AS score
+                FROM tg_quiz_responses r
+                JOIN tg_quiz_sessions s ON s.id=r.session_id
+                WHERE r.session_id=%s
+                GROUP BY r.user_id
+                ORDER BY score DESC, correct_count DESC, answered_count DESC, r.user_id ASC
+            """, (session['id'],))
+            results = cur.fetchall()
+
+        messages = [f"🏆 Quiz results: {str(session.get('title') or 'Telegram Quiz').strip()}"]
+        if not results:
+            messages.append("No participants submitted answers.")
+        else:
+            for rank, result in enumerate(results, start=1):
+                name = ' '.join(filter(None, [result.get('first_name'), result.get('last_name')])).strip()
+                if not name:
+                    name = f"@{result['username']}" if result.get('username') else f"User {result['user_id']}"
+                name = ' '.join(name.split())[:60]
+                line = (
+                    f"{rank}. {name} — Score: {float(result['score'] or 0):.2f}"
+                    f" | Correct: {int(result['correct_count'] or 0)}"
+                    f" | Wrong: {int(result['wrong_count'] or 0)}"
+                )
+                if len(messages[-1]) + len(line) + 1 > 3500:
+                    messages.append(line)
+                else:
+                    messages[-1] += '\n' + line
+        messages.append(
+            f"Scoring: correct +{float(session['correct_mark']):.2f}"
+            f" | wrong {float(session['wrong_mark']):.2f}"
+        )
+
+        sent_all = True
+        for message in messages:
+            try:
+                response = requests.post(
+                    TELEGRAM_API_BASE.format(token=token, method='sendMessage'),
+                    json={'chat_id': session['chat_id'], 'text': message},
+                    timeout=15,
+                )
+                result = response.json()
+            except (requests.RequestException, ValueError) as exc:
+                log.error(f"Could not post results for session #{session['id']}: {exc}")
+                sent_all = False
+                break
+            if not result.get('ok'):
+                log.error(f"Telegram rejected results for session #{session['id']}: {result.get('description', 'Unknown error')}")
+                sent_all = False
+                break
+
+        with conn.cursor() as cur:
+            if sent_all:
+                cur.execute("""
+                    UPDATE tg_quiz_sessions
+                    SET status='COMPLETED', end_time=NOW(), results_announced_at=NOW(),
+                        results_claimed_at=NULL, updated_at=NOW()
+                    WHERE id=%s AND status='RUNNING'
+                """, (session['id'],))
+                log.info(f"Session #{session['id']} completed; posted scores for {len(results)} participants")
+            else:
+                cur.execute("UPDATE tg_quiz_sessions SET results_claimed_at=NULL WHERE id=%s", (session['id'],))
         conn.commit()
 
 def get_question(conn, question_id: int) -> dict:
@@ -676,6 +776,7 @@ def main_db_mode():
             sessions = get_active_sessions(conn)
 
             sync_poll_answers_db(conn)
+            finalize_due_sessions_db(conn)
 
             if sessions:
                 log.info(f"Found {len(sessions)} active session(s)")

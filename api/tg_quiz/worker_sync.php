@@ -15,7 +15,7 @@ header('X-Content-Type-Options: nosniff');
 header('Cache-Control: no-store, no-cache, must-revalidate');
 
 require_once __DIR__ . '/../../includes/db.php';
-require_once __DIR__ . '/tg_helper.php';
+require_once __DIR__ . '/tg_results.php';
 
 // ── Authentication via Worker Secret Key ────────────────────────
 $worker_secret = defined('TG_WORKER_SECRET') ? TG_WORKER_SECRET : '';
@@ -172,15 +172,6 @@ switch ($action) {
                 }
             }
 
-            if ($allCaughtUp) {
-                $pdo->exec("
-                    UPDATE tg_quiz_sessions
-                    SET status = 'COMPLETED', end_time = NOW(), updated_at = NOW()
-                    WHERE status = 'RUNNING' AND current_question >= total_questions
-                      AND next_question_at <= NOW()
-                ");
-            }
-
             echo json_encode([
                 'success' => !$syncFailed,
                 'message' => $syncFailed ? 'Telegram poll answers could not be synchronized; check worker connectivity and webhook settings' : 'Poll answers synchronized',
@@ -188,6 +179,34 @@ switch ($action) {
         } catch (Throwable $e) {
             http_response_code(500);
             echo json_encode(['success' => false, 'message' => 'Could not synchronize poll answers']);
+        }
+        break;
+
+    // ─────────────────────────────────────────────────────────────
+    // FINALIZE DUE SESSIONS — publish final scores after the last poll closes
+    // ─────────────────────────────────────────────────────────────
+    case 'finalize_due_sessions':
+        try {
+            $stmt = $pdo->query("
+                SELECT id
+                FROM tg_quiz_sessions
+                WHERE status = 'RUNNING' AND current_question >= total_questions
+                  AND next_question_at <= NOW() AND results_announced_at IS NULL
+                ORDER BY next_question_at ASC
+                LIMIT 10
+            ");
+            $sessions = $stmt->fetchAll(PDO::FETCH_COLUMN);
+            $results = [];
+            foreach ($sessions as $sessionId) {
+                $results[] = [
+                    'session_id' => (int)$sessionId,
+                    'result' => finalizeTelegramQuiz($pdo, (int)$sessionId),
+                ];
+            }
+            echo json_encode(['success' => true, 'results' => $results]);
+        } catch (Throwable $e) {
+            http_response_code(500);
+            echo json_encode(['success' => false, 'message' => 'Could not finalize due quiz sessions']);
         }
         break;
 

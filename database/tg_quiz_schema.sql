@@ -88,6 +88,8 @@ CREATE TABLE IF NOT EXISTS `tg_quiz_sessions` (
     `timer_seconds` INT UNSIGNED DEFAULT 15,
     `correct_mark` DECIMAL(8,2) NOT NULL DEFAULT 1.00,
     `wrong_mark` DECIMAL(8,2) NOT NULL DEFAULT -0.25,
+    `results_claimed_at` DATETIME DEFAULT NULL,
+    `results_announced_at` DATETIME DEFAULT NULL,
     `remaining_time` INT UNSIGNED DEFAULT 0 COMMENT 'seconds left in current question',
     `start_question` INT UNSIGNED DEFAULT 1 COMMENT '1-indexed range start',
     `end_question` INT UNSIGNED DEFAULT 0 COMMENT '0 = all',

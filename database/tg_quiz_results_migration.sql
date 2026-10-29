@@ -1,7 +1,9 @@
 -- Telegram quiz results: scoring settings, voter answers, and worker update offset.
 ALTER TABLE tg_quiz_sessions
   ADD COLUMN IF NOT EXISTS correct_mark DECIMAL(8,2) NOT NULL DEFAULT 1.00,
-  ADD COLUMN IF NOT EXISTS wrong_mark DECIMAL(8,2) NOT NULL DEFAULT -0.25;
+  ADD COLUMN IF NOT EXISTS wrong_mark DECIMAL(8,2) NOT NULL DEFAULT -0.25,
+  ADD COLUMN IF NOT EXISTS results_claimed_at DATETIME NULL,
+  ADD COLUMN IF NOT EXISTS results_announced_at DATETIME NULL;
 
 ALTER TABLE tg_bots
   ADD COLUMN IF NOT EXISTS last_update_id BIGINT NOT NULL DEFAULT 0;

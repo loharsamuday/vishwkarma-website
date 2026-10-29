@@ -8,6 +8,7 @@ header('X-Content-Type-Options: nosniff');
 require_once __DIR__ . '/../../includes/db.php';
 require_once __DIR__ . '/../../includes/session.php';
 require_once __DIR__ . '/tg_helper.php';
+require_once __DIR__ . '/tg_results.php';
 
 if (!isset($_SESSION['admin_id'])) {
     http_response_code(401);
@@ -246,6 +247,18 @@ switch ($action) {
             }
         }
 
+        $finalizationInfo = null;
+        if (
+            $session['status'] === 'RUNNING'
+            && (int)$session['current_question'] >= (int)$session['total_questions']
+            && $session['next_question_at']
+            && strtotime($session['next_question_at']) <= time()
+        ) {
+            $finalizationInfo = finalizeTelegramQuiz($pdo, $session_id);
+            $stmt->execute([$session_id, $admin_id]);
+            $session = $stmt->fetch();
+        }
+
         // Calculate time remaining for current question
         $seconds_remaining = 0;
         if ($session['status'] === 'RUNNING' && $session['next_question_at']) {
@@ -261,6 +274,7 @@ switch ($action) {
             'seconds_remaining'   => $seconds_remaining,
             'remaining_questions' => $remaining_questions,
             'last_dispatch'       => $dispatchInfo,
+            'finalization'        => $finalizationInfo,
             'progress_pct'        => $session['total_questions'] > 0 ? round(($session['questions_sent'] / $session['total_questions']) * 100, 1) : 0,
         ]);
         break;

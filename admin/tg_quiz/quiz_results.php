@@ -5,18 +5,31 @@
 $page_title = "Quiz Results";
 require_once '../../includes/db.php';
 require_once '../../includes/session.php';
+require_once '../../api/tg_quiz/tg_results.php';
 
 if (!isset($_SESSION['admin_id'])) { header("Location: ../index.php"); exit; }
 
 $session_id = (int)($_GET['session_id'] ?? 0);
 $sessionStmt = $pdo->prepare("
-    SELECT id, title, chat_title, status, total_questions, questions_sent,
-           correct_mark, wrong_mark, start_time, end_time
+    SELECT id, title, chat_title, status, total_questions, current_question, questions_sent,
+           correct_mark, wrong_mark, start_time, end_time, next_question_at
     FROM tg_quiz_sessions
     WHERE id = ? AND admin_id = ?
 ");
 $sessionStmt->execute([$session_id, (int)$_SESSION['admin_id']]);
 $session = $sessionStmt->fetch(PDO::FETCH_ASSOC);
+
+if (
+    $session
+    && $session['status'] === 'RUNNING'
+    && (int)$session['current_question'] >= (int)$session['total_questions']
+    && $session['next_question_at']
+    && strtotime($session['next_question_at']) <= time()
+) {
+    finalizeTelegramQuiz($pdo, $session_id);
+    $sessionStmt->execute([$session_id, (int)$_SESSION['admin_id']]);
+    $session = $sessionStmt->fetch(PDO::FETCH_ASSOC);
+}
 
 if (!$session) {
     http_response_code(404);
