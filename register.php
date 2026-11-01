@@ -6,7 +6,7 @@ require_once 'includes/session.php';
 require_once 'includes/mailer.php';
 
 use PHPMailer\PHPMailer\PHPMailer;
-use PHPMailer\PHPMailer\Exception;
+use PHPMailer\PHPMailer\Exception as PHPMailerException;
 
 $global_settings = function_exists('getGlobalSettings') ? getGlobalSettings() : [];
 
@@ -25,6 +25,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $password = $_POST['password'];
     $confirm_password = $_POST['confirm_password'];
     $terms = isset($_POST['terms']);
+    $account_type = ($_POST['account_type'] ?? '') === 'matrimony' ? 'matrimony' : 'general';
     
     if (empty($first_name) || empty($last_name) || empty($email) || empty($phone) || empty($password)) {
         $error = "All fields are required.";
@@ -47,51 +48,74 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $pdo->beginTransaction();
 
                 $hashed_password = password_hash($password, PASSWORD_DEFAULT);
-                $stmt = $pdo->prepare("INSERT INTO users (first_name, last_name, email, phone, password, is_verified) VALUES (?, ?, ?, ?, ?, ?)");
-                $stmt->execute([$first_name, $last_name, $email, $phone, $hashed_password, 0]);
+                $email_verification_enabled = ($global_settings['enable_email_verification'] ?? '1') == '1';
+                $has_smtp = !empty($global_settings['smtp_host']) && !empty($global_settings['smtp_username']) && !empty($global_settings['smtp_password']);
+
+                // If SMTP is not configured or verification disabled, auto-verify user
+                $is_verified = ($email_verification_enabled && $has_smtp) ? 0 : 1;
+
+                // Try insert with account_type first, fallback if column doesn't exist
+                try {
+                    $stmt = $pdo->prepare("INSERT INTO users (first_name, last_name, email, phone, password, is_verified, account_type) VALUES (?, ?, ?, ?, ?, ?, ?)");
+                    $stmt->execute([$first_name, $last_name, $email, $phone, $hashed_password, $is_verified, $account_type]);
+                } catch (\PDOException $colEx) {
+                    $stmt = $pdo->prepare("INSERT INTO users (first_name, last_name, email, phone, password, is_verified) VALUES (?, ?, ?, ?, ?, ?)");
+                    $stmt->execute([$first_name, $last_name, $email, $phone, $hashed_password, $is_verified]);
+                }
                 $new_user_id = $pdo->lastInsertId();
 
-                $otp = random_int(100000, 999999);
-                $expires_at = date('Y-m-d H:i:s', strtotime('+15 minutes'));
-                $pdo->prepare("DELETE FROM email_verifications WHERE user_id = ?")->execute([$new_user_id]);
-                $pdo->prepare("INSERT INTO email_verifications (user_id, otp, expires_at) VALUES (?, ?, ?)")->execute([$new_user_id, $otp, $expires_at]);
+                if ($email_verification_enabled && $has_smtp) {
+                    $otp = random_int(100000, 999999);
+                    $expires_at = date('Y-m-d H:i:s', strtotime('+15 minutes'));
+                    try {
+                        $pdo->prepare("DELETE FROM email_verifications WHERE user_id = ?")->execute([$new_user_id]);
+                        $pdo->prepare("INSERT INTO email_verifications (user_id, otp, expires_at) VALUES (?, ?, ?)")->execute([$new_user_id, $otp, $expires_at]);
+                    } catch (\PDOException $e) {}
 
-                if (empty($global_settings['smtp_host']) || empty($global_settings['smtp_username']) || empty($global_settings['smtp_password']) || empty($global_settings['smtp_port'])) {
-                    throw new Exception('SMTP settings are not configured. Verification email cannot be sent.');
+                    $mail = new PHPMailer(true);
+                    $mail->isSMTP();
+                    $mail->Host       = $global_settings['smtp_host'];
+                    $mail->SMTPAuth   = true;
+                    $mail->Username   = $global_settings['smtp_username'];
+                    $mail->Password   = $global_settings['smtp_password'];
+                    $mail->SMTPSecure = !empty($global_settings['smtp_secure']) && strtolower($global_settings['smtp_secure']) === 'ssl' ? PHPMailer::ENCRYPTION_SMTPS : PHPMailer::ENCRYPTION_STARTTLS;
+                    $mail->Port       = !empty($global_settings['smtp_port']) ? (int)$global_settings['smtp_port'] : 587;
+                    $mail->Timeout    = 10;
+
+                    $mail->setFrom($global_settings['smtp_username'], SITE_NAME);
+                    $mail->addAddress($email, $first_name . ' ' . $last_name);
+
+                    $mail->isHTML(true);
+                    $mail->Subject = 'Verify your email address for ' . SITE_NAME;
+                    $mail->Body    = "<h3>Hello " . htmlspecialchars($first_name) . ",</h3>"
+                        . "<p>Thank you for registering with " . SITE_NAME . ". Use the following OTP to verify your email address:</p>"
+                        . "<p style='font-size:1.5rem; font-weight:bold; letter-spacing:0.2rem;'>" . $otp . "</p>"
+                        . "<p>This code will expire in 15 minutes.</p>"
+                        . "<p>If you did not sign up, please ignore this email.</p>"
+                        . "<br><p>Regards,<br>" . SITE_NAME . " Team</p>";
+                    $mail->AltBody = "Your verification code is: " . $otp . ". It expires in 15 minutes.";
+
+                    $mail->send();
+
+                    $pdo->commit();
+
+                    logActivity('Registered new account', 'user', $new_user_id);
+                    setFlashMessage('success', 'Registration successful! Enter the OTP sent to your email to verify your account.');
+                    header("Location: verify-email.php?uid=" . $new_user_id);
+                    exit;
+                } else {
+                    // Registration without email OTP (e.g. SMTP not configured or OTP disabled)
+                    $pdo->commit();
+
+                    logActivity('Registered new account', 'user', $new_user_id);
+                    setFlashMessage('success', 'Registration successful! You may now log in to your account.');
+                    header("Location: login.php");
+                    exit;
                 }
-
-                $mail = new PHPMailer(true);
-                $mail->isSMTP();
-                $mail->Host       = $global_settings['smtp_host'];
-                $mail->SMTPAuth   = true;
-                $mail->Username   = $global_settings['smtp_username'];
-                $mail->Password   = $global_settings['smtp_password'];
-                $mail->SMTPSecure = !empty($global_settings['smtp_secure']) && strtolower($global_settings['smtp_secure']) === 'ssl' ? PHPMailer::ENCRYPTION_SMTPS : PHPMailer::ENCRYPTION_STARTTLS;
-                $mail->Port       = $global_settings['smtp_port'];
-
-                $mail->setFrom($global_settings['smtp_username'], SITE_NAME);
-                $mail->addAddress($email, $first_name . ' ' . $last_name);
-
-                $mail->isHTML(true);
-                $mail->Subject = 'Verify your email address for ' . SITE_NAME;
-                $mail->Body    = "<h3>Hello " . htmlspecialchars($first_name) . ",</h3>"
-                    . "<p>Thank you for registering with " . SITE_NAME . ". Use the following OTP to verify your email address:</p>"
-                    . "<p style='font-size:1.5rem; font-weight:bold; letter-spacing:0.2rem;'>" . $otp . "</p>"
-                    . "<p>This code will expire in 15 minutes.</p>"
-                    . "<p>If you did not sign up, please ignore this email.</p>"
-                    . "<br><p>Regards,<br>" . SITE_NAME . " Team</p>";
-                $mail->AltBody = "Your verification code is: " . $otp . ". It expires in 15 minutes.";
-
-                $mail->send();
-
-                $pdo->commit();
-
-                logActivity('Registered new account', 'user', $new_user_id);
-                setFlashMessage('success', 'Registration successful! Enter the OTP sent to your email to verify your account.');
-                header("Location: verify-email.php?uid=" . $new_user_id);
-                exit;
-            } catch (Exception $e) {
-                $pdo->rollBack();
+            } catch (\Throwable $e) {
+                if ($pdo->inTransaction()) {
+                    $pdo->rollBack();
+                }
                 $error = "Registration failed: " . $e->getMessage();
             }
         }

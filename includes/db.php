@@ -10,11 +10,18 @@ try {
     $pdo->setAttribute(PDO::ATTR_DEFAULT_FETCH_MODE, PDO::FETCH_ASSOC);
     // Synchronize timezone with PHP (Asia/Kolkata)
     try { $pdo->exec("SET time_zone = '+05:30'"); } catch (Exception $e) {}
-    // Auto-seed default roles if table is empty
+    // Ensure roles table exists and seed default roles
     try {
+        $pdo->exec("
+            CREATE TABLE IF NOT EXISTS roles (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                name VARCHAR(50) NOT NULL,
+                permissions TEXT NULL
+            )
+        ");
         $stmt = $pdo->query("SELECT COUNT(*) FROM roles");
         if ($stmt->fetchColumn() == 0) {
-            $pdo->exec("INSERT INTO roles (id, name) VALUES (1, 'Admin'), (2, 'Member'), (3, 'Business')");
+            $pdo->exec("INSERT INTO roles (id, name) VALUES (1, 'Admin'), (2, 'Member'), (3, 'Business'), (4, 'Student')");
         }
     } catch (PDOException $e) {}
     
