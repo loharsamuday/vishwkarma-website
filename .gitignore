@@ -2,5 +2,4 @@
 !/uploads/.gitkeep
 /logs/*
 !/logs/.gitkeep
-/vendor/*
 .env

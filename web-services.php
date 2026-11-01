@@ -27,9 +27,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['book_appointment'])) 
         $form_msg = "Please fill in all required fields (Name and Phone).";
         $form_msg_type = "danger";
     } else {
-        require_once "vendor/PHPMailer/src/Exception.php";
-        require_once "vendor/PHPMailer/src/PHPMailer.php";
-        require_once "vendor/PHPMailer/src/SMTP.php";
+        require_once "includes/mailer.php";
 
         $mail = new \PHPMailer\PHPMailer\PHPMailer(true);
         try {

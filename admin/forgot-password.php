@@ -32,9 +32,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $stmt->execute([$email, $token]);
         
         // Send Email
-        require_once "../vendor/PHPMailer/src/Exception.php";
-        require_once "../vendor/PHPMailer/src/PHPMailer.php";
-        require_once "../vendor/PHPMailer/src/SMTP.php";
+        require_once "../includes/mailer.php";
         
         $global_settings = function_exists('getGlobalSettings') ? getGlobalSettings() : [];
         $mail = new \PHPMailer\PHPMailer\PHPMailer(true);

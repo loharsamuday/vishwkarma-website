@@ -3,9 +3,7 @@ $page_title = "Contact Us";
 require_once 'includes/db.php';
 require_once 'includes/session.php';
 
-require_once 'vendor/PHPMailer/src/Exception.php';
-require_once 'vendor/PHPMailer/src/PHPMailer.php';
-require_once 'vendor/PHPMailer/src/SMTP.php';
+require_once 'includes/mailer.php';
 use PHPMailer\PHPMailer\PHPMailer;
 use PHPMailer\PHPMailer\Exception;
 

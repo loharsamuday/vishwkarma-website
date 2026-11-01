@@ -85,6 +85,9 @@ try {
     try {
         $pdo->exec("ALTER TABLE users ADD COLUMN last_page_url VARCHAR(255) NULL");
     } catch (PDOException $e) {}
+    try {
+        $pdo->exec("ALTER TABLE users ADD COLUMN account_type ENUM('general', 'matrimony') DEFAULT 'general'");
+    } catch (PDOException $e) {}
 
     // Ensure settings table exists
     try {
@@ -169,16 +172,30 @@ try {
     } catch (PDOException $e) {}
 
     // Email OTP Verification Table
-    $pdo->exec("
-        CREATE TABLE IF NOT EXISTS email_verifications (
-            id INT AUTO_INCREMENT PRIMARY KEY,
-            user_id INT NOT NULL,
-            otp VARCHAR(10) NOT NULL,
-            expires_at DATETIME NOT NULL,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-        )
-    ");
+    try {
+        $pdo->exec("
+            CREATE TABLE IF NOT EXISTS email_verifications (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                user_id INT NOT NULL,
+                otp VARCHAR(10) NOT NULL,
+                expires_at DATETIME NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+            )
+        ");
+    } catch (PDOException $e) {
+        try {
+            $pdo->exec("
+                CREATE TABLE IF NOT EXISTS email_verifications (
+                    id INT AUTO_INCREMENT PRIMARY KEY,
+                    user_id INT NOT NULL,
+                    otp VARCHAR(10) NOT NULL,
+                    expires_at DATETIME NOT NULL,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            ");
+        } catch (PDOException $e2) {}
+    }
 
     // CMS Pages Table
     $pdo->exec("

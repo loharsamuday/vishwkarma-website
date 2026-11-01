@@ -3,9 +3,7 @@ $page_title = "Forgot Password";
 require_once 'includes/db.php';
 require_once 'includes/session.php';
 
-require 'vendor/PHPMailer/src/Exception.php';
-require 'vendor/PHPMailer/src/PHPMailer.php';
-require 'vendor/PHPMailer/src/SMTP.php';
+require_once 'includes/mailer.php';
 
 use PHPMailer\PHPMailer\PHPMailer;
 use PHPMailer\PHPMailer\Exception;

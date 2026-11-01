@@ -36,9 +36,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_quote'])) {
             error_log("Failed to save website quotation to DB: " . $e->getMessage());
         }
 
-        require_once "vendor/PHPMailer/src/Exception.php";
-        require_once "vendor/PHPMailer/src/PHPMailer.php";
-        require_once "vendor/PHPMailer/src/SMTP.php";
+        require_once "includes/mailer.php";
 
         $global_settings = function_exists('getGlobalSettings') ? getGlobalSettings() : [];
         $mail = new \PHPMailer\PHPMailer\PHPMailer(true);
