@@ -4,17 +4,34 @@ require_once 'includes/db.php';
 require_once 'includes/session.php';
 require_once 'includes/blog_helper.php';
 
-// Fetch all approved blogs with author name, average rating, and comment count
-$query = "
-    SELECT b.*, u.first_name, u.last_name,
-        (SELECT COUNT(*) FROM blog_comments bc WHERE bc.blog_id = b.id) as comment_count,
-        (SELECT AVG(rating) FROM blog_ratings br WHERE br.blog_id = b.id) as avg_rating
-    FROM blogs b
-    JOIN users u ON b.user_id = u.id
-    WHERE b.status = 'approved'
-    ORDER BY b.created_at DESC
-";
-$blogs = $pdo->query($query)->fetchAll();
+// Fetch all approved blogs with author name, average rating, and comment count safely
+$blogs = [];
+try {
+    $query = "
+        SELECT b.*, u.first_name, u.last_name,
+            (SELECT COUNT(*) FROM blog_comments bc WHERE bc.blog_id = b.id) as comment_count,
+            (SELECT AVG(rating) FROM blog_ratings br WHERE br.blog_id = b.id) as avg_rating
+        FROM blogs b
+        JOIN users u ON b.user_id = u.id
+        WHERE b.status = 'approved'
+        ORDER BY b.created_at DESC
+    ";
+    $blogs = $pdo->query($query)->fetchAll();
+} catch (PDOException $e) {
+    try {
+        // Fallback without subqueries in case blog_comments or blog_ratings don't exist yet
+        $query_simple = "
+            SELECT b.*, u.first_name, u.last_name, 0 as comment_count, 0 as avg_rating
+            FROM blogs b
+            JOIN users u ON b.user_id = u.id
+            WHERE b.status = 'approved'
+            ORDER BY b.created_at DESC
+        ";
+        $blogs = $pdo->query($query_simple)->fetchAll();
+    } catch (PDOException $e2) {
+        $blogs = [];
+    }
+}
 
 require_once 'includes/header.php';
 require_once 'includes/navbar.php';
@@ -44,7 +61,13 @@ require_once 'includes/navbar.php';
     <div class="row g-4">
         <?php if (count($blogs) > 0): ?>
             <?php foreach ($blogs as $blog): 
-                $rank = getBloggerRank($blog['user_id'], $pdo);
+                $rank = function_exists('getBloggerRank') ? getBloggerRank($blog['user_id'], $pdo) : ['title' => 'Beginner Blogger', 'class' => 'badge bg-secondary', 'icon' => 'fa-solid fa-seedling', 'points' => 0];
+                $clean_content = strip_tags($blog['content'] ?? '');
+                if (function_exists('mb_strimwidth')) {
+                    $short_content = mb_strimwidth($clean_content, 0, 120, "...");
+                } else {
+                    $short_content = (strlen($clean_content) > 120) ? substr($clean_content, 0, 117) . '...' : $clean_content;
+                }
             ?>
                 <div class="col-md-6 col-lg-4">
                     <div class="card h-100 border-0 shadow-sm hover-lift">
@@ -63,7 +86,7 @@ require_once 'includes/navbar.php';
                                 </a>
                             </h5>
                             <p class="card-text text-muted small mb-4 flex-grow-1">
-                                <?= htmlspecialchars(mb_strimwidth(strip_tags($blog['content']), 0, 120, "...")) ?>
+                                <?= htmlspecialchars($short_content) ?>
                             </p>
                             
                             <div class="d-flex justify-content-between align-items-center pt-3 border-top mt-auto">

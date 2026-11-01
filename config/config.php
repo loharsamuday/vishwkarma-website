@@ -6,8 +6,9 @@ date_default_timezone_set('Asia/Kolkata');
 require_once __DIR__ . '/../includes/error_handler.php';
 // Check hostname to determine environment
 $host = $_SERVER['HTTP_HOST'] ?? 'localhost';
+$is_local = ($host === 'localhost' || $host === '127.0.0.1' || strpos($host, 'localhost:') === 0 || strpos($host, '127.0.0.1:') === 0);
 
-if ($host == 'localhost') {
+if ($is_local) {
     // Local environment settings
     define('DB_HOST', 'localhost');
     define('DB_USER', 'root');

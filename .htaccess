@@ -1,13 +1,18 @@
 <IfModule mod_rewrite.c>
     RewriteEngine On
-    RewriteBase /vishwkarma/
+
+    # Allow direct access to existing files and directories
+    RewriteCond %{REQUEST_FILENAME} -f [OR]
+    RewriteCond %{REQUEST_FILENAME} -d
+    RewriteRule ^ - [L]
+
+    # Directly serve extensionless PHP files (e.g. /matrimony -> matrimony.php, /blogs -> blogs.php)
+    RewriteCond %{DOCUMENT_ROOT}/%{REQUEST_URI}\.php -f [OR]
+    RewriteCond %{REQUEST_FILENAME}\.php -f
+    RewriteRule ^([a-zA-Z0-9_-]+)/?$ $1.php [QSA,L]
 
     # Sitemap route
     RewriteRule ^sitemap\.xml$ sitemap_generator.php [L]
-
-    # Do not apply rules if the file or directory exists
-    RewriteCond %{REQUEST_FILENAME} !-f
-    RewriteCond %{REQUEST_FILENAME} !-d
 
     # Route everything else to router.php
     RewriteRule ^(.*)$ router.php?url=$1 [QSA,L]

@@ -3,30 +3,50 @@ $page_title = "Matrimony";
 require_once 'includes/db.php';
 require_once 'includes/session.php';
 
-// Fetch recent profiles
-$stmt = $pdo->query("
-    SELECT m.id, m.user_id, m.gender, m.dob, m.education, m.profession, u.first_name, u.last_name, u.last_active, p.profile_pic 
-    FROM matrimony_profiles m 
-    JOIN users u ON m.user_id = u.id
-    LEFT JOIN member_profiles p ON u.id = p.user_id
-    ORDER BY m.created_at DESC 
-    LIMIT 9
-");
-$recent_profiles = $stmt->fetchAll();
+// Fetch recent profiles safely with fallback
+$recent_profiles = [];
+try {
+    $stmt = $pdo->query("
+        SELECT m.id, m.user_id, m.gender, m.dob, m.education, m.profession, u.first_name, u.last_name, u.last_active, p.profile_pic 
+        FROM matrimony_profiles m 
+        JOIN users u ON m.user_id = u.id
+        LEFT JOIN member_profiles p ON u.id = p.user_id
+        ORDER BY m.created_at DESC 
+        LIMIT 9
+    ");
+    $recent_profiles = $stmt->fetchAll();
+} catch (PDOException $e) {
+    try {
+        // Fallback without u.last_active and member_profiles if either table/column is missing
+        $stmt = $pdo->query("
+            SELECT m.id, m.user_id, m.gender, m.dob, m.education, m.profession, u.first_name, u.last_name, NULL as last_active, u.profile_pic 
+            FROM matrimony_profiles m 
+            JOIN users u ON m.user_id = u.id
+            ORDER BY m.created_at DESC 
+            LIMIT 9
+        ");
+        $recent_profiles = $stmt->fetchAll();
+    } catch (PDOException $e2) {
+        $recent_profiles = [];
+    }
+}
 
-// Fetch Matrimony Settings
-$settings_stmt = $pdo->query("SELECT setting_key, setting_value FROM settings WHERE setting_key IN ('is_matrimony_paid', 'matrimony_free_promo_message')");
-$matrimony_settings = $settings_stmt->fetchAll(PDO::FETCH_KEY_PAIR);
+// Fetch Matrimony Settings safely
+$matrimony_settings = function_exists('getGlobalSettings') ? getGlobalSettings() : [];
 $is_paid_mode = isset($matrimony_settings['is_matrimony_paid']) && $matrimony_settings['is_matrimony_paid'] == '1';
 $promo_message = $matrimony_settings['matrimony_free_promo_message'] ?? 'Hurry! Register now for free!';
 
 // Check if logged in user is already registered in matrimony
 $has_matrimony_profile = false;
 if (isLoggedIn()) {
-    $stmt_check = $pdo->prepare("SELECT id FROM matrimony_profiles WHERE user_id = ?");
-    $stmt_check->execute([$_SESSION['user_id']]);
-    if ($stmt_check->fetch()) {
-        $has_matrimony_profile = true;
+    try {
+        $stmt_check = $pdo->prepare("SELECT id FROM matrimony_profiles WHERE user_id = ?");
+        $stmt_check->execute([$_SESSION['user_id']]);
+        if ($stmt_check->fetch()) {
+            $has_matrimony_profile = true;
+        }
+    } catch (PDOException $e) {
+        $has_matrimony_profile = false;
     }
 }
 
@@ -305,12 +325,18 @@ $banner_matrimony = function_exists('getUiImage') ? getUiImage('banner_matrimony
             </div>
         <?php else: ?>
             <?php foreach ($recent_profiles as $index => $profile): 
-                $age = date_diff(date_create($profile['dob']), date_create('today'))->y;
-                $default_pic = $profile['gender'] == 'Male' ? 'https://placehold.co/150x150/2c3e50/white?text=Groom' : 'https://placehold.co/150x150/f39c12/white?text=Bride';
-                $pic = $profile['profile_pic'] ? BASE_URL . "uploads/profile/" . $profile['profile_pic'] : $default_pic;
+                $age = 'N/A';
+                if (!empty($profile['dob'])) {
+                    $dob_obj = date_create($profile['dob']);
+                    if ($dob_obj !== false) {
+                        $age = date_diff($dob_obj, date_create('today'))->y;
+                    }
+                }
+                $default_pic = ($profile['gender'] ?? '') == 'Male' ? 'https://placehold.co/150x150/2c3e50/white?text=Groom' : 'https://placehold.co/150x150/f39c12/white?text=Bride';
+                $pic = !empty($profile['profile_pic']) ? BASE_URL . "uploads/profile/" . $profile['profile_pic'] : $default_pic;
                 $profile_name = isLoggedIn()
-                    ? trim($profile['first_name'] . ' ' . $profile['last_name'])
-                    : trim($profile['first_name'] . ' ' . strtoupper(substr($profile['last_name'] ?? '', 0, 1)) . '.');
+                    ? trim(($profile['first_name'] ?? '') . ' ' . ($profile['last_name'] ?? ''))
+                    : trim(($profile['first_name'] ?? '') . ' ' . strtoupper(substr($profile['last_name'] ?? '', 0, 1)) . '.');
                 
                 // Show first 3 profiles as tease, blur the rest if not logged in
                 $is_blurred = !isLoggedIn() && $index >= 3;
@@ -320,7 +346,7 @@ $banner_matrimony = function_exists('getUiImage') ? getUiImage('banner_matrimony
                     <div class="card-banner"></div>
                     <div class="profile-img-wrap">
                         <img src="<?= htmlspecialchars($pic) ?>" alt="<?= htmlspecialchars($profile_name) ?>" class="<?= !isLoggedIn() ? 'guest-profile-photo' : '' ?>">
-                        <?php if(isUserOnline($profile['last_active'])): ?>
+                        <?php if(function_exists('isUserOnline') && isUserOnline($profile['last_active'] ?? null)): ?>
                             <span class="position-absolute p-2 bg-success border border-light rounded-circle online-blink" style="bottom: 10px; right: 25px; z-index: 2;" title="Online Now">
                                 <span class="visually-hidden">Online</span>
                             </span>

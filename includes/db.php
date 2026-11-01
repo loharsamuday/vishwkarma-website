@@ -11,11 +11,62 @@ try {
     // Synchronize timezone with PHP (Asia/Kolkata)
     try { $pdo->exec("SET time_zone = '+05:30'"); } catch (Exception $e) {}
     // Auto-seed default roles if table is empty
-    $stmt = $pdo->query("SELECT COUNT(*) FROM roles");
-    if ($stmt->fetchColumn() == 0) {
-        $pdo->exec("INSERT INTO roles (id, name) VALUES (1, 'Admin'), (2, 'Member'), (3, 'Business')");
-    }
+    try {
+        $stmt = $pdo->query("SELECT COUNT(*) FROM roles");
+        if ($stmt->fetchColumn() == 0) {
+            $pdo->exec("INSERT INTO roles (id, name) VALUES (1, 'Admin'), (2, 'Member'), (3, 'Business')");
+        }
+    } catch (PDOException $e) {}
     
+    // Ensure matrimony_profiles exists
+    try {
+        $pdo->exec("
+            CREATE TABLE IF NOT EXISTS matrimony_profiles (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                user_id INT NOT NULL UNIQUE,
+                profile_for ENUM('Self', 'Son', 'Daughter', 'Brother', 'Sister', 'Relative') NOT NULL DEFAULT 'Self',
+                gender ENUM('Male', 'Female') NOT NULL,
+                dob DATE NOT NULL,
+                marital_status ENUM('Never Married', 'Divorced', 'Widowed', 'Awaiting Divorce') NOT NULL DEFAULT 'Never Married',
+                height DECIMAL(4,2) NULL,
+                weight DECIMAL(5,2) NULL,
+                religion_id INT NULL,
+                caste_id INT NULL,
+                sub_caste_id INT NULL,
+                gotra_id INT NULL,
+                manglik ENUM('Yes', 'No', 'Don\'t Know') DEFAULT 'Don\'t Know',
+                horoscope VARCHAR(255) NULL,
+                education VARCHAR(255) NULL,
+                profession VARCHAR(255) NULL,
+                annual_income VARCHAR(100) NULL,
+                full_address TEXT NULL,
+                state VARCHAR(100) NULL,
+                district VARCHAR(100) NULL,
+                block VARCHAR(100) NULL,
+                full_photo VARCHAR(255) NULL,
+                is_premium BOOLEAN DEFAULT FALSE,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        ");
+    } catch (PDOException $e) {}
+
+    // Ensure member_profiles exists
+    try {
+        $pdo->exec("
+            CREATE TABLE IF NOT EXISTS member_profiles (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                user_id INT NOT NULL UNIQUE,
+                address TEXT NULL,
+                city_id INT NULL,
+                district_id INT NULL,
+                state_id INT NULL,
+                pincode VARCHAR(10) NULL,
+                about_me TEXT NULL,
+                profile_pic VARCHAR(255) NULL
+            )
+        ");
+    } catch (PDOException $e) {}
+
     // Auto-add address columns to matrimony_profiles if they don't exist
     try {
         $pdo->exec("ALTER TABLE matrimony_profiles ADD COLUMN full_address TEXT AFTER annual_income");
@@ -26,6 +77,25 @@ try {
     } catch (PDOException $e) {
         // Ignore error if columns already exist
     }
+
+    // Ensure users tracking columns exist
+    try {
+        $pdo->exec("ALTER TABLE users ADD COLUMN last_active DATETIME NULL");
+    } catch (PDOException $e) {}
+    try {
+        $pdo->exec("ALTER TABLE users ADD COLUMN last_page_url VARCHAR(255) NULL");
+    } catch (PDOException $e) {}
+
+    // Ensure settings table exists
+    try {
+        $pdo->exec("
+            CREATE TABLE IF NOT EXISTS settings (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                setting_key VARCHAR(100) UNIQUE NOT NULL,
+                setting_value TEXT
+            )
+        ");
+    } catch (PDOException $e) {}
 
     // Add email verification flag for existing installations
     try {
@@ -162,45 +232,46 @@ try {
     ");
 
     // Blogs Table
-    $pdo->exec("
-        CREATE TABLE IF NOT EXISTS blogs (
-            id INT AUTO_INCREMENT PRIMARY KEY,
-            user_id INT NOT NULL,
-            title VARCHAR(255) NOT NULL,
-            content TEXT NOT NULL,
-            image_path VARCHAR(255) DEFAULT NULL,
-            status ENUM('pending', 'approved') DEFAULT 'approved',
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-        )
-    ");
+    try {
+        $pdo->exec("
+            CREATE TABLE IF NOT EXISTS blogs (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                user_id INT NOT NULL,
+                title VARCHAR(255) NOT NULL,
+                content TEXT NOT NULL,
+                image_path VARCHAR(255) DEFAULT NULL,
+                status ENUM('pending', 'approved') DEFAULT 'approved',
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        ");
+    } catch (PDOException $e) {}
 
     // Blog Comments Table
-    $pdo->exec("
-        CREATE TABLE IF NOT EXISTS blog_comments (
-            id INT AUTO_INCREMENT PRIMARY KEY,
-            blog_id INT NOT NULL,
-            user_id INT NOT NULL,
-            comment TEXT NOT NULL,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY (blog_id) REFERENCES blogs(id) ON DELETE CASCADE,
-            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-        )
-    ");
+    try {
+        $pdo->exec("
+            CREATE TABLE IF NOT EXISTS blog_comments (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                blog_id INT NOT NULL,
+                user_id INT NOT NULL,
+                comment TEXT NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        ");
+    } catch (PDOException $e) {}
 
     // Blog Ratings Table
-    $pdo->exec("
-        CREATE TABLE IF NOT EXISTS blog_ratings (
-            id INT AUTO_INCREMENT PRIMARY KEY,
-            blog_id INT NOT NULL,
-            user_id INT NOT NULL,
-            rating INT NOT NULL CHECK(rating >= 1 AND rating <= 5),
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            UNIQUE KEY unique_user_blog (blog_id, user_id),
-            FOREIGN KEY (blog_id) REFERENCES blogs(id) ON DELETE CASCADE,
-            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-        )
-    ");
+    try {
+        $pdo->exec("
+            CREATE TABLE IF NOT EXISTS blog_ratings (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                blog_id INT NOT NULL,
+                user_id INT NOT NULL,
+                rating INT NOT NULL DEFAULT 5,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE KEY unique_user_blog (blog_id, user_id)
+            )
+        ");
+    } catch (PDOException $e) {}
 
     // Contact Messages Table
     $pdo->exec("

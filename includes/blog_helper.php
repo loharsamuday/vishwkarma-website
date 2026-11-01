@@ -10,14 +10,19 @@
  * @return array ['title' => 'Rank Name', 'class' => 'badge bg-...', 'icon' => 'fa-...']
  */
 function getBloggerRank($user_id, $pdo) {
-    $stmt = $pdo->prepare("
-        SELECT SUM(br.rating) as total_points 
-        FROM blog_ratings br
-        JOIN blogs b ON br.blog_id = b.id
-        WHERE b.user_id = ? AND b.status = 'approved'
-    ");
-    $stmt->execute([$user_id]);
-    $total_points = (int)$stmt->fetchColumn();
+    $total_points = 0;
+    try {
+        $stmt = $pdo->prepare("
+            SELECT SUM(br.rating) as total_points 
+            FROM blog_ratings br
+            JOIN blogs b ON br.blog_id = b.id
+            WHERE b.user_id = ? AND b.status = 'approved'
+        ");
+        $stmt->execute([$user_id]);
+        $total_points = (int)$stmt->fetchColumn();
+    } catch (PDOException $e) {
+        $total_points = 0;
+    }
 
     if ($total_points >= 151) {
         return [
