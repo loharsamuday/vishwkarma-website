@@ -308,3 +308,66 @@ function dispatchSessionQuestion(PDO $pdo, int $session_id, bool $force = false)
         return ['success' => false, 'status' => 'telegram_error', 'error' => $errorDesc, 'message' => $errorDesc];
     }
 }
+
+if (!function_exists('getActiveBotToken')) {
+    /**
+     * Retrieve and decrypt the currently active Telegram Bot Token from DB
+     */
+    function getActiveBotToken(PDO $pdo): ?string {
+        try {
+            $stmt = $pdo->prepare("SELECT bot_token_encrypted FROM tg_bots WHERE is_active = 1 ORDER BY id DESC LIMIT 1");
+            $stmt->execute();
+            $row = $stmt->fetch(PDO::FETCH_ASSOC);
+            if ($row && !empty($row['bot_token_encrypted'])) {
+                $token = decryptToken($row['bot_token_encrypted']);
+                if (!empty($token)) return $token;
+            }
+        } catch (\Throwable $e) {}
+
+        if (defined('TG_BOT_TOKEN') && !empty(TG_BOT_TOKEN)) {
+            return TG_BOT_TOKEN;
+        }
+
+        return null;
+    }
+}
+
+if (!function_exists('getTelegramWebhookInfo')) {
+    /**
+     * Get current Telegram Webhook info
+     */
+    function getTelegramWebhookInfo(string $token): array {
+        return callTelegramAPI($token, 'getWebhookInfo');
+    }
+}
+
+if (!function_exists('setTelegramWebhook')) {
+    /**
+     * Set Telegram Webhook with optional secret token and allowed updates
+     */
+    function setTelegramWebhook(string $token, string $url, string $secretToken = '', array $allowedUpdates = []): array {
+        $params = ['url' => $url];
+        if (!empty($secretToken)) {
+            $params['secret_token'] = $secretToken;
+        }
+        if (!empty($allowedUpdates)) {
+            $params['allowed_updates'] = $allowedUpdates;
+        } else {
+            $params['allowed_updates'] = ['message', 'poll_answer', 'my_chat_member'];
+        }
+        return callTelegramAPI($token, 'setWebhook', $params);
+    }
+}
+
+if (!function_exists('deleteTelegramWebhook')) {
+    /**
+     * Delete Telegram Webhook
+     */
+    function deleteTelegramWebhook(string $token, bool $dropPendingUpdates = false): array {
+        $params = [];
+        if ($dropPendingUpdates) {
+            $params['drop_pending_updates'] = true;
+        }
+        return callTelegramAPI($token, 'deleteWebhook', $params);
+    }
+}

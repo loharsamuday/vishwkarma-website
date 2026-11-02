@@ -105,7 +105,7 @@ $current_page = basename($_SERVER['PHP_SELF']);
         </div>
         
         <?php
-        $tg_pages = ['index.php','quiz_sets.php','quiz_create.php','quiz_settings.php','quiz_live.php','quiz_history.php','quiz_results.php'];
+        $tg_pages = ['index.php','webhook_manager.php','quiz_sets.php','quiz_create.php','quiz_settings.php','quiz_live.php','quiz_history.php','quiz_results.php'];
         $in_tg = (strpos($_SERVER['PHP_SELF'], '/tg_quiz/') !== false);
         ?>
         <a class="sidebar-category text-uppercase text-secondary fw-bold ps-3 pt-3 pb-2 d-flex justify-content-between align-items-center" data-bs-toggle="collapse" href="#menuTelegramQuiz" role="button" aria-expanded="<?= $in_tg ? 'true' : 'false' ?>" style="font-size: 0.75rem; letter-spacing: 0.05em;">
@@ -113,6 +113,7 @@ $current_page = basename($_SERVER['PHP_SELF']);
         </a>
         <div class="collapse <?= $in_tg ? 'show' : '' ?>" id="menuTelegramQuiz" data-bs-parent="#sidebarAccordion">
             <a href="tg_quiz/index.php" class="nav-item <?= ($in_tg && $current_page == 'index.php') ? 'active' : '' ?> ps-4"><i class="fa-solid fa-robot me-2"></i> Bot &amp; Chat</a>
+            <a href="tg_quiz/webhook_manager.php" class="nav-item <?= ($in_tg && $current_page == 'webhook_manager.php') ? 'active text-primary' : '' ?> ps-4"><i class="fa-solid fa-link me-2"></i> Webhook Manager</a>
             <a href="tg_quiz/quiz_sets.php" class="nav-item <?= ($in_tg && $current_page == 'quiz_sets.php') ? 'active' : '' ?> ps-4"><i class="fa-solid fa-layer-group me-2"></i> Quiz Sets</a>
             <a href="tg_quiz/quiz_live.php" class="nav-item <?= ($in_tg && $current_page == 'quiz_live.php') ? 'active text-success' : 'text-success' ?> fw-bold ps-4"><i class="fa-solid fa-satellite-dish me-2 fa-fade"></i> Live Monitor</a>
             <a href="tg_quiz/quiz_history.php" class="nav-item <?= ($in_tg && $current_page == 'quiz_history.php') ? 'active' : '' ?> ps-4"><i class="fa-solid fa-clock-rotate-left me-2"></i> History</a>

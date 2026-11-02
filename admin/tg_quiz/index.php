@@ -65,7 +65,10 @@ require_once '../includes/header.php';
       <h4 class="mb-0 d-inline"><i class="fa-brands fa-telegram text-primary me-2"></i>Telegram Quiz Manager</h4>
     </div>
     <div>
-      <a href="quiz_sets.php" class="btn btn-warning btn-sm fw-bold">
+      <a href="webhook_manager.php" class="btn btn-outline-primary btn-sm fw-bold">
+        <i class="fa-solid fa-link me-1"></i>Webhook Manager
+      </a>
+      <a href="quiz_sets.php" class="btn btn-warning btn-sm fw-bold ms-2">
         <i class="fa-solid fa-list me-1"></i>Quiz Sets
       </a>
       <a href="quiz_history.php" class="btn btn-outline-secondary btn-sm ms-2">
