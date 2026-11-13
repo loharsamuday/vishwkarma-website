@@ -29,6 +29,7 @@ require_once '../includes/header.php';
       <h4 class="mb-0 d-inline"><i class="fa-brands fa-telegram text-primary me-2"></i>Quiz Sets</h4>
     </div>
     <div class="d-flex gap-2">
+      <a href="quiz_share.php" class="btn btn-warning btn-sm fw-bold text-dark"><i class="fa-solid fa-share-nodes me-1"></i>Share Complete Quiz</a>
       <a href="index.php" class="btn btn-outline-secondary btn-sm"><i class="fa-solid fa-arrow-left me-1"></i>Dashboard</a>
       <button class="btn btn-success btn-sm fw-bold" onclick="openCreateModal()">
         <i class="fa-solid fa-plus me-1"></i>New Quiz Set
@@ -90,6 +91,9 @@ require_once '../includes/header.php';
             <?php if ($set['total_questions'] > 0): ?>
             <a href="quiz_settings.php?id=<?= $set['id'] ?>" class="btn btn-success btn-sm fw-bold">
               <i class="fa-solid fa-play me-1"></i>Start
+            </a>
+            <a href="quiz_share.php?type=tg_set&id=<?= $set['id'] ?>" class="btn btn-warning btn-sm fw-bold text-dark" title="Share Complete Quiz on Telegram">
+              <i class="fa-solid fa-share-nodes me-1"></i>Share
             </a>
             <?php endif; ?>
             <a href="quiz_history.php?quiz_set_id=<?= $set['id'] ?>" class="btn btn-outline-dark btn-sm">

@@ -44,6 +44,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         'social_instagram' => trim($_POST['social_instagram'] ?? ''),
         'social_telegram' => trim($_POST['social_telegram'] ?? ''),
         'social_whatsapp' => trim($_POST['social_whatsapp'] ?? ''),
+        'tg_promo_group_name' => trim($_POST['tg_promo_group_name'] ?? ''),
+        'tg_promo_group_link' => trim($_POST['tg_promo_group_link'] ?? ''),
+        'tg_promo_admin_username' => trim($_POST['tg_promo_admin_username'] ?? ''),
+        'tg_promo_admin_id' => trim($_POST['tg_promo_admin_id'] ?? ''),
+        'tg_promo_footer_message' => trim($_POST['tg_promo_footer_message'] ?? ''),
         'contact_email' => trim($_POST['contact_email'] ?? ''),
         'contact_phone' => trim($_POST['contact_phone'] ?? ''),
         'whatsapp_number' => trim($_POST['whatsapp_number'] ?? ''),
@@ -226,6 +231,35 @@ $db_settings = $pdo->query("SELECT setting_key, setting_value FROM settings")->f
                         <label class="form-label fw-bold"><i class="fa-brands fa-whatsapp text-success me-2"></i> WhatsApp Channel / Group Link</label>
                         <input type="text" name="social_whatsapp" class="form-control" value="<?= htmlspecialchars($db_settings['social_whatsapp'] ?? '') ?>" placeholder="https://whatsapp.com/channel/yourid">
                         <small class="text-muted">This is for the footer icon link (e.g. your WhatsApp Channel/Group).</small>
+                    </div>
+
+                    <h5 class="border-bottom pb-2 mb-4 mt-5 text-warning"><i class="fa-brands fa-telegram text-info me-2"></i> Telegram Quiz Promotion &amp; Branding</h5>
+                    <p class="text-muted small">Configure details automatically attached to complete quizzes shared on Telegram (<a href="tg_quiz/quiz_share.php" class="fw-bold">Open Quiz Share Page</a>).</p>
+                    
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Telegram Group Name</label>
+                        <input type="text" name="tg_promo_group_name" class="form-control" value="<?= htmlspecialchars($db_settings['tg_promo_group_name'] ?? 'Bankers Lifes❤️') ?>" placeholder="e.g. Bankers Lifes❤️">
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Telegram Group Invite Link</label>
+                        <input type="url" name="tg_promo_group_link" class="form-control" value="<?= htmlspecialchars($db_settings['tg_promo_group_link'] ?? 'https://t.me/bankersguts') ?>" placeholder="https://t.me/yourgroup">
+                    </div>
+
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold">Personal Telegram Username</label>
+                            <input type="text" name="tg_promo_admin_username" class="form-control" value="<?= htmlspecialchars($db_settings['tg_promo_admin_username'] ?? '@Abhijeet_Mishra') ?>" placeholder="@Abhijeet_Mishra">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold">Personal Telegram User ID</label>
+                            <input type="text" name="tg_promo_admin_id" class="form-control" value="<?= htmlspecialchars($db_settings['tg_promo_admin_id'] ?? '9272349548') ?>" placeholder="e.g. 9272349548">
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Promotional Footer Message</label>
+                        <textarea name="tg_promo_footer_message" class="form-control" rows="2" placeholder="Stay connected for more quizzes, mock tests and exam preparation."><?= htmlspecialchars($db_settings['tg_promo_footer_message'] ?? 'Stay connected for more quizzes, mock tests and exam preparation.') ?></textarea>
                     </div>
                     
                     <h5 class="border-bottom pb-2 mb-4 mt-5 text-warning">Contact Information (Footer)</h5>

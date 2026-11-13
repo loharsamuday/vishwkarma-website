@@ -10,9 +10,13 @@
 // All responses are JSON. Bot tokens are NEVER returned in plaintext.
 // ============================================================
 
-header('Content-Type: application/json');
+header('Content-Type: application/json; charset=UTF-8');
 header('X-Content-Type-Options: nosniff');
 header('Cache-Control: no-store, no-cache, must-revalidate');
+
+if (function_exists('mb_internal_encoding')) {
+    mb_internal_encoding('UTF-8');
+}
 
 require_once __DIR__ . '/../../includes/db.php';
 require_once __DIR__ . '/tg_results.php';
@@ -116,7 +120,7 @@ switch ($action) {
                                     JOIN tg_quiz_sessions s ON s.id = l.session_id
                                     JOIN tg_quiz_questions q ON q.id = l.question_id
                                     WHERE l.telegram_poll_id = ? AND l.status = 'SENT'
-                                      AND s.status = 'RUNNING' AND s.admin_id = ?
+                                      AND s.status IN ('RUNNING', 'COMPLETED') AND s.admin_id = ?
                                     LIMIT 1
                                 ");
                                 $questionStmt->execute([$pollId, $bot['admin_id']]);
@@ -190,8 +194,8 @@ switch ($action) {
             $stmt = $pdo->query("
                 SELECT id
                 FROM tg_quiz_sessions
-                WHERE status = 'RUNNING' AND current_question >= total_questions
-                  AND next_question_at <= NOW() AND results_announced_at IS NULL
+                WHERE status IN ('RUNNING', 'COMPLETED') AND current_question >= total_questions
+                  AND (next_question_at IS NULL OR next_question_at <= NOW()) AND results_announced_at IS NULL
                 ORDER BY next_question_at ASC
                 LIMIT 10
             ");
@@ -266,7 +270,7 @@ switch ($action) {
                 ];
             }
 
-            echo json_encode(['success' => true, 'tasks' => $tasks, 'count' => count($tasks)]);
+            echo json_encode(['success' => true, 'tasks' => $tasks, 'count' => count($tasks)], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
         } catch (PDOException $e) {
             http_response_code(500);
             echo json_encode(['success' => false, 'message' => 'Database error']);

@@ -5,8 +5,14 @@
 $page_title = "Quiz History";
 require_once '../../includes/db.php';
 require_once '../../includes/session.php';
+require_once '../../api/tg_quiz/tg_results.php';
 
 if (!isset($_SESSION['admin_id'])) { header("Location: ../index.php"); exit; }
+
+// Auto-finalize any due sessions that completed in background
+if (function_exists('checkAndFinalizeDueSessions')) {
+    checkAndFinalizeDueSessions($pdo);
+}
 
 $admin_id = (int)$_SESSION['admin_id'];
 $status_filter = $_GET['status'] ?? '';
@@ -23,7 +29,7 @@ try {
     if ($status_filter) { $where .= " AND s.status=?"; $params[] = $status_filter; }
     if ($quiz_set_filter) { $where .= " AND s.quiz_set_id=?"; $params[] = $quiz_set_filter; }
 
-    $stmt = $pdo->prepare("SELECT s.id, s.title, s.chat_title, s.status, s.total_questions, s.questions_sent, s.timer_seconds, s.start_time, s.end_time, s.created_at, qs.title as quiz_set_title FROM tg_quiz_sessions s JOIN tg_quiz_sets qs ON qs.id=s.quiz_set_id {$where} ORDER BY s.created_at DESC LIMIT ? OFFSET ?");
+    $stmt = $pdo->prepare("SELECT s.id, s.title, s.chat_title, s.status, s.total_questions, s.questions_sent, s.timer_seconds, s.start_time, s.end_time, s.results_announced_at, s.created_at, qs.title as quiz_set_title FROM tg_quiz_sessions s JOIN tg_quiz_sets qs ON qs.id=s.quiz_set_id {$where} ORDER BY s.created_at DESC LIMIT ? OFFSET ?");
     array_push($params, $limit, $offset);
     $stmt->execute($params);
     $sessions = $stmt->fetchAll();

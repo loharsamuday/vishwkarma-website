@@ -157,6 +157,38 @@ require_once '../includes/header.php';
             </div>
           </div>
 
+          <!-- Telegram Real-Time Synchronization & Countdown Settings -->
+          <div class="card border-0 bg-light p-3 mb-4 rounded-3 shadow-sm border-start border-4 border-success">
+            <h6 class="fw-bold text-success mb-2">
+              <i class="fa-solid fa-satellite-dish me-2"></i>Telegram Live Synchronization & Countdown
+            </h6>
+            <div class="row g-3">
+              <!-- Pre-Quiz Countdown -->
+              <div class="col-md-6">
+                <label class="form-label fw-bold">Live Pre-Quiz Countdown</label>
+                <select class="form-select" id="countdownSelect">
+                  <option value="30" selected>30 seconds (Recommended)</option>
+                  <option value="15">15 seconds</option>
+                  <option value="60">60 seconds (1 minute)</option>
+                  <option value="10">10 seconds</option>
+                  <option value="0">0 seconds (Immediate Start)</option>
+                </select>
+                <small class="text-muted">Displays live countdown on Telegram & website before Question 1.</small>
+              </div>
+
+              <!-- Pre-Quiz Announcement -->
+              <div class="col-md-6 d-flex flex-column justify-content-center">
+                <div class="form-check form-switch mt-3">
+                  <input class="form-check-input" type="checkbox" id="sendAnnouncement" checked>
+                  <label class="form-check-label fw-bold" for="sendAnnouncement">
+                    🔔 Send Pre-Quiz Alert to Telegram
+                  </label>
+                </div>
+                <small class="text-muted">Automatically sends upcoming quiz announcement message before countdown starts.</small>
+              </div>
+            </div>
+          </div>
+
           <!-- Score Settings -->
           <div class="row g-3 mb-4">
             <div class="col-md-6">
@@ -272,16 +304,18 @@ function updatePreview() {
   const chatOpt = document.getElementById('chatSelect').selectedOptions[0];
   if (!setOpt?.value || !chatOpt?.value) return;
   const timer = getTimer();
+  const countdown = parseInt(document.getElementById('countdownSelect')?.value) || 0;
   const q = setOpt.dataset.q;
   const mins = Math.ceil(q * timer / 60);
   document.getElementById('previewText').textContent =
-    `${setOpt.text.split('(')[0].trim()} → ${chatOpt.text.split('(')[0].trim()} | Timer: ${timer}s/Q | Est. ${mins} min`;
+    `${setOpt.text.split('(')[0].trim()} → ${chatOpt.text.split('(')[0].trim()} | Timer: ${timer}s/Q | Pre-Quiz Countdown: ${countdown}s | Est. ${mins} min`;
   document.getElementById('launchPreview').classList.remove('d-none');
 }
 
 document.getElementById('quizSetSelect')?.addEventListener('change', updatePreview);
 document.getElementById('chatSelect')?.addEventListener('change', updatePreview);
 document.getElementById('timerSelect')?.addEventListener('change', updatePreview);
+document.getElementById('countdownSelect')?.addEventListener('change', updatePreview);
 
 async function startQuiz() {
   const quiz_set_id = document.getElementById('quizSetSelect').value;
@@ -305,6 +339,9 @@ async function startQuiz() {
   btn.disabled = true;
   btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin me-2"></i>Starting...';
 
+  const countdown = parseInt(document.getElementById('countdownSelect')?.value) || 0;
+  const sendAnnounce = document.getElementById('sendAnnouncement')?.checked ? 1 : 0;
+
   const fd = new FormData();
   fd.append('action','start'); fd.append('csrf_token',CSRF);
   fd.append('quiz_set_id', quiz_set_id); fd.append('chat_id', chat_id);
@@ -312,6 +349,8 @@ async function startQuiz() {
   fd.append('correct_mark', correctMark); fd.append('wrong_mark', wrongMark);
   fd.append('question_order', order);
   fd.append('start_question', start_q); fd.append('end_question', end_q);
+  fd.append('countdown', countdown);
+  fd.append('send_announcement', sendAnnounce);
 
   const el = document.getElementById('launchResult');
   let res;

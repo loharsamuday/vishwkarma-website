@@ -2,15 +2,16 @@
 // api/tg_quiz/chat.php
 // Telegram Chat Verification API
 
-header('Content-Type: application/json');
+header('Content-Type: application/json; charset=UTF-8');
 header('X-Content-Type-Options: nosniff');
 
 require_once __DIR__ . '/../../includes/db.php';
 require_once __DIR__ . '/../../includes/session.php';
+require_once __DIR__ . '/tg_helper.php';
 
 if (!isset($_SESSION['admin_id'])) {
     http_response_code(401);
-    echo json_encode(['success' => false, 'message' => 'Unauthorized']);
+    echo json_encode(['success' => false, 'message' => 'Unauthorized'], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
     exit;
 }
 
@@ -18,36 +19,40 @@ function validateCsrfToken() {
     $token = $_POST['csrf_token'] ?? $_SERVER['HTTP_X_CSRF_TOKEN'] ?? '';
     if (empty($token) || !isset($_SESSION['csrf_token']) || !hash_equals($_SESSION['csrf_token'], $token)) {
         http_response_code(403);
-        echo json_encode(['success' => false, 'message' => 'CSRF token invalid']);
+        echo json_encode(['success' => false, 'message' => 'CSRF token invalid'], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
         exit;
     }
 }
 
-function decryptToken(string $encrypted): string {
-    $key = defined('TG_ENCRYPTION_KEY') ? TG_ENCRYPTION_KEY : (getenv('TG_ENCRYPTION_KEY') ?: 'default-32-char-key-change-this!!');
-    $key = substr(hash('sha256', $key, true), 0, 32);
-    $data = base64_decode($encrypted);
-    $iv   = substr($data, 0, 16);
-    $cipher = substr($data, 16);
-    return openssl_decrypt($cipher, 'AES-256-CBC', $key, 0, $iv) ?: '';
+if (!function_exists('decryptToken')) {
+    function decryptToken(string $encrypted): string {
+        $key = defined('TG_ENCRYPTION_KEY') ? TG_ENCRYPTION_KEY : (getenv('TG_ENCRYPTION_KEY') ?: 'default-32-char-key-change-this!!');
+        $key = substr(hash('sha256', $key, true), 0, 32);
+        $data = base64_decode($encrypted);
+        $iv   = substr($data, 0, 16);
+        $cipher = substr($data, 16);
+        return openssl_decrypt($cipher, 'AES-256-CBC', $key, 0, $iv) ?: '';
+    }
 }
 
-function callTelegramAPI(string $token, string $method, array $params = []): array {
-    $url = "https://api.telegram.org/bot{$token}/{$method}";
-    $ch = curl_init($url);
-    curl_setopt_array($ch, [
-        CURLOPT_RETURNTRANSFER => true,
-        CURLOPT_POST           => true,
-        CURLOPT_POSTFIELDS     => json_encode($params),
-        CURLOPT_HTTPHEADER     => ['Content-Type: application/json'],
-        CURLOPT_TIMEOUT        => 10,
-        CURLOPT_SSL_VERIFYPEER => true,
-    ]);
-    $response = curl_exec($ch);
-    $error    = curl_error($ch);
-    curl_close($ch);
-    if ($error) return ['ok' => false, 'description' => 'cURL error'];
-    return json_decode($response, true) ?? ['ok' => false, 'description' => 'Invalid response'];
+if (!function_exists('callTelegramAPI')) {
+    function callTelegramAPI(string $token, string $method, array $params = []): array {
+        $url = "https://api.telegram.org/bot{$token}/{$method}";
+        $ch = curl_init($url);
+        curl_setopt_array($ch, [
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_POST           => true,
+            CURLOPT_POSTFIELDS     => json_encode($params, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+            CURLOPT_HTTPHEADER     => ['Content-Type: application/json; charset=UTF-8', 'Accept: application/json'],
+            CURLOPT_TIMEOUT        => 10,
+            CURLOPT_SSL_VERIFYPEER => true,
+        ]);
+        $response = curl_exec($ch);
+        $error    = curl_error($ch);
+        curl_close($ch);
+        if ($error) return ['ok' => false, 'description' => 'cURL error'];
+        return json_decode($response, true) ?? ['ok' => false, 'description' => 'Invalid response'];
+    }
 }
 
 $action   = $_GET['action'] ?? $_POST['action'] ?? '';
@@ -195,7 +200,7 @@ switch ($action) {
             'explanation'    => 'भारत की राजधानी नई दिल्ली है।'
         ];
 
-        $pollRes = sendQuizPoll($token, $chat_id, $testQuestion);
+        $pollRes = sendQuizPoll($token, $chat_id, $testQuestion, 0, 1, 1);
 
         if (!empty($pollRes['ok'])) {
             echo json_encode([

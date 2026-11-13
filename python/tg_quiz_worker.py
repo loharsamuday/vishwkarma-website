@@ -100,24 +100,43 @@ def decrypt_token(encrypted_b64: str) -> str:
 
 # ─── Telegram API ────────────────────────────────────────────────────────────
 
-def send_quiz_poll(token: str, chat_id: int, question: dict, timer_seconds: int = 0) -> dict:
+def send_quiz_poll(token: str, chat_id: int, question: dict, timer_seconds: int = 0, q_num: int = 0, total_q: int = 0) -> dict:
     """
     Send a Telegram Quiz Poll.
     Returns the Telegram API response dict.
     Token is NEVER logged.
     """
+    import re
+
     option_letters = [
         letter for letter, key in (
             ('A', 'option_a'), ('B', 'option_b'), ('C', 'option_c'), ('D', 'option_d')
         ) if question.get(key)
     ]
-    options = [question[f'option_{letter.lower()}'] for letter in option_letters]
+    options = []
+    for letter in option_letters:
+        val = str(question[f'option_{letter.lower()}']).strip()
+        if not re.match(r'^[A-D][\.\)\s-]', val, re.IGNORECASE):
+            val = f"{letter}. {val}"
+        options.append(val[:100])
+
     correct_letter = question['correct_answer'].upper()
     correct_idx = option_letters.index(correct_letter) if correct_letter in option_letters else 0
 
+    question_raw = str(question.get('question_text', '')).strip()
+    if q_num > 0 and total_q > 0:
+        if not re.match(r'^(📝\s*)?Question\s*\d+\s*(/|of)\s*\d+', question_raw, re.IGNORECASE):
+            prefix = f"📝 Question {q_num}/{total_q}\n\n"
+            max_q_len = max(1, 300 - len(prefix))
+            question_text = (prefix + question_raw[:max_q_len])[:300]
+        else:
+            question_text = question_raw[:300]
+    else:
+        question_text = question_raw[:300]
+
     payload = {
         'chat_id':              chat_id,
-        'question':             question['question_text'][:300],
+        'question':             question_text,
         'options':              options,
         'type':                 'quiz',
         'correct_option_id':    correct_idx,
@@ -129,7 +148,7 @@ def send_quiz_poll(token: str, chat_id: int, question: dict, timer_seconds: int 
         payload['open_period'] = max(5, min(600, int(timer_seconds)))
 
     if question.get('explanation'):
-        payload['explanation'] = question['explanation'][:200]
+        payload['explanation'] = str(question['explanation']).strip()[:200]
 
     url = TELEGRAM_API_BASE.format(token=token, method='sendPoll')
     try:
@@ -261,8 +280,8 @@ def process_task_api(client: SyncAPIClient, task: dict):
 
     log.info(f"Session #{session_id}: Sending Q{question_num}/{total_q} to chat {chat_id}")
 
-    # Send to Telegram
-    result = send_quiz_poll(token, int(chat_id), question, timer)
+    # Send to Telegram (with Question Numbering & Option Letters)
+    result = send_quiz_poll(token, int(chat_id), question, timer, q_num=question_num, total_q=total_q)
 
     if result.get('ok'):
         poll_id = str(result.get('result', {}).get('poll', {}).get('id', ''))
@@ -373,6 +392,14 @@ def get_db_connection():
 def get_active_sessions(conn) -> list:
     """Fetch all RUNNING sessions where next_question_at <= NOW()."""
     with conn.cursor() as cur:
+        # Auto-transition COUNTDOWN sessions whose countdown timer has reached zero
+        cur.execute("""
+            UPDATE tg_quiz_sessions
+            SET status = 'RUNNING', start_time = COALESCE(start_time, NOW()), updated_at = NOW()
+            WHERE status = 'COUNTDOWN' AND countdown_ends_at <= NOW()
+        """)
+        conn.commit()
+
         cur.execute("""
             SELECT s.*, b.bot_token_encrypted
             FROM tg_quiz_sessions s
@@ -391,7 +418,7 @@ def sync_poll_answers_db(conn):
             SELECT DISTINCT b.id, b.bot_token_encrypted, b.last_update_id
             FROM tg_bots b
             JOIN tg_quiz_sessions s ON s.admin_id = b.admin_id
-            WHERE b.is_active = 1 AND s.status = 'RUNNING'
+            WHERE b.is_active = 1 AND s.status IN ('RUNNING', 'COMPLETED')
         """)
         bots = cur.fetchall()
 
@@ -403,100 +430,113 @@ def sync_poll_answers_db(conn):
             all_caught_up = False
             continue
 
-        try:
-            response = requests.post(
-                TELEGRAM_API_BASE.format(token=token, method='getUpdates'),
-                json={
-                    'offset': int(bot['last_update_id'] or 0) + 1,
-                    'limit': 100,
-                    'timeout': 0,
-                    'allowed_updates': ['poll_answer'],
-                },
-                timeout=15,
-            )
-            result = response.json()
-        except (requests.RequestException, ValueError) as exc:
-            log.error(f"Could not retrieve poll answers for bot #{bot['id']}: {exc}")
-            all_caught_up = False
-            continue
+        offset = int(bot['last_update_id'] or 0) + 1
+        batch_limit = 50
+        batches = 0
 
-        if not result.get('ok'):
-            log.error(f"Telegram getUpdates failed for bot #{bot['id']}: {result.get('description', 'Unknown error')}")
-            all_caught_up = False
-            continue
-
-        updates = result.get('result', [])
-        if len(updates) >= 100:
-            all_caught_up = False
-
-        for update in updates:
+        while batches < batch_limit:
+            batches += 1
             try:
-                poll_answer = update.get('poll_answer')
-                if poll_answer:
-                    options = poll_answer.get('option_ids') or []
-                    user = poll_answer.get('user') or {}
-                    poll_id = str(poll_answer.get('poll_id', ''))
-                    user_id = int(user.get('id', 0))
-                    if poll_id and user_id:
-                        with conn.cursor() as cur:
-                            cur.execute("""
-                                SELECT l.session_id, l.question_id, l.question_number, q.correct_answer,
-                                       q.option_a, q.option_b, q.option_c, q.option_d
-                                FROM tg_quiz_logs l
-                                JOIN tg_quiz_sessions s ON s.id = l.session_id
-                                JOIN tg_quiz_questions q ON q.id = l.question_id
-                                WHERE l.telegram_poll_id = %s AND l.status = 'SENT'
-                                  AND s.status = 'RUNNING' AND s.admin_id = (
-                                      SELECT admin_id FROM tg_bots WHERE id = %s
-                                  )
-                                LIMIT 1
-                            """, (poll_id, bot['id']))
-                            question = cur.fetchone()
+                response = requests.post(
+                    TELEGRAM_API_BASE.format(token=token, method='getUpdates'),
+                    json={
+                        'offset': offset,
+                        'limit': 100,
+                        'timeout': 0,
+                        'allowed_updates': ['poll_answer'],
+                    },
+                    timeout=15,
+                )
+                result = response.json()
+            except (requests.RequestException, ValueError) as exc:
+                log.error(f"Could not retrieve poll answers for bot #{bot['id']}: {exc}")
+                all_caught_up = False
+                break
 
-                        if question and not options:
-                            with conn.cursor() as cur:
-                                cur.execute(
-                                    "DELETE FROM tg_quiz_responses WHERE telegram_poll_id=%s AND user_id=%s",
-                                    (poll_id, user_id),
-                                )
-                        elif question and options:
-                            selected = int(options[0])
-                            letters = [
-                                letter for letter, key in (
-                                    ('A', 'option_a'), ('B', 'option_b'),
-                                    ('C', 'option_c'), ('D', 'option_d')
-                                ) if question.get(key)
-                            ]
-                            correct_letter = str(question.get('correct_answer', 'A')).upper()
-                            correct_option = letters.index(correct_letter) if correct_letter in letters else 0
+            if not result.get('ok'):
+                log.error(f"Telegram getUpdates failed for bot #{bot['id']}: {result.get('description', 'Unknown error')}")
+                all_caught_up = False
+                break
+
+            updates = result.get('result', [])
+            if not updates:
+                break
+
+            for update in updates:
+                try:
+                    update_id = int(update.get('update_id') or 0)
+                    if update_id >= offset:
+                        offset = update_id + 1
+
+                    poll_answer = update.get('poll_answer')
+                    if poll_answer:
+                        options = poll_answer.get('option_ids') or []
+                        user = poll_answer.get('user') or {}
+                        poll_id = str(poll_answer.get('poll_id', ''))
+                        user_id = int(user.get('id', 0))
+                        if poll_id and user_id:
                             with conn.cursor() as cur:
                                 cur.execute("""
-                                    INSERT INTO tg_quiz_responses
-                                        (session_id, question_id, question_number, telegram_poll_id,
-                                         user_id, username, first_name, last_name, selected_option_id, is_correct)
-                                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-                                    ON DUPLICATE KEY UPDATE
-                                        question_id=VALUES(question_id),
-                                        question_number=VALUES(question_number),
-                                        username=VALUES(username),
-                                        first_name=VALUES(first_name),
-                                        last_name=VALUES(last_name),
-                                        selected_option_id=VALUES(selected_option_id),
-                                        is_correct=VALUES(is_correct),
-                                        answered_at=NOW()
-                                """, (
-                                    question['session_id'], question['question_id'], question['question_number'],
-                                    poll_id, user_id, user.get('username'), user.get('first_name'),
-                                    user.get('last_name'), selected, int(selected == correct_option),
-                                ))
+                                    SELECT l.session_id, l.question_id, l.question_number, q.correct_answer,
+                                           q.option_a, q.option_b, q.option_c, q.option_d
+                                    FROM tg_quiz_logs l
+                                    JOIN tg_quiz_sessions s ON s.id = l.session_id
+                                    JOIN tg_quiz_questions q ON q.id = l.question_id
+                                    WHERE l.telegram_poll_id = %s AND l.status = 'SENT'
+                                      AND s.status IN ('RUNNING', 'COMPLETED') AND s.admin_id = (
+                                          SELECT admin_id FROM tg_bots WHERE id = %s
+                                      )
+                                    LIMIT 1
+                                """, (poll_id, bot['id']))
+                                question = cur.fetchone()
 
-                with conn.cursor() as cur:
-                    cur.execute("UPDATE tg_bots SET last_update_id=%s WHERE id=%s", (int(update['update_id']), bot['id']))
-                conn.commit()
-            except Exception:
-                conn.rollback()
-                all_caught_up = False
-                log.exception(f"Could not save Telegram update for bot #{bot['id']}")
+                            if question and not options:
+                                with conn.cursor() as cur:
+                                    cur.execute(
+                                        "DELETE FROM tg_quiz_responses WHERE telegram_poll_id=%s AND user_id=%s",
+                                        (poll_id, user_id),
+                                    )
+                            elif question and options:
+                                selected = int(options[0])
+                                letters = [
+                                    letter for letter, key in (
+                                        ('A', 'option_a'), ('B', 'option_b'),
+                                        ('C', 'option_c'), ('D', 'option_d')
+                                    ) if question.get(key)
+                                ]
+                                correct_letter = str(question.get('correct_answer', 'A')).upper()
+                                correct_option = letters.index(correct_letter) if correct_letter in letters else 0
+                                with conn.cursor() as cur:
+                                    cur.execute("""
+                                        INSERT INTO tg_quiz_responses
+                                            (session_id, question_id, question_number, telegram_poll_id,
+                                             user_id, username, first_name, last_name, selected_option_id, is_correct)
+                                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                                        ON DUPLICATE KEY UPDATE
+                                            question_id=VALUES(question_id),
+                                            question_number=VALUES(question_number),
+                                            username=VALUES(username),
+                                            first_name=VALUES(first_name),
+                                            last_name=VALUES(last_name),
+                                            selected_option_id=VALUES(selected_option_id),
+                                            is_correct=VALUES(is_correct),
+                                            answered_at=NOW()
+                                    """, (
+                                        question['session_id'], question['question_id'], question['question_number'],
+                                        poll_id, user_id, user.get('username'), user.get('first_name'),
+                                        user.get('last_name'), selected, int(selected == correct_option),
+                                    ))
+
+                    with conn.cursor() as cur:
+                        cur.execute("UPDATE tg_bots SET last_update_id=%s WHERE id=%s", (update_id, bot['id']))
+                    conn.commit()
+                except Exception:
+                    conn.rollback()
+                    all_caught_up = False
+                    log.exception(f"Could not save Telegram update for bot #{bot['id']}")
+                    break
+
+            if len(updates) < 100:
                 break
 
 def finalize_due_sessions_db(conn):
@@ -506,8 +546,8 @@ def finalize_due_sessions_db(conn):
             SELECT s.*, b.id AS bot_id, b.bot_token_encrypted
             FROM tg_quiz_sessions s
             JOIN tg_bots b ON b.admin_id=s.admin_id AND b.is_active=1
-            WHERE s.status='RUNNING' AND s.current_question >= s.total_questions
-              AND s.next_question_at <= NOW() AND s.results_announced_at IS NULL
+            WHERE s.status IN ('RUNNING', 'COMPLETED') AND s.current_question >= s.total_questions
+              AND (s.next_question_at IS NULL OR s.next_question_at <= NOW()) AND s.results_announced_at IS NULL
             ORDER BY s.next_question_at ASC
             LIMIT 10
         """)
@@ -518,9 +558,9 @@ def finalize_due_sessions_db(conn):
             cur.execute("""
                 UPDATE tg_quiz_sessions
                 SET results_claimed_at=NOW(), updated_at=NOW()
-                WHERE id=%s AND status='RUNNING' AND results_announced_at IS NULL
+                WHERE id=%s AND (status='RUNNING' OR status='COMPLETED') AND results_announced_at IS NULL
                   AND (results_claimed_at IS NULL OR results_claimed_at < DATE_SUB(NOW(), INTERVAL 5 MINUTE))
-                  AND next_question_at <= NOW()
+                  AND (next_question_at IS NULL OR next_question_at <= NOW())
             """, (session['id'],))
             if cur.rowcount != 1:
                 conn.rollback()
@@ -540,7 +580,11 @@ def finalize_due_sessions_db(conn):
                 SELECT r.user_id, MAX(r.username) AS username, MAX(r.first_name) AS first_name,
                        MAX(r.last_name) AS last_name, COUNT(*) AS answered_count,
                        SUM(r.is_correct=1) AS correct_count, SUM(r.is_correct=0) AS wrong_count,
-                       SUM(CASE WHEN r.is_correct=1 THEN s.correct_mark ELSE s.wrong_mark END) AS score
+                       ROUND(
+                           (SUM(r.is_correct=1) * ABS(COALESCE(s.correct_mark, 1.00))) -
+                           (SUM(r.is_correct=0) * ABS(COALESCE(s.wrong_mark, 0.25))),
+                           2
+                       ) AS score
                 FROM tg_quiz_responses r
                 JOIN tg_quiz_sessions s ON s.id=r.session_id
                 WHERE r.session_id=%s
@@ -549,7 +593,18 @@ def finalize_due_sessions_db(conn):
             """, (session['id'],))
             results = cur.fetchall()
 
-        messages = [f"🏆 Quiz results: {str(session.get('title') or 'Telegram Quiz').strip()}"]
+        total_q = max(1, int(session.get('total_questions') or len(results)))
+        pos_mark = abs(float(session.get('correct_mark') or 1.0))
+        neg_mark = abs(float(session.get('wrong_mark') or 0.25))
+        max_marks = round(total_q * pos_mark, 2)
+
+        messages = [
+            f"🏆 <b>Quiz Results: {str(session.get('title') or 'Telegram Quiz').strip()}</b>\n"
+            f"❓ Total Questions: {total_q} (Max Marks: {max_marks:.2f})\n"
+            f"📊 Marking: Correct +{pos_mark:.2f} | Wrong -{neg_mark:.2f} | Skipped 0.00\n"
+            f"👥 Participants: {len(results)}\n"
+            f"━━━━━━━━━━━━━━━━━━━━"
+        ]
         if not results:
             messages.append("No participants submitted answers.")
         else:
@@ -558,19 +613,24 @@ def finalize_due_sessions_db(conn):
                 if not name:
                     name = f"@{result['username']}" if result.get('username') else f"User {result['user_id']}"
                 name = ' '.join(name.split())[:60]
+                correct = int(result.get('correct_count') or 0)
+                wrong = int(result.get('wrong_count') or 0)
+                attempted = correct + wrong
+                skipped = max(0, total_q - attempted)
+                score = round((correct * pos_mark) - (wrong * neg_mark), 2)
+                pct = round((score / max_marks) * 100, 1) if max_marks > 0 else 0.0
+                acc = round((correct / attempted) * 100, 1) if attempted > 0 else 0.0
+
                 line = (
-                    f"{rank}. {name} — Score: {float(result['score'] or 0):.2f}"
-                    f" | Correct: {int(result['correct_count'] or 0)}"
-                    f" | Wrong: {int(result['wrong_count'] or 0)}"
+                    f"#{rank} {name}\n"
+                    f"   Score: {score:.2f} / {max_marks:.2f} ({pct}%)\n"
+                    f"   ✅ Correct: {correct} | ❌ Wrong: {wrong} | ⏭ Skipped: {skipped} | 🎯 Accuracy: {acc}%"
                 )
-                if len(messages[-1]) + len(line) + 1 > 3500:
+                if len(messages[-1]) + len(line) + 2 > 3500:
                     messages.append(line)
                 else:
-                    messages[-1] += '\n' + line
-        messages.append(
-            f"Scoring: correct +{float(session['correct_mark']):.2f}"
-            f" | wrong {float(session['wrong_mark']):.2f}"
-        )
+                    messages[-1] += '\n\n' + line
+        messages.append("━━━━━━━━━━━━━━━━━━━━\n🎉 Congratulations to all participants!")
 
         sent_all = True
         for message in messages:
@@ -711,7 +771,7 @@ def process_session(conn, session: dict):
 
     log.info(f"Session #{session_id}: Sending Q{question_num}/{total_q} to chat {chat_id}")
 
-    result = send_quiz_poll(token, int(chat_id), question, timer)
+    result = send_quiz_poll(token, int(chat_id), question, timer, q_num=question_num, total_q=total_q)
 
     if result.get('ok'):
         poll_id = str(result.get('result', {}).get('poll', {}).get('id', ''))

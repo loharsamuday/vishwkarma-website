@@ -1,16 +1,22 @@
 <?php
 // api/tg_quiz/questions.php
 // Question Management API — Add / Edit / Delete / Upload CSV/XLSX
+// Full Hindi (Devanagari) & English Unicode support with UTF-8 encoding
 
-header('Content-Type: application/json');
+header('Content-Type: application/json; charset=UTF-8');
 header('X-Content-Type-Options: nosniff');
+
+if (function_exists('mb_internal_encoding')) {
+    mb_internal_encoding('UTF-8');
+}
 
 require_once __DIR__ . '/../../includes/db.php';
 require_once __DIR__ . '/../../includes/session.php';
+require_once __DIR__ . '/tg_helper.php';
 
 if (!isset($_SESSION['admin_id'])) {
     http_response_code(401);
-    echo json_encode(['success' => false, 'message' => 'Unauthorized']);
+    echo json_encode(['success' => false, 'message' => 'Unauthorized'], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
     exit;
 }
 
@@ -18,7 +24,7 @@ function validateCsrfToken() {
     $token = $_POST['csrf_token'] ?? $_SERVER['HTTP_X_CSRF_TOKEN'] ?? '';
     if (empty($token) || !isset($_SESSION['csrf_token']) || !hash_equals($_SESSION['csrf_token'], $token)) {
         http_response_code(403);
-        echo json_encode(['success' => false, 'message' => 'CSRF token invalid']);
+        echo json_encode(['success' => false, 'message' => 'CSRF token invalid'], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
         exit;
     }
 }
@@ -38,13 +44,13 @@ function normalizeTimeLimit($value): ?int {
 function sanitizeQuestion(array $q): array {
     $timeLimit = normalizeTimeLimit($q['time_limit'] ?? $q['question_time'] ?? $q['timer_seconds'] ?? null);
     return [
-        'question_text'  => strip_tags(trim($q['question_text'] ?? $q['question'] ?? '')),
-        'option_a'       => strip_tags(trim($q['option_a'] ?? '')),
-        'option_b'       => strip_tags(trim($q['option_b'] ?? '')),
-        'option_c'       => strip_tags(trim($q['option_c'] ?? '')),
-        'option_d'       => strip_tags(trim($q['option_d'] ?? '')),
-        'correct_answer' => strtoupper(trim($q['correct_answer'] ?? '')),
-        'explanation'    => strip_tags(trim($q['explanation'] ?? '')),
+        'question_text'  => cleanUtf8String(strip_tags(trim((string)($q['question_text'] ?? $q['question'] ?? '')))),
+        'option_a'       => cleanUtf8String(strip_tags(trim((string)($q['option_a'] ?? '')))),
+        'option_b'       => cleanUtf8String(strip_tags(trim((string)($q['option_b'] ?? '')))),
+        'option_c'       => cleanUtf8String(strip_tags(trim((string)($q['option_c'] ?? '')))),
+        'option_d'       => cleanUtf8String(strip_tags(trim((string)($q['option_d'] ?? '')))),
+        'correct_answer' => strtoupper(trim((string)($q['correct_answer'] ?? ''))),
+        'explanation'    => cleanUtf8String(strip_tags(trim((string)($q['explanation'] ?? '')))),
         'time_limit'     => $timeLimit,
     ];
 }
@@ -63,16 +69,16 @@ function validateQuestion(array $q, int $num): ?string {
 }
 
 function extractCorrectLetter(string $rawAns, string $optA, string $optB, string $optC, string $optD): string {
-    $raw = trim($rawAns);
+    $raw = cleanUtf8String($rawAns);
     if ($raw === '') return 'A';
 
     // 1. Exact match with option text (Hindi or English)
-    $normRaw = mb_strtolower($raw);
+    $normRaw = mb_strtolower($raw, 'UTF-8');
     if ($normRaw !== '') {
-        if ($normRaw === mb_strtolower(trim($optA))) return 'A';
-        if ($normRaw === mb_strtolower(trim($optB))) return 'B';
-        if ($normRaw === mb_strtolower(trim($optC))) return 'C';
-        if ($normRaw === mb_strtolower(trim($optD))) return 'D';
+        if ($normRaw === mb_strtolower(trim($optA), 'UTF-8')) return 'A';
+        if ($normRaw === mb_strtolower(trim($optB), 'UTF-8')) return 'B';
+        if ($normRaw === mb_strtolower(trim($optC), 'UTF-8')) return 'C';
+        if ($normRaw === mb_strtolower(trim($optD), 'UTF-8')) return 'D';
     }
 
     // 2. Numeric 1, 2, 3, 4
@@ -92,18 +98,24 @@ function extractCorrectLetter(string $rawAns, string $optA, string $optB, string
         return strtoupper($m[1]);
     }
 
-    // 4. First character if A, B, C, D
+    // 4. Hindi option letter identifiers: क -> A, ख -> B, ग -> C, घ -> D
+    if ($normRaw === 'क' || $normRaw === '(क)' || $normRaw === 'विकल्प क' || $normRaw === 'उत्तर क') return 'A';
+    if ($normRaw === 'ख' || $normRaw === '(ख)' || $normRaw === 'विकल्प ख' || $normRaw === 'उत्तर ख') return 'B';
+    if ($normRaw === 'ग' || $normRaw === '(ग)' || $normRaw === 'विकल्प ग' || $normRaw === 'उत्तर ग') return 'C';
+    if ($normRaw === 'घ' || $normRaw === '(घ)' || $normRaw === 'विकल्प घ' || $normRaw === 'उत्तर घ') return 'D';
+
+    // 5. First character if A, B, C, D
     $firstChar = strtoupper(substr($raw, 0, 1));
     if (in_array($firstChar, ['A', 'B', 'C', 'D'])) {
         return $firstChar;
     }
 
-    // 5. Check if answer text is contained inside one of the options
-    if ($normRaw !== '' && strlen($normRaw) >= 3) {
-        if (mb_strpos(mb_strtolower($optA), $normRaw) !== false) return 'A';
-        if (mb_strpos(mb_strtolower($optB), $normRaw) !== false) return 'B';
-        if (mb_strpos(mb_strtolower($optC), $normRaw) !== false) return 'C';
-        if (mb_strpos(mb_strtolower($optD), $normRaw) !== false) return 'D';
+    // 6. Check if answer text is contained inside one of the options
+    if ($normRaw !== '' && mb_strlen($normRaw, 'UTF-8') >= 3) {
+        if (mb_strpos(mb_strtolower($optA, 'UTF-8'), $normRaw) !== false) return 'A';
+        if (mb_strpos(mb_strtolower($optB, 'UTF-8'), $normRaw) !== false) return 'B';
+        if (mb_strpos(mb_strtolower($optC, 'UTF-8'), $normRaw) !== false) return 'C';
+        if (mb_strpos(mb_strtolower($optD, 'UTF-8'), $normRaw) !== false) return 'D';
     }
 
     return 'A';
@@ -117,6 +129,7 @@ function detectCsvDelimiter(string $filepath): string {
     $firstLine = fgets($handle);
     fclose($handle);
     if (!$firstLine) return ',';
+    $firstLine = preg_replace('/^\xEF\xBB\xBF/', '', $firstLine);
     $counts = [];
     foreach ($delimiters as $d) {
         $counts[$d] = count(str_getcsv($firstLine, $d));
@@ -129,16 +142,16 @@ function detectCsvDelimiter(string $filepath): string {
 function normalizeCsvHeaders(array $rawHeaders): array {
     $normalized = [];
     foreach ($rawHeaders as $idx => $raw) {
-        $clean = preg_replace('/^\xEF\xBB\xBF/', '', trim((string)$raw));
-        $clean = strtolower($clean);
+        $clean = cleanUtf8String((string)$raw);
+        $clean = mb_strtolower($clean, 'UTF-8');
         $clean = str_replace(['.', ':', '-', '_', '(', ')', '[', ']', '/', '\\', '#'], ' ', $clean);
-        $clean = preg_replace('/\s+/', '_', trim($clean));
+        $clean = preg_replace('/\s+/u', '_', trim($clean));
 
         // Question
         if (in_array($clean, ['question', 'question_text', 'questiontext', 'questions', 'prompt', 'prashna', 'prashn', 'sawal', 'q'])
             || in_array($raw, ['प्रश्न', 'सवाल', 'प्रश्‍न', 'प्रशन'])
             || (strpos($clean, 'question') !== false && strpos($clean, 'no') === false && strpos($clean, 'num') === false && strpos($clean, 'id') === false)
-            || strpos($raw, 'प्रश्न') !== false) {
+            || mb_strpos($raw, 'प्रश्न') !== false) {
             $normalized[$idx] = 'question_text';
         }
         // Option A
@@ -170,7 +183,7 @@ function normalizeCsvHeaders(array $rawHeaders): array {
             || in_array($raw, ['सही उत्तर', 'उत्तर', 'जवाब', 'सही विकल्प', 'सही_उत्तर', 'सही_विकल्प'])
             || strpos($clean, 'correct') !== false
             || strpos($clean, 'answer') !== false
-            || strpos($raw, 'उत्तर') !== false) {
+            || mb_strpos($raw, 'उत्तर') !== false) {
             $normalized[$idx] = 'correct_answer';
         }
         // Explanation
@@ -178,7 +191,7 @@ function normalizeCsvHeaders(array $rawHeaders): array {
             || in_array($raw, ['व्याख्या', 'विवरण', 'स्पष्टीकरण'])
             || strpos($clean, 'expl') !== false
             || strpos($clean, 'solut') !== false
-            || strpos($raw, 'व्याख्या') !== false) {
+            || mb_strpos($raw, 'व्याख्या') !== false) {
             $normalized[$idx] = 'explanation';
         }
         // Time limit
@@ -206,29 +219,42 @@ function parseCsv(string $filepath, ?int $defaultTimeLimit = null): array {
     // Detect line endings and encoding
     @ini_set('auto_detect_line_endings', '1');
 
-    // Read initial raw bytes to detect BOM and UTF-16
-    $raw = @file_get_contents($filepath, false, null, 0, 4);
-    if ($raw !== false) {
-        if (substr($raw, 0, 2) === "\xFF\xFE") {
-            $allContent = file_get_contents($filepath);
-            $converted = mb_convert_encoding(substr($allContent, 2), 'UTF-8', 'UTF-16LE');
-            file_put_contents($filepath, $converted);
-        } elseif (substr($raw, 0, 2) === "\xFE\xFF") {
-            $allContent = file_get_contents($filepath);
-            $converted = mb_convert_encoding(substr($allContent, 2), 'UTF-8', 'UTF-16BE');
-            file_put_contents($filepath, $converted);
+    // Read full raw bytes to normalize encoding & BOM cleanly upfront
+    $allContent = @file_get_contents($filepath);
+    if ($allContent !== false && $allContent !== '') {
+        // UTF-16LE with BOM
+        if (substr($allContent, 0, 2) === "\xFF\xFE") {
+            $allContent = mb_convert_encoding(substr($allContent, 2), 'UTF-8', 'UTF-16LE');
         }
+        // UTF-16BE with BOM
+        elseif (substr($allContent, 0, 2) === "\xFE\xFF") {
+            $allContent = mb_convert_encoding(substr($allContent, 2), 'UTF-8', 'UTF-16BE');
+        }
+        // UTF-8 with BOM
+        elseif (substr($allContent, 0, 3) === "\xEF\xBB\xBF") {
+            $allContent = substr($allContent, 3);
+        }
+        // If not valid UTF-8, detect and convert
+        elseif (!mb_check_encoding($allContent, 'UTF-8')) {
+            $detected = mb_detect_encoding($allContent, ['UTF-8', 'Windows-1252', 'ISO-8859-1', 'ASCII'], true);
+            if ($detected && $detected !== 'UTF-8') {
+                $allContent = mb_convert_encoding($allContent, 'UTF-8', $detected);
+            }
+        }
+        file_put_contents($filepath, $allContent);
     }
 
     $delimiter = detectCsvDelimiter($filepath);
 
     if (($handle = fopen($filepath, 'r')) !== false) {
         $header = null;
-        while (($row = fgetcsv($handle, 8000, $delimiter)) !== false) {
+        while (($rawRow = fgetcsv($handle, 16000, $delimiter)) !== false) {
             $row_num++;
-            if (isset($row[0])) {
-                $row[0] = preg_replace('/^\xEF\xBB\xBF/', '', (string)$row[0]);
+            $row = [];
+            foreach ($rawRow as $idx => $cell) {
+                $row[$idx] = cleanUtf8String((string)$cell);
             }
+
             $nonEmpty = array_filter($row, function($v) { return trim((string)$v) !== ''; });
             if (empty($nonEmpty)) continue;
 
@@ -363,13 +389,23 @@ function parseXlsx(string $filepath, ?int $defaultTimeLimit = null): array {
         return ['questions' => [], 'errors' => ['Could not read XLSX worksheet']];
     }
 
-    // Parse shared strings
+    // Parse shared strings (handles both plain text <t> and formatted rich text runs <r><t>)
     $strings = [];
     if ($shared) {
         $sharedXml = simplexml_load_string($shared);
         if ($sharedXml) {
             foreach ($sharedXml->si as $si) {
-                $strings[] = (string)$si->t ?? implode('', (array)$si->r->t ?? []);
+                if (isset($si->t)) {
+                    $strings[] = cleanUtf8String((string)$si->t);
+                } elseif (isset($si->r)) {
+                    $str = '';
+                    foreach ($si->r as $run) {
+                        $str .= (string)($run->t ?? '');
+                    }
+                    $strings[] = cleanUtf8String($str);
+                } else {
+                    $strings[] = '';
+                }
             }
         }
     }
@@ -385,7 +421,10 @@ function parseXlsx(string $filepath, ?int $defaultTimeLimit = null): array {
                 $val = (string)$cell->v;
                 if ($cell_type === 's') {
                     $val = $strings[(int)$val] ?? '';
+                } elseif ($cell_type === 'inlineStr' && isset($cell->is->t)) {
+                    $val = (string)$cell->is->t;
                 }
+                $val = cleanUtf8String($val);
                 $col_letter = preg_replace('/\d/', '', (string)$cell['r']);
                 $col_idx    = ord($col_letter) - ord('A');
                 $row_vals[$col_idx] = $val;
@@ -441,12 +480,12 @@ switch ($action) {
     // --------------------------------------------------------
     case 'list':
         $quiz_set_id = (int)($_GET['quiz_set_id'] ?? 0);
-        if (!$quiz_set_id) { echo json_encode(['success'=>false,'message'=>'quiz_set_id required']); break; }
+        if (!$quiz_set_id) { echo json_encode(['success'=>false,'message'=>'quiz_set_id required'], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES); break; }
 
         // Verify this quiz set belongs to this admin
         $check = $pdo->prepare("SELECT id FROM tg_quiz_sets WHERE id=? AND admin_id=?");
         $check->execute([$quiz_set_id, $admin_id]);
-        if (!$check->fetchColumn()) { echo json_encode(['success'=>false,'message'=>'Not found']); break; }
+        if (!$check->fetchColumn()) { echo json_encode(['success'=>false,'message'=>'Not found'], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES); break; }
 
         $page  = max(1, (int)($_GET['page'] ?? 1));
         $limit = min(100, max(10, (int)($_GET['limit'] ?? 50)));
@@ -465,7 +504,7 @@ switch ($action) {
             $countStmt->execute([$quiz_set_id]);
         }
         $total = (int)$countStmt->fetchColumn();
-        echo json_encode(['success'=>true, 'questions'=>$stmt->fetchAll(), 'total'=>$total, 'page'=>$page, 'limit'=>$limit]);
+        echo json_encode(['success'=>true, 'questions'=>$stmt->fetchAll(), 'total'=>$total, 'page'=>$page, 'limit'=>$limit], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
         break;
 
     // --------------------------------------------------------
@@ -474,20 +513,20 @@ switch ($action) {
     case 'add':
         validateCsrfToken();
         $quiz_set_id = (int)($_POST['quiz_set_id'] ?? 0);
-        if (!$quiz_set_id) { echo json_encode(['success'=>false,'message'=>'quiz_set_id required']); break; }
+        if (!$quiz_set_id) { echo json_encode(['success'=>false,'message'=>'quiz_set_id required'], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES); break; }
 
         $check = $pdo->prepare("SELECT id FROM tg_quiz_sets WHERE id=? AND admin_id=?");
         $check->execute([$quiz_set_id, $admin_id]);
-        if (!$check->fetchColumn()) { echo json_encode(['success'=>false,'message'=>'Quiz set not found']); break; }
+        if (!$check->fetchColumn()) { echo json_encode(['success'=>false,'message'=>'Quiz set not found'], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES); break; }
 
         $q = sanitizeQuestion($_POST);
         $error = validateQuestion($q, 1);
-        if ($error) { echo json_encode(['success'=>false,'message'=>$error]); break; }
+        if ($error) { echo json_encode(['success'=>false,'message'=>$error], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES); break; }
 
         $dupCheck = $pdo->prepare("SELECT id FROM tg_quiz_questions WHERE quiz_set_id=? AND question_text=? AND option_a=? AND option_b=? LIMIT 1");
         $dupCheck->execute([$quiz_set_id, $q['question_text'], $q['option_a'], $q['option_b']]);
         if ($dupCheck->fetchColumn()) {
-            echo json_encode(['success'=>false,'message'=>'Duplicate question detected in this quiz set.']);
+            echo json_encode(['success'=>false,'message'=>'Duplicate question detected in this quiz set.'], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
             break;
         }
 
@@ -501,7 +540,7 @@ switch ($action) {
         // Update total_questions count
         $pdo->prepare("UPDATE tg_quiz_sets SET total_questions = (SELECT COUNT(*) FROM tg_quiz_questions WHERE quiz_set_id=?) WHERE id=?")->execute([$quiz_set_id, $quiz_set_id]);
 
-        echo json_encode(['success'=>true, 'message'=>'Question added', 'id'=>$pdo->lastInsertId(), 'question_number'=>$nextNum]);
+        echo json_encode(['success'=>true, 'message'=>'Question added', 'id'=>$pdo->lastInsertId(), 'question_number'=>$nextNum], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
         break;
 
     // --------------------------------------------------------
@@ -514,15 +553,15 @@ switch ($action) {
         // Verify ownership
         $check = $pdo->prepare("SELECT qq.id FROM tg_quiz_questions qq JOIN tg_quiz_sets qs ON qs.id=qq.quiz_set_id WHERE qq.id=? AND qs.admin_id=?");
         $check->execute([$id, $admin_id]);
-        if (!$check->fetchColumn()) { echo json_encode(['success'=>false,'message'=>'Question not found']); break; }
+        if (!$check->fetchColumn()) { echo json_encode(['success'=>false,'message'=>'Question not found'], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES); break; }
 
         $q = sanitizeQuestion($_POST);
         $error = validateQuestion($q, $id);
-        if ($error) { echo json_encode(['success'=>false,'message'=>$error]); break; }
+        if ($error) { echo json_encode(['success'=>false,'message'=>$error], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES); break; }
 
         $upd = $pdo->prepare("UPDATE tg_quiz_questions SET question_text=?, option_a=?, option_b=?, option_c=?, option_d=?, correct_answer=?, explanation=?, time_limit=? WHERE id=?");
         $upd->execute([$q['question_text'], $q['option_a'], $q['option_b'], $q['option_c'], $q['option_d'], $q['correct_answer'], $q['explanation'], $q['time_limit'], $id]);
-        echo json_encode(['success'=>true, 'message'=>'Question updated']);
+        echo json_encode(['success'=>true, 'message'=>'Question updated'], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
         break;
 
     // --------------------------------------------------------
@@ -534,7 +573,7 @@ switch ($action) {
         $check = $pdo->prepare("SELECT qq.id, qq.quiz_set_id FROM tg_quiz_questions qq JOIN tg_quiz_sets qs ON qs.id=qq.quiz_set_id WHERE qq.id=? AND qs.admin_id=?");
         $check->execute([$id, $admin_id]);
         $row = $check->fetch();
-        if (!$row) { echo json_encode(['success'=>false,'message'=>'Question not found']); break; }
+        if (!$row) { echo json_encode(['success'=>false,'message'=>'Question not found'], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES); break; }
 
         $pdo->prepare("DELETE FROM tg_quiz_questions WHERE id=?")->execute([$id]);
         // Renumber remaining questions
@@ -542,7 +581,7 @@ switch ($action) {
         $pdo->prepare("UPDATE tg_quiz_questions SET question_number = (@rank := @rank + 1) WHERE quiz_set_id=? ORDER BY question_number")->execute([$row['quiz_set_id']]);
         // Update count
         $pdo->prepare("UPDATE tg_quiz_sets SET total_questions=(SELECT COUNT(*) FROM tg_quiz_questions WHERE quiz_set_id=?) WHERE id=?")->execute([$row['quiz_set_id'], $row['quiz_set_id']]);
-        echo json_encode(['success'=>true, 'message'=>'Question deleted']);
+        echo json_encode(['success'=>true, 'message'=>'Question deleted'], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
         break;
 
     // --------------------------------------------------------
@@ -554,7 +593,7 @@ switch ($action) {
         $check = $pdo->prepare("SELECT qq.*, qq.quiz_set_id FROM tg_quiz_questions qq JOIN tg_quiz_sets qs ON qs.id=qq.quiz_set_id WHERE qq.id=? AND qs.admin_id=?");
         $check->execute([$id, $admin_id]);
         $orig = $check->fetch();
-        if (!$orig) { echo json_encode(['success'=>false,'message'=>'Question not found']); break; }
+        if (!$orig) { echo json_encode(['success'=>false,'message'=>'Question not found'], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES); break; }
 
         $maxStmt = $pdo->prepare("SELECT MAX(question_number) FROM tg_quiz_questions WHERE quiz_set_id=?");
         $maxStmt->execute([$orig['quiz_set_id']]);
@@ -563,7 +602,7 @@ switch ($action) {
         $ins = $pdo->prepare("INSERT INTO tg_quiz_questions (quiz_set_id, question_number, question_text, option_a, option_b, option_c, option_d, correct_answer, explanation, time_limit) VALUES (?,?,?,?,?,?,?,?,?,?)");
         $ins->execute([$orig['quiz_set_id'], $nextNum, $orig['question_text'].' (Copy)', $orig['option_a'], $orig['option_b'], $orig['option_c'], $orig['option_d'], $orig['correct_answer'], $orig['explanation'], $orig['time_limit']]);
         $pdo->prepare("UPDATE tg_quiz_sets SET total_questions=(SELECT COUNT(*) FROM tg_quiz_questions WHERE quiz_set_id=?) WHERE id=?")->execute([$orig['quiz_set_id'], $orig['quiz_set_id']]);
-        echo json_encode(['success'=>true, 'message'=>'Question duplicated', 'new_number'=>$nextNum]);
+        echo json_encode(['success'=>true, 'message'=>'Question duplicated', 'new_number'=>$nextNum], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
         break;
 
     // --------------------------------------------------------
@@ -577,7 +616,7 @@ switch ($action) {
         $check = $pdo->prepare("SELECT qq.* FROM tg_quiz_questions qq JOIN tg_quiz_sets qs ON qs.id=qq.quiz_set_id WHERE qq.id=? AND qs.admin_id=?");
         $check->execute([$id, $admin_id]);
         $current = $check->fetch();
-        if (!$current) { echo json_encode(['success'=>false,'message'=>'Question not found']); break; }
+        if (!$current) { echo json_encode(['success'=>false,'message'=>'Question not found'], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES); break; }
 
         $target_num = $direction === 'up' ? $current['question_number'] - 1 : $current['question_number'] + 1;
         $swapStmt = $pdo->prepare("SELECT id FROM tg_quiz_questions WHERE quiz_set_id=? AND question_number=?");
@@ -588,7 +627,7 @@ switch ($action) {
             $pdo->prepare("UPDATE tg_quiz_questions SET question_number=? WHERE id=?")->execute([$target_num, $id]);
             $pdo->prepare("UPDATE tg_quiz_questions SET question_number=? WHERE id=?")->execute([$current['question_number'], $swap_id]);
         }
-        echo json_encode(['success'=>true, 'message'=>'Reordered']);
+        echo json_encode(['success'=>true, 'message'=>'Reordered'], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
         break;
 
     // --------------------------------------------------------
@@ -597,25 +636,25 @@ switch ($action) {
     case 'upload':
         validateCsrfToken();
         $quiz_set_id = (int)($_POST['quiz_set_id'] ?? 0);
-        if (!$quiz_set_id) { echo json_encode(['success'=>false,'message'=>'quiz_set_id required']); break; }
+        if (!$quiz_set_id) { echo json_encode(['success'=>false,'message'=>'quiz_set_id required'], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES); break; }
 
         $check = $pdo->prepare("SELECT id FROM tg_quiz_sets WHERE id=? AND admin_id=?");
         $check->execute([$quiz_set_id, $admin_id]);
-        if (!$check->fetchColumn()) { echo json_encode(['success'=>false,'message'=>'Quiz set not found']); break; }
+        if (!$check->fetchColumn()) { echo json_encode(['success'=>false,'message'=>'Quiz set not found'], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES); break; }
 
         if (!isset($_FILES['file']) || $_FILES['file']['error'] !== UPLOAD_ERR_OK) {
             $errCode = $_FILES['file']['error'] ?? 'missing';
             $errMsg = 'File upload failed (Code: ' . $errCode . ')';
             if ($errCode === UPLOAD_ERR_INI_SIZE || $errCode === UPLOAD_ERR_FORM_SIZE) $errMsg = 'File size exceeds upload limit';
             elseif ($errCode === UPLOAD_ERR_NO_FILE) $errMsg = 'No file was uploaded. Please select a CSV file.';
-            echo json_encode(['success'=>false,'message'=>$errMsg]);
+            echo json_encode(['success'=>false,'message'=>$errMsg], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
             break;
         }
 
         $file = $_FILES['file'];
         $ext  = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
         if (!in_array($ext, ['csv', 'xlsx', 'txt'])) {
-            echo json_encode(['success'=>false,'message'=>'Only CSV and XLSX files are allowed (got: ' . htmlspecialchars($ext) . ')']);
+            echo json_encode(['success'=>false,'message'=>'Only CSV and XLSX files are allowed (got: ' . htmlspecialchars($ext) . ')'], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
             break;
         }
 
@@ -635,7 +674,7 @@ switch ($action) {
         }
 
         if (!$filepath) {
-            echo json_encode(['success'=>false,'message'=>'Could not read uploaded file. Check server write permissions for uploads/ folder.']);
+            echo json_encode(['success'=>false,'message'=>'Could not read uploaded file. Check server write permissions for uploads/ folder.'], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
             break;
         }
 
@@ -650,12 +689,12 @@ switch ($action) {
                 'success' => false,
                 'message' => 'File parsing failed. Please check the CSV headers and required columns.',
                 'errors'  => $parsed['errors']
-            ]);
+            ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
             break;
         }
 
         if (empty($parsed['questions'])) {
-            echo json_encode(['success'=>false,'message'=>'No valid questions found in file. Make sure columns match: question, option_a, option_b, correct_answer.']);
+            echo json_encode(['success'=>false,'message'=>'No valid questions found in file. Make sure columns match: question, option_a, option_b, correct_answer.'], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
             break;
         }
 
@@ -695,14 +734,14 @@ switch ($action) {
                 'imported' => $imported,
                 'failed'   => count($failedRows),
                 'errors'   => array_merge($parsed['errors'] ?? [], $failedRows),
-            ]);
+            ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
         } catch (PDOException $e) {
             if ($pdo->inTransaction()) $pdo->rollBack();
-            echo json_encode(['success'=>false,'message'=>'Database error during import: ' . $e->getMessage()]);
+            echo json_encode(['success'=>false,'message'=>'Database error during import: ' . $e->getMessage()], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
         }
         break;
 
     default:
         http_response_code(400);
-        echo json_encode(['success'=>false,'message'=>'Unknown action']);
+        echo json_encode(['success'=>false,'message'=>'Unknown action'], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
 }

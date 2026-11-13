@@ -10,6 +10,9 @@ try {
     $pdo->setAttribute(PDO::ATTR_DEFAULT_FETCH_MODE, PDO::FETCH_ASSOC);
     // Synchronize timezone with PHP (Asia/Kolkata)
     try { $pdo->exec("SET time_zone = '+05:30'"); } catch (Exception $e) {}
+    // Ensure utf8mb4 encoding & collation for full Hindi/Devanagari Unicode support
+    try { $pdo->exec("SET NAMES utf8mb4 COLLATE utf8mb4_unicode_ci"); } catch (Exception $e) {}
+    if (function_exists('mb_internal_encoding')) { mb_internal_encoding('UTF-8'); }
     // Ensure roles table exists and seed default roles
     try {
         $pdo->exec("
@@ -114,6 +117,68 @@ try {
         // Ignore error if column already exists or users table missing during initial install
     }
 
+    // Auto-migrate tg_quiz_sessions columns for real-time Telegram synchronization
+    try {
+        $pdo->exec("ALTER TABLE tg_quiz_sessions MODIFY COLUMN status ENUM('PENDING','COUNTDOWN','RUNNING','PAUSED','COMPLETED','STOPPED','FAILED') DEFAULT 'PENDING'");
+    } catch (PDOException $e) {}
+    try {
+        $pdo->exec("ALTER TABLE tg_quiz_sessions ADD COLUMN telegram_status_message_id BIGINT NULL AFTER last_telegram_message_id");
+    } catch (PDOException $e) {}
+    try {
+        $pdo->exec("ALTER TABLE tg_quiz_sessions ADD COLUMN countdown_seconds INT UNSIGNED DEFAULT 30 AFTER timer_seconds");
+    } catch (PDOException $e) {}
+    try {
+        $pdo->exec("ALTER TABLE tg_quiz_sessions ADD COLUMN countdown_ends_at DATETIME NULL AFTER countdown_seconds");
+    } catch (PDOException $e) {}
+    try {
+        $pdo->exec("ALTER TABLE tg_quiz_sessions ADD COLUMN last_telegram_update DATETIME NULL AFTER countdown_ends_at");
+    } catch (PDOException $e) {}
+    try {
+        $pdo->exec("ALTER TABLE tg_quiz_sessions ADD COLUMN last_telegram_status_text TEXT NULL AFTER last_telegram_update");
+    } catch (PDOException $e) {}
+    try {
+        $pdo->exec("ALTER TABLE tg_quiz_sessions ADD COLUMN announcement_sent_at DATETIME NULL AFTER last_telegram_status_text");
+    } catch (PDOException $e) {}
+
+    // Mock test responses and attempts migration for accurate answer saving and skipped tracking
+    try {
+        $pdo->exec("
+            CREATE TABLE IF NOT EXISTS mt_student_responses (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                attempt_id INT NOT NULL,
+                question_id INT NOT NULL,
+                selected_option VARCHAR(255) NULL,
+                status ENUM('NOT_VISITED', 'VISITED_UNANSWERED', 'ANSWERED', 'SUBMITTED', 'unvisited', 'not_answered', 'answered', 'marked', 'answered_marked') DEFAULT 'NOT_VISITED',
+                is_correct TINYINT(1) NULL,
+                marks_awarded DECIMAL(6,2) DEFAULT 0,
+                time_spent_seconds INT DEFAULT 0,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                UNIQUE KEY unique_attempt_question (attempt_id, question_id),
+                KEY idx_attempt (attempt_id),
+                KEY idx_question (question_id)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+        ");
+    } catch (PDOException $e) {}
+    try {
+        $pdo->exec("ALTER TABLE mt_test_attempts MODIFY COLUMN status ENUM('in_progress', 'submitted', 'completed', 'time_up') DEFAULT 'in_progress'");
+    } catch (PDOException $e) {}
+    try {
+        $pdo->exec("ALTER TABLE mt_test_attempts ADD COLUMN total_correct INT DEFAULT 0 AFTER score");
+    } catch (PDOException $e) {}
+    try {
+        $pdo->exec("ALTER TABLE mt_test_attempts ADD COLUMN total_incorrect INT DEFAULT 0 AFTER total_correct");
+    } catch (PDOException $e) {}
+    try {
+        $pdo->exec("ALTER TABLE mt_test_attempts ADD COLUMN total_unanswered INT DEFAULT 0 AFTER total_incorrect");
+    } catch (PDOException $e) {}
+    try {
+        $pdo->exec("ALTER TABLE mt_test_attempts ADD COLUMN attempted_questions INT DEFAULT 0 AFTER total_unanswered");
+    } catch (PDOException $e) {}
+    try {
+        $pdo->exec("ALTER TABLE mt_test_attempts ADD COLUMN skipped_questions INT DEFAULT 0 AFTER attempted_questions");
+    } catch (PDOException $e) {}
+
     // Make phone and password nullable so OAuth users can register without local credentials
     try {
         $pdo->exec("ALTER TABLE users MODIFY COLUMN phone VARCHAR(20) NULL");
@@ -176,6 +241,33 @@ try {
         $pdo->exec("ALTER TABLE tg_quiz_sessions ADD COLUMN started_at DATETIME NULL AFTER start_question");
         $pdo->exec("ALTER TABLE tg_quiz_sessions ADD COLUMN paused_at DATETIME NULL AFTER start_time");
         $pdo->exec("ALTER TABLE tg_quiz_sessions ADD COLUMN stopped_at DATETIME NULL AFTER paused_at");
+        $pdo->exec("ALTER TABLE tg_quiz_sessions ADD COLUMN correct_mark DECIMAL(8,2) NOT NULL DEFAULT 1.00");
+        $pdo->exec("ALTER TABLE tg_quiz_sessions ADD COLUMN wrong_mark DECIMAL(8,2) NOT NULL DEFAULT -0.25");
+        $pdo->exec("ALTER TABLE tg_quiz_sessions ADD COLUMN results_claimed_at DATETIME NULL");
+        $pdo->exec("ALTER TABLE tg_quiz_sessions ADD COLUMN results_announced_at DATETIME NULL");
+        $pdo->exec("ALTER TABLE tg_bots ADD COLUMN last_update_id BIGINT NOT NULL DEFAULT 0");
+    } catch (PDOException $e) {}
+
+    // Ensure tg_quiz_responses table exists for voter scores
+    try {
+        $pdo->exec("
+            CREATE TABLE IF NOT EXISTS tg_quiz_responses (
+                id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+                session_id INT UNSIGNED NOT NULL,
+                question_id INT UNSIGNED NOT NULL,
+                question_number INT UNSIGNED NOT NULL,
+                telegram_poll_id VARCHAR(128) NOT NULL,
+                user_id BIGINT NOT NULL,
+                username VARCHAR(255) DEFAULT NULL,
+                first_name VARCHAR(255) DEFAULT NULL,
+                last_name VARCHAR(255) DEFAULT NULL,
+                selected_option_id TINYINT UNSIGNED NOT NULL,
+                is_correct TINYINT(1) NOT NULL DEFAULT 0,
+                answered_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                UNIQUE KEY uniq_poll_user (telegram_poll_id, user_id),
+                INDEX idx_session_user (session_id, user_id)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+        ");
     } catch (PDOException $e) {}
 
     // Email OTP Verification Table
@@ -390,6 +482,10 @@ try {
     }
 
 } catch (PDOException $e) {
+    if (php_sapi_name() === 'cli') {
+        fwrite(STDERR, "Database Connection Error: " . $e->getMessage() . "\n");
+        exit(1);
+    }
     include_once __DIR__ . '/../maintenance.php';
     exit();
 }

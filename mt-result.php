@@ -29,20 +29,20 @@ $stmt = $pdo->prepare("SELECT a.*, t.title, t.total_marks, t.total_questions, t.
                        JOIN mt_exams e ON t.exam_id = e.id
                        WHERE a.id = ?");
 $stmt->execute([$attempt_id]);
-$attempt = $stmt->fetch();
+$attempt = $stmt->fetch(PDO::FETCH_ASSOC);
 
 if (!$attempt || ($attempt['user_id'] != $user_id && !$is_admin)) {
     die("Result not found or access denied.");
 }
 
-if ($attempt['status'] != 'completed') {
+if ($attempt['status'] != 'completed' && $attempt['status'] != 'submitted') {
     die("Test is not completed yet.");
 }
 
 // Calculate rank if visibility allows
 $rank = 0;
 if ($attempt['result_visibility'] == 'immediate') {
-    $rank_stmt = $pdo->prepare("SELECT COUNT(*) + 1 FROM mt_test_attempts WHERE mock_test_id = ? AND status = 'completed' AND score > ?");
+    $rank_stmt = $pdo->prepare("SELECT COUNT(*) + 1 FROM mt_test_attempts WHERE mock_test_id = ? AND status IN ('completed', 'submitted') AND score > ?");
     $rank_stmt->execute([$attempt['mock_test_id'], $attempt['score']]);
     $rank = $rank_stmt->fetchColumn();
 }
@@ -58,6 +58,17 @@ $stmt_qr = $pdo->prepare($sql);
 $stmt_qr->execute([$attempt_id, $attempt['mock_test_id']]);
 $q_data = $stmt_qr->fetchAll(PDO::FETCH_ASSOC);
 
+$total_q = count($q_data);
+if ($total_q === 0) {
+    $total_q = (int)$attempt['total_questions'];
+}
+
+// Derive counts accurately with fallback support
+$correct_count = isset($attempt['total_correct']) ? (int)$attempt['total_correct'] : (int)$attempt['correct_answers'];
+$wrong_count = isset($attempt['total_incorrect']) ? (int)$attempt['total_incorrect'] : (int)$attempt['wrong_answers'];
+$attempted_count = $correct_count + $wrong_count;
+$skipped_count = max(0, $total_q - $attempted_count);
+
 ?>
 <?php require_once 'includes/header.php'; ?>
 <?php require_once 'includes/navbar.php'; ?>
@@ -71,10 +82,10 @@ $q_data = $stmt_qr->fetchAll(PDO::FETCH_ASSOC);
     .bg-accuracy { background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%); }
     
     .sol-card { border-radius: 10px; border: 1px solid #eee; margin-bottom: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.02); }
-    .sol-header { background: #f8f9fa; padding: 10px 15px; border-bottom: 1px solid #eee; font-weight: bold; display: flex; justify-content: space-between; align-items: center; border-radius: 10px 10px 0 0;}
+    .sol-header { background: #f8f9fa; padding: 12px 18px; border-bottom: 1px solid #eee; font-weight: bold; display: flex; justify-content: space-between; align-items: center; border-radius: 10px 10px 0 0;}
     .sol-body { padding: 20px; }
-    .opt-correct { background: #d1e7dd; border-color: #badbcc; color: #0f5132; }
-    .opt-wrong { background: #f8d7da; border-color: #f5c2c7; color: #842029; }
+    .opt-correct { background: #d1e7dd !important; border-color: #badbcc !important; color: #0f5132 !important; }
+    .opt-wrong { background: #f8d7da !important; border-color: #f5c2c7 !important; color: #842029 !important; }
     .sol-explanation { background: #e9ecef; padding: 15px; border-left: 4px solid #0d6efd; border-radius: 4px; margin-top: 15px; }
     .sol-trick { background: #fff3cd; padding: 15px; border-left: 4px solid #ffc107; border-radius: 4px; margin-top: 15px; }
 </style>
@@ -83,8 +94,11 @@ $q_data = $stmt_qr->fetchAll(PDO::FETCH_ASSOC);
     <?php displayFlashMessage(); ?>
     
     <div class="d-flex justify-content-between align-items-center mb-4">
-        <h2 class="fw-bold mb-0">Result: <?= htmlspecialchars($attempt['title']) ?></h2>
-        <a href="mock-tests.php" class="btn btn-outline-dark">Back to Tests</a>
+        <div>
+            <h2 class="fw-bold mb-1">Result: <?= htmlspecialchars($attempt['title']) ?></h2>
+            <p class="text-muted mb-0"><i class="fa-solid fa-graduation-cap me-1"></i> Exam: <?= htmlspecialchars($attempt['exam_name']) ?></p>
+        </div>
+        <a href="mock-tests.php" class="btn btn-outline-dark"><i class="fa-solid fa-arrow-left me-1"></i> Back to Tests</a>
     </div>
 
     <?php if($attempt['result_visibility'] != 'immediate' && !$is_admin): ?>
@@ -95,7 +109,7 @@ $q_data = $stmt_qr->fetchAll(PDO::FETCH_ASSOC);
         </div>
     <?php else: ?>
         <!-- Analytics Overview -->
-        <div class="row g-4 mb-5">
+        <div class="row g-4 mb-4">
             <div class="col-md-4">
                 <div class="stat-box bg-score">
                     <h3><?= (float)$attempt['score'] ?> <span class="fs-5 text-white-50">/ <?= (float)$attempt['total_marks'] ?></span></h3>
@@ -116,32 +130,42 @@ $q_data = $stmt_qr->fetchAll(PDO::FETCH_ASSOC);
             </div>
         </div>
 
-        <!-- Detailed Stats -->
-        <div class="card result-card mb-5">
+        <!-- Detailed Question Stats -->
+        <div class="card result-card mb-4">
             <div class="card-body p-0">
                 <div class="row g-0 text-center">
-                    <div class="col-6 col-md-3 p-4 border-end border-bottom">
-                        <i class="fa-solid fa-check-circle text-success fs-2 mb-2"></i>
-                        <h4 class="fw-bold mb-0"><?= $attempt['total_correct'] ?></h4>
+                    <div class="col-6 col-md-2 p-3 border-end border-bottom">
+                        <i class="fa-solid fa-list-ol text-primary fs-3 mb-1"></i>
+                        <h4 class="fw-bold mb-0"><?= $total_q ?></h4>
+                        <span class="text-muted small">Total Questions</span>
+                    </div>
+                    <div class="col-6 col-md-2 p-3 border-end border-bottom">
+                        <i class="fa-solid fa-pencil text-info fs-3 mb-1"></i>
+                        <h4 class="fw-bold mb-0"><?= $attempted_count ?></h4>
+                        <span class="text-muted small">Attempted</span>
+                    </div>
+                    <div class="col-6 col-md-2 p-3 border-end border-bottom">
+                        <i class="fa-solid fa-check-circle text-success fs-3 mb-1"></i>
+                        <h4 class="fw-bold mb-0"><?= $correct_count ?></h4>
                         <span class="text-muted small">Correct Answers</span>
                     </div>
-                    <div class="col-6 col-md-3 p-4 border-end-md border-bottom">
-                        <i class="fa-solid fa-times-circle text-danger fs-2 mb-2"></i>
-                        <h4 class="fw-bold mb-0"><?= $attempt['total_incorrect'] ?></h4>
-                        <span class="text-muted small">Incorrect Answers</span>
+                    <div class="col-6 col-md-2 p-3 border-end border-bottom">
+                        <i class="fa-solid fa-times-circle text-danger fs-3 mb-1"></i>
+                        <h4 class="fw-bold mb-0"><?= $wrong_count ?></h4>
+                        <span class="text-muted small">Wrong Answers</span>
                     </div>
-                    <div class="col-6 col-md-3 p-4 border-end border-bottom-0-md">
-                        <i class="fa-solid fa-minus-circle text-secondary fs-2 mb-2"></i>
-                        <h4 class="fw-bold mb-0"><?= $attempt['total_unanswered'] ?></h4>
-                        <span class="text-muted small">Unanswered</span>
+                    <div class="col-6 col-md-2 p-3 border-end border-bottom">
+                        <i class="fa-solid fa-forward text-warning fs-3 mb-1"></i>
+                        <h4 class="fw-bold mb-0"><?= $skipped_count ?></h4>
+                        <span class="text-muted small">Skipped Questions</span>
                     </div>
-                    <div class="col-6 col-md-3 p-4">
-                        <i class="fa-solid fa-stopwatch text-primary fs-2 mb-2"></i>
+                    <div class="col-6 col-md-2 p-3">
+                        <i class="fa-solid fa-stopwatch text-secondary fs-3 mb-1"></i>
                         <h4 class="fw-bold mb-0">
                             <?php 
                                 $s_time = strtotime($attempt['start_time']);
                                 $e_time = strtotime($attempt['end_time']);
-                                $diff = $e_time - $s_time;
+                                $diff = max(0, $e_time - $s_time);
                                 echo floor($diff / 60) . "m " . ($diff % 60) . "s";
                             ?>
                         </h4>
@@ -149,37 +173,43 @@ $q_data = $stmt_qr->fetchAll(PDO::FETCH_ASSOC);
                     </div>
                 </div>
             </div>
+            <div class="card-footer bg-light text-center py-2 text-muted small">
+                <i class="fa-solid fa-check-double text-success me-1"></i>
+                <strong>Audit Validation:</strong> Total Questions (<?= $total_q ?>) = Correct (<?= $correct_count ?>) + Wrong (<?= $wrong_count ?>) + Skipped (<?= $skipped_count ?>)
+            </div>
         </div>
 
-        <h3 class="fw-bold mb-4">Solutions & Explanations</h3>
+        <h3 class="fw-bold mb-4"><i class="fa-solid fa-file-lines me-2 text-primary"></i> Solutions & Explanations</h3>
         
         <?php foreach($q_data as $idx => $q): 
-            $status_icon = '<i class="fa-solid fa-minus text-secondary"></i> Not Attempted';
-            if ($q['q_status'] == 'answered' || $q['q_status'] == 'answered_marked') {
+            $has_ans = !empty($q['selected_option']);
+            if ($has_ans) {
                 if ($q['is_correct']) {
-                    $status_icon = '<i class="fa-solid fa-check text-success"></i> Correct (+' . (float)$q['marks'] . ')';
+                    $status_icon = '<span class="badge bg-success px-3 py-2"><i class="fa-solid fa-check me-1"></i> Correct (+' . (float)$q['marks'] . ')</span>';
                 } else {
-                    $neg = (float)$q['negative_marks'] > 0 ? (float)$q['negative_marks'] : $attempt['negative_marking'];
-                    $status_icon = '<i class="fa-solid fa-times text-danger"></i> Incorrect (-' . (float)$neg . ')';
+                    $neg = (float)$q['negative_marks'] > 0 ? (float)$q['negative_marks'] : (float)$attempt['negative_marking'];
+                    $status_icon = '<span class="badge bg-danger px-3 py-2"><i class="fa-solid fa-times me-1"></i> Incorrect (-' . (float)$neg . ')</span>';
                 }
+            } else {
+                $status_icon = '<span class="badge bg-secondary px-3 py-2"><i class="fa-solid fa-forward me-1"></i> Skipped / Not Attempted (0)</span>';
             }
             
-            $db_correct_arr = explode(',', $q['correct_option']);
-            $student_ans_arr = $q['selected_option'] ? explode(',', $q['selected_option']) : [];
+            $db_correct_arr = array_filter(array_map('trim', explode(',', $q['correct_option'])));
+            $student_ans_arr = $has_ans ? array_filter(array_map('trim', explode(',', $q['selected_option']))) : [];
         ?>
             <div class="sol-card bg-white">
                 <div class="sol-header">
-                    <span>Q<?= $idx + 1 ?>. <?= htmlspecialchars($q['question_type'] == 'multi_mcq' ? 'Multiple Correct' : 'Single Correct') ?></span>
+                    <span>Question <?= $idx + 1 ?> of <?= $total_q ?> &bull; <span class="fw-normal text-muted"><?= htmlspecialchars($q['question_type'] == 'multi_mcq' ? 'Multiple Correct' : 'Single Correct') ?></span></span>
                     <span><?= $status_icon ?></span>
                 </div>
                 <div class="sol-body">
-                    <div class="mb-4" style="font-size: 1.1rem;"><?= $q['question_text'] ?></div>
+                    <div class="mb-4" style="font-size: 1.15rem; line-height: 1.6;"><?= $q['question_text'] ?></div>
                     
                     <div class="row g-2 mb-3">
                         <?php 
                         $opts = ['A'=>$q['option_a'], 'B'=>$q['option_b'], 'C'=>$q['option_c'], 'D'=>$q['option_d'], 'E'=>$q['option_e']];
                         foreach($opts as $k => $v): 
-                            if(empty(trim($v))) continue;
+                            if(empty(trim((string)$v))) continue;
                             
                             $is_correct_opt = in_array($k, $db_correct_arr);
                             $is_selected_opt = in_array($k, $student_ans_arr);
@@ -193,22 +223,22 @@ $q_data = $stmt_qr->fetchAll(PDO::FETCH_ASSOC);
                         ?>
                             <div class="col-12">
                                 <div class="<?= $class ?>">
-                                    <span class="fw-bold me-2"><?= $k ?>.</span> <?= $v ?>
+                                    <span class="fw-bold me-2"><?= $k ?>.</span> <?= htmlspecialchars($v) ?>
                                     <?php if($is_selected_opt): ?> <span class="badge bg-secondary ms-2">Your Answer</span> <?php endif; ?>
-                                    <?php if($is_correct_opt): ?> <span class="badge bg-success ms-2">Correct</span> <?php endif; ?>
+                                    <?php if($is_correct_opt): ?> <span class="badge bg-success ms-2"><i class="fa-solid fa-check"></i> Correct</span> <?php endif; ?>
                                 </div>
                             </div>
                         <?php endforeach; ?>
                     </div>
                     
-                    <?php if(!empty(trim($q['explanation']))): ?>
+                    <?php if(!empty(trim((string)$q['explanation']))): ?>
                         <div class="sol-explanation">
                             <h6 class="fw-bold text-primary mb-2"><i class="fa-solid fa-lightbulb"></i> Explanation:</h6>
-                            <?= nl2br($q['explanation']) ?>
+                            <?= nl2br(htmlspecialchars($q['explanation'])) ?>
                         </div>
                     <?php endif; ?>
                     
-                    <?php if(!empty(trim($q['short_trick']))): ?>
+                    <?php if(!empty(trim((string)$q['short_trick']))): ?>
                         <div class="sol-trick">
                             <h6 class="fw-bold text-warning-emphasis mb-2"><i class="fa-solid fa-bolt"></i> Short Trick / Tip:</h6>
                             <?= nl2br(htmlspecialchars($q['short_trick'])) ?>

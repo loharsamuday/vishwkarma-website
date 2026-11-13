@@ -38,7 +38,7 @@ $total_rows = $stmt_count->fetchColumn();
 $total_pages = ceil($total_rows / $limit);
 
 // Fetch attempts
-$sql = "SELECT a.*, t.title as test_title, u.first_name, u.last_name, u.email 
+$sql = "SELECT a.*, t.title as test_title, t.total_questions as test_total_questions, t.total_marks as test_total_marks, u.first_name, u.last_name, u.email 
         FROM mt_test_attempts a
         JOIN mt_mock_tests t ON a.mock_test_id = t.id
         JOIN users u ON a.user_id = u.id
@@ -47,7 +47,7 @@ $sql = "SELECT a.*, t.title as test_title, u.first_name, u.last_name, u.email
         LIMIT $limit OFFSET $offset";
 $stmt = $pdo->prepare($sql);
 $stmt->execute($params);
-$attempts = $stmt->fetchAll();
+$attempts = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
 ?>
 <?php require_once 'includes/header.php'; ?>
@@ -75,7 +75,7 @@ $attempts = $stmt->fetchAll();
                     </select>
                 </div>
                 <div class="col-md-3">
-                    <button type="submit" class="btn btn-dark w-100"><i class="fa-solid fa-search"></i> Filter</button>
+                    <button type="submit" class="btn btn-dark w-100"><i class="fa-solid fa-search me-1"></i> Filter</button>
                 </div>
             </form>
         </div>
@@ -89,14 +89,22 @@ $attempts = $stmt->fetchAll();
                         <th class="ps-3">ID</th>
                         <th>Student</th>
                         <th>Mock Test</th>
+                        <th>Questions Breakdown</th>
+                        <th>Score & Accuracy</th>
                         <th>Status / Date</th>
-                        <th>Score (Acc%)</th>
                         <th class="text-end pe-3">Action</th>
                     </tr>
                 </thead>
                 <tbody>
                     <?php if(count($attempts) > 0): ?>
-                        <?php foreach($attempts as $a): ?>
+                        <?php foreach($attempts as $a): 
+                            $correct = isset($a['total_correct']) ? (int)$a['total_correct'] : (int)$a['correct_answers'];
+                            $wrong = isset($a['total_incorrect']) ? (int)$a['total_incorrect'] : (int)$a['wrong_answers'];
+                            $skipped = isset($a['total_unanswered']) ? (int)$a['total_unanswered'] : (int)$a['unattempted'];
+                            $total_q = (int)$a['test_total_questions'];
+                            if ($total_q <= 0) $total_q = $correct + $wrong + $skipped;
+                            $attempted = $correct + $wrong;
+                        ?>
                         <tr>
                             <td class="ps-3">#<?= $a['id'] ?></td>
                             <td>
@@ -105,29 +113,45 @@ $attempts = $stmt->fetchAll();
                             </td>
                             <td><?= htmlspecialchars($a['test_title']) ?></td>
                             <td>
-                                <?php if($a['status'] == 'completed'): ?>
+                                <?php if($a['status'] == 'completed' || $a['status'] == 'submitted'): ?>
+                                    <div class="d-flex gap-1 flex-wrap mb-1">
+                                        <span class="badge bg-primary" title="Attempted"><?= $attempted ?>/<?= $total_q ?> Att</span>
+                                        <span class="badge bg-success" title="Correct"><i class="fa-solid fa-check"></i> <?= $correct ?></span>
+                                        <span class="badge bg-danger" title="Wrong"><i class="fa-solid fa-times"></i> <?= $wrong ?></span>
+                                        <span class="badge bg-secondary" title="Skipped"><i class="fa-solid fa-forward"></i> <?= $skipped ?></span>
+                                    </div>
+                                    <small class="text-muted" style="font-size: 0.75rem;">Total (<?= $total_q ?>) = <?= $correct ?>C + <?= $wrong ?>W + <?= $skipped ?>S</small>
+                                <?php else: ?>
+                                    <span class="badge bg-light text-dark border">Test in progress</span>
+                                <?php endif; ?>
+                            </td>
+                            <td>
+                                <?php if($a['status'] == 'completed' || $a['status'] == 'submitted'): ?>
+                                    <strong><?= (float)$a['score'] ?></strong> / <?= (float)$a['test_total_marks'] ?><br>
+                                    <small class="text-success fw-bold"><?= number_format($a['accuracy'], 1) ?>% Acc</small>
+                                <?php else: ?>
+                                    -
+                                <?php endif; ?>
+                            </td>
+                            <td>
+                                <?php if($a['status'] == 'completed' || $a['status'] == 'submitted'): ?>
                                     <span class="badge bg-success">Completed</span>
                                 <?php else: ?>
                                     <span class="badge bg-warning text-dark">In Progress</span>
                                 <?php endif; ?><br>
                                 <small class="text-muted"><?= date('d M Y H:i', strtotime($a['start_time'])) ?></small>
                             </td>
-                            <td>
-                                <?php if($a['status'] == 'completed'): ?>
-                                    <strong><?= (float)$a['score'] ?></strong> (<?= number_format($a['accuracy'], 1) ?>%)
-                                <?php else: ?>
-                                    -
-                                <?php endif; ?>
-                            </td>
                             <td class="text-end pe-3">
-                                <?php if($a['status'] == 'completed'): ?>
-                                    <a href="../mt-result.php?id=<?= $a['id'] ?>" target="_blank" class="btn btn-sm btn-info"><i class="fa-solid fa-eye"></i> View Result</a>
+                                <?php if($a['status'] == 'completed' || $a['status'] == 'submitted'): ?>
+                                    <a href="../mt-result.php?id=<?= $a['id'] ?>" target="_blank" class="btn btn-sm btn-info text-white">
+                                        <i class="fa-solid fa-eye me-1"></i> View Result
+                                    </a>
                                 <?php endif; ?>
                             </td>
                         </tr>
                         <?php endforeach; ?>
                     <?php else: ?>
-                        <tr><td colspan="6" class="text-center py-4">No results found.</td></tr>
+                        <tr><td colspan="7" class="text-center py-4">No results found.</td></tr>
                     <?php endif; ?>
                 </tbody>
             </table>

@@ -12,6 +12,8 @@ header('X-Content-Type-Options: nosniff');
 
 require_once __DIR__ . '/../../config/config.php';
 require_once __DIR__ . '/tg_helper.php';
+require_once __DIR__ . '/tg_results.php';
+require_once __DIR__ . '/tg_playable_helper.php';
 
 // ── Webhook Logger (Tokens are NEVER logged) ───────────────────
 function logWebhookEvent(string $type, string $details = ''): void {
@@ -172,10 +174,13 @@ try {
 
         logWebhookEvent('MESSAGE', "Chat: {$chatId} ({$chatType}), From: {$userId}, Text: " . substr($text, 0, 50));
 
-        // Basic command handling
+        // Basic command handling & Deep links
         if (strpos($text, '/start') === 0) {
             $token = getActiveBotToken($pdo);
-            if ($token && $chatId) {
+            // Check for Playable Quiz deep link: /start quiz_TOKEN or /start qz_TOKEN
+            if (preg_match('/^\/start\s+(quiz_|qz_)\w+/i', $text)) {
+                TelegramPlayableQuizEngine::handleTelegramUpdate($pdo, $update, $token);
+            } elseif ($token && $chatId) {
                 callTelegramAPI($token, 'sendMessage', [
                     'chat_id'    => $chatId,
                     'text'       => "👋 Welcome to Vishwakarma Telegram Bot!\n\nThis bot is connected to the Vishwakarma platform for real-time quizzes and notifications.\nStatus: Active ✅",
@@ -193,7 +198,15 @@ try {
         }
     }
 
-    // ── C. Bot Membership / Status Update (my_chat_member) ─────
+    // ── C. Inline Keyboard Callback Queries (Playable Quiz Answers & Buttons) ──
+    elseif (isset($update['callback_query'])) {
+        $token = getActiveBotToken($pdo);
+        if ($token) {
+            TelegramPlayableQuizEngine::handleTelegramUpdate($pdo, $update, $token);
+        }
+    }
+
+    // ── D. Bot Membership / Status Update (my_chat_member) ─────
     elseif (isset($update['my_chat_member'])) {
         $membership = $update['my_chat_member'];
         $chat       = $membership['chat'] ?? [];
@@ -203,7 +216,7 @@ try {
         logWebhookEvent('CHAT_MEMBER', "Chat {$chatIdVal} ({$chatTitle}), Bot status: {$newStatus}");
     }
 
-    // ── D. Other unhandled update types ─────────────────────────
+    // ── E. Other unhandled update types ─────────────────────────
     else {
         logWebhookEvent('UPDATE_OTHER', "Update ID {$updateId}");
     }
@@ -212,6 +225,16 @@ try {
     logWebhookEvent('EXCEPTION', $e->getMessage() . ' in ' . $e->getFile() . ':' . $e->getLine());
 }
 
-// ── 5. Always Return 200 OK to Telegram ─────────────────────────
+// ── 5. Auto-Finalize Any Completed Sessions Due for Results ────
+// If any session has reached its end timer, automatically publish results to Telegram
+if (isset($pdo) && function_exists('checkAndFinalizeDueSessions')) {
+    try {
+        checkAndFinalizeDueSessions($pdo);
+    } catch (\Throwable $e) {
+        logWebhookEvent('FINALIZE_ERROR', $e->getMessage());
+    }
+}
+
+// ── 6. Always Return 200 OK to Telegram ─────────────────────────
 // Telegram requires a 200 OK response; otherwise it will continue to retry the webhook
 echo json_encode(['ok' => true]);

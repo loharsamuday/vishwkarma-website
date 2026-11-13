@@ -46,7 +46,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     $secretToken = defined('TG_WEBHOOK_SECRET') ? TG_WEBHOOK_SECRET : '';
-    $allowedUpdates = ['message', 'poll_answer', 'my_chat_member'];
+    $allowedUpdates = ['message', 'poll_answer', 'my_chat_member', 'callback_query'];
 
     switch ($action) {
         case 'status':

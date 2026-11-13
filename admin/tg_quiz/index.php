@@ -21,6 +21,12 @@ if (!defined('TG_ENCRYPTION_KEY')) {
     define('TG_ENCRYPTION_KEY', 'default-32-char-key-change-this!!');
 }
 
+// Auto-finalize any due sessions that completed
+require_once '../../api/tg_quiz/tg_results.php';
+if (function_exists('checkAndFinalizeDueSessions')) {
+    checkAndFinalizeDueSessions($pdo);
+}
+
 // Fetch existing bot info
 $bot = null;
 try {
