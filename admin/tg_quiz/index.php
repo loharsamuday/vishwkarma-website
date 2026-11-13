@@ -185,10 +185,26 @@ require_once '../includes/header.php';
                 <i class="fa-solid fa-link me-1"></i><?= $bot ? 'Update Bot' : 'Connect Bot' ?>
               </button>
             </div>
-            <small class="text-muted">
+            <small class="text-muted d-block">
               Get token from <a href="https://t.me/BotFather" target="_blank">@BotFather</a>.
               Token is stored encrypted — never visible in plain text.
             </small>
+            <?php
+            $currentApiUrl = defined('TG_API_BASE_URL') ? TG_API_BASE_URL : 'https://api.telegram.org';
+            $isDefaultApi = ($currentApiUrl === 'https://api.telegram.org');
+            $hostHeader = $_SERVER['HTTP_HOST'] ?? '';
+            $isInfinityFree = (stripos($hostHeader, 'great-site.net') !== false || stripos($hostHeader, 'epizy.com') !== false || stripos($hostHeader, 'rf.gd') !== false);
+            ?>
+            <?php if (!$isDefaultApi): ?>
+              <div class="mt-2 small text-success fw-bold">
+                <i class="fa-solid fa-route me-1"></i>Using Telegram API Proxy: <code><?= htmlspecialchars($currentApiUrl) ?></code>
+              </div>
+            <?php elseif ($isInfinityFree): ?>
+              <div class="alert alert-warning py-2 px-3 small mt-2 mb-0 border">
+                <i class="fa-solid fa-triangle-exclamation me-1"></i>
+                <strong>Notice for InfinityFree:</strong> Free tier blocks direct calls to <code>api.telegram.org</code>. If you encounter <em>"Could not resolve host"</em>, configure a reverse proxy in <code>config/config.php</code> (via <code>TG_API_BASE_URL</code>) or upgrade to standard hosting.
+              </div>
+            <?php endif; ?>
           </div>
           <div id="botResult" class="mt-3"></div>
         </div>

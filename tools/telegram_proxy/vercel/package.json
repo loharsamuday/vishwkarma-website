@@ -1,0 +1,7 @@
+{
+  "name": "telegram-api-proxy",
+  "version": "1.0.0",
+  "description": "Free reverse proxy for Telegram Bot API for hosts that block api.telegram.org",
+  "main": "api/index.js",
+  "type": "module"
+}

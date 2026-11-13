@@ -63,6 +63,23 @@ if (!function_exists('cleanUtf8String')) {
     }
 }
 
+if (!function_exists('getTelegramApiBaseUrl')) {
+    /**
+     * Get base URL for Telegram Bot API calls.
+     * Allows reverse-proxy override for hosts (like InfinityFree) that block api.telegram.org.
+     */
+    function getTelegramApiBaseUrl(): string {
+        if (defined('TG_API_BASE_URL') && TG_API_BASE_URL !== '') {
+            return rtrim(TG_API_BASE_URL, '/');
+        }
+        $env = getenv('TG_API_BASE_URL');
+        if ($env) {
+            return rtrim($env, '/');
+        }
+        return 'https://api.telegram.org';
+    }
+}
+
 if (!function_exists('callTelegramAPI')) {
     /**
      * Call Telegram Bot API safely via cURL
@@ -92,7 +109,8 @@ if (!function_exists('callTelegramAPI')) {
             return ['ok' => false, 'description' => 'JSON encoding failed: ' . $err];
         }
 
-        $url = "https://api.telegram.org/bot{$token}/{$method}";
+        $baseUrl = getTelegramApiBaseUrl();
+        $url = "{$baseUrl}/bot{$token}/{$method}";
         $ch = curl_init($url);
         curl_setopt_array($ch, [
             CURLOPT_RETURNTRANSFER => true,
@@ -112,7 +130,11 @@ if (!function_exists('callTelegramAPI')) {
         curl_close($ch);
 
         if ($error) {
-            return ['ok' => false, 'error_code' => $httpCode ?: 0, 'description' => 'cURL Error: ' . $error];
+            $hint = '';
+            if (stripos($error, 'Could not resolve host') !== false && stripos($url, 'api.telegram.org') !== false) {
+                $hint = ' (Notice: Free hosting such as InfinityFree blocks direct outbound connections to api.telegram.org. Set TG_API_BASE_URL to a reverse proxy or switch to standard hosting/VPS).';
+            }
+            return ['ok' => false, 'error_code' => $httpCode ?: 0, 'description' => 'cURL Error: ' . $error . $hint];
         }
 
         $decoded = json_decode($response, true);

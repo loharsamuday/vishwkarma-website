@@ -37,7 +37,8 @@ if (!function_exists('decryptToken')) {
 
 if (!function_exists('callTelegramAPI')) {
     function callTelegramAPI(string $token, string $method, array $params = []): array {
-        $url = "https://api.telegram.org/bot{$token}/{$method}";
+        $baseUrl = function_exists('getTelegramApiBaseUrl') ? getTelegramApiBaseUrl() : (defined('TG_API_BASE_URL') && TG_API_BASE_URL !== '' ? rtrim(TG_API_BASE_URL, '/') : 'https://api.telegram.org');
+        $url = "{$baseUrl}/bot{$token}/{$method}";
         $ch = curl_init($url);
         curl_setopt_array($ch, [
             CURLOPT_RETURNTRANSFER => true,
@@ -50,7 +51,7 @@ if (!function_exists('callTelegramAPI')) {
         $response = curl_exec($ch);
         $error    = curl_error($ch);
         curl_close($ch);
-        if ($error) return ['ok' => false, 'description' => 'cURL error'];
+        if ($error) return ['ok' => false, 'description' => 'cURL error: ' . $error];
         return json_decode($response, true) ?? ['ok' => false, 'description' => 'Invalid response'];
     }
 }

@@ -42,6 +42,14 @@ if (!defined('TG_WEBHOOK_SECRET')) {
     define('TG_WEBHOOK_SECRET', 'V1shwk4rma_TG_w3bh00k_S3cr3t_2026_Sec99');
 }
 
+// Telegram API Base URL
+// Default: 'https://api.telegram.org'
+// Note: Free hosting like InfinityFree blocks direct outbound calls to api.telegram.org.
+// If your server blocks api.telegram.org, set this to your custom reverse proxy URL (e.g. 'https://my-tg-proxy.vercel.app').
+if (!defined('TG_API_BASE_URL')) {
+    define('TG_API_BASE_URL', getenv('TG_API_BASE_URL') ?: 'https://api.telegram.org');
+}
+
 define('GOOGLE_CLIENT_ID', 'YOUR_GOOGLE_OAUTH_CLIENT_ID');
 define('GOOGLE_OAUTH_PROVIDER', 'google');
 

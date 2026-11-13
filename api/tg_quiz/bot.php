@@ -52,7 +52,8 @@ if (!function_exists('decryptToken')) {
 // Call Telegram Bot API safely (token never logged)
 if (!function_exists('callTelegramAPI')) {
     function callTelegramAPI(string $token, string $method, array $params = []): array {
-        $url = "https://api.telegram.org/bot{$token}/{$method}";
+        $baseUrl = function_exists('getTelegramApiBaseUrl') ? getTelegramApiBaseUrl() : (defined('TG_API_BASE_URL') && TG_API_BASE_URL !== '' ? rtrim(TG_API_BASE_URL, '/') : 'https://api.telegram.org');
+        $url = "{$baseUrl}/bot{$token}/{$method}";
         $ch = curl_init($url);
         curl_setopt_array($ch, [
             CURLOPT_RETURNTRANSFER => true,
@@ -67,7 +68,11 @@ if (!function_exists('callTelegramAPI')) {
         curl_close($ch);
 
         if ($error) {
-            return ['ok' => false, 'description' => 'cURL error: ' . $error];
+            $hint = '';
+            if (stripos($error, 'Could not resolve host') !== false && stripos($url, 'api.telegram.org') !== false) {
+                $hint = ' (Notice: Free hosting such as InfinityFree blocks direct outbound connections to api.telegram.org. Set TG_API_BASE_URL to a reverse proxy or switch to standard hosting/VPS).';
+            }
+            return ['ok' => false, 'description' => 'cURL error: ' . $error . $hint];
         }
         return json_decode($response, true) ?? ['ok' => false, 'description' => 'Invalid JSON response'];
     }
