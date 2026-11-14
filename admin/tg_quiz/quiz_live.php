@@ -35,30 +35,520 @@ if (!$session) {
 require_once '../includes/header.php';
 ?>
 
-<div class="main-content">
-  <div class="d-flex justify-content-between align-items-center mb-4 bg-white p-3 shadow-sm rounded">
-    <div>
-      <button class="btn btn-dark d-md-none me-3" id="sidebarToggle"><i class="fa-solid fa-bars"></i></button>
-      <h4 class="mb-0 d-inline">
-        <i class="fa-solid fa-satellite-dish fa-fade text-success me-2"></i>Live Quiz Monitor
-      </h4>
+<style>
+  .quiz-monitor-page {
+    --monitor-ink: #172033;
+    --monitor-muted: #718096;
+    --monitor-line: #e7ebf3;
+    --monitor-surface: #fff;
+    --monitor-shadow: 0 18px 48px rgba(29, 42, 68, .09);
+    padding: clamp(16px, 2.4vw, 36px);
+    background:
+      radial-gradient(circle at 85% 0%, rgba(99, 102, 241, .09), transparent 25rem),
+      linear-gradient(145deg, #f7f9fd, #eef2f8);
+    color: var(--monitor-ink);
+  }
+
+  .quiz-monitor-page .monitor-topbar {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 24px;
+    overflow: hidden;
+    margin-bottom: 26px;
+    padding: clamp(20px, 3vw, 34px);
+    border: 1px solid rgba(255, 255, 255, .16);
+    border-radius: 24px;
+    background: linear-gradient(118deg, #111827 0%, #1e293b 58%, #3730a3 100%);
+    box-shadow: 0 20px 46px rgba(23, 32, 51, .2);
+    color: #fff;
+  }
+
+  .quiz-monitor-page .monitor-topbar::after {
+    position: absolute;
+    top: -110px;
+    right: 12%;
+    width: 280px;
+    height: 280px;
+    border: 1px solid rgba(255, 255, 255, .1);
+    border-radius: 50%;
+    box-shadow: 0 0 0 34px rgba(255, 255, 255, .035), 0 0 0 72px rgba(255, 255, 255, .025);
+    content: "";
+    pointer-events: none;
+  }
+
+  .quiz-monitor-page .monitor-title-group,
+  .quiz-monitor-page .monitor-nav,
+  .quiz-monitor-page .monitor-heading-copy {
+    position: relative;
+    z-index: 1;
+  }
+
+  .quiz-monitor-page .monitor-title-group {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    min-width: 0;
+  }
+
+  .quiz-monitor-page .monitor-brand-icon {
+    display: grid;
+    flex: 0 0 58px;
+    width: 58px;
+    height: 58px;
+    place-items: center;
+    border: 1px solid rgba(255, 255, 255, .24);
+    border-radius: 18px;
+    background: rgba(255, 255, 255, .12);
+    color: #a5f3fc;
+    font-size: 24px;
+    backdrop-filter: blur(12px);
+  }
+
+  .quiz-monitor-page .monitor-kicker {
+    margin: 0 0 5px;
+    color: #a5b4fc;
+    font-size: .72rem;
+    font-weight: 800;
+    letter-spacing: .16em;
+    text-transform: uppercase;
+  }
+
+  .quiz-monitor-page .monitor-title {
+    margin: 0;
+    color: #fff;
+    font-size: clamp(1.25rem, 2vw, 1.75rem);
+    font-weight: 800;
+    letter-spacing: -.035em;
+  }
+
+  .quiz-monitor-page .monitor-subtitle {
+    margin: 5px 0 0;
+    color: #cbd5e1;
+    font-size: .88rem;
+  }
+
+  .quiz-monitor-page .monitor-nav {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 9px;
+    flex-wrap: wrap;
+  }
+
+  .quiz-monitor-page .monitor-nav .btn {
+    border-color: rgba(255, 255, 255, .2);
+    border-radius: 11px;
+    background: rgba(255, 255, 255, .09);
+    color: #fff;
+    font-size: .82rem;
+    font-weight: 700;
+    backdrop-filter: blur(10px);
+    transition: background .2s ease, transform .2s ease;
+  }
+
+  .quiz-monitor-page .monitor-nav .btn:hover {
+    transform: translateY(-2px);
+    background: rgba(255, 255, 255, .18);
+  }
+
+  .quiz-monitor-page .monitor-connection {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    margin-right: 4px;
+    padding: 8px 11px;
+    border: 1px solid rgba(255, 255, 255, .15);
+    border-radius: 999px;
+    background: rgba(15, 23, 42, .3);
+    color: #e2e8f0;
+    font-size: .76rem;
+    font-weight: 700;
+    white-space: nowrap;
+  }
+
+  .quiz-monitor-page .connection-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #fbbf24;
+    box-shadow: 0 0 0 4px rgba(251, 191, 36, .14);
+  }
+
+  .quiz-monitor-page .monitor-connection.is-online .connection-dot {
+    background: #34d399;
+    box-shadow: 0 0 0 4px rgba(52, 211, 153, .15);
+  }
+
+  .quiz-monitor-page .monitor-connection.is-offline .connection-dot {
+    background: #fb7185;
+    box-shadow: 0 0 0 4px rgba(251, 113, 133, .15);
+  }
+
+  .quiz-monitor-page .monitor-layout {
+    max-width: 1440px;
+    margin: 0 auto;
+  }
+
+  .quiz-monitor-page #statusCard,
+  .quiz-monitor-page .monitor-activity-card,
+  .quiz-monitor-page .monitor-session-card,
+  .quiz-monitor-page .monitor-empty-state {
+    overflow: hidden;
+    border: 1px solid rgba(226, 232, 240, .9) !important;
+    border-radius: 22px;
+    background: var(--monitor-surface);
+    box-shadow: var(--monitor-shadow) !important;
+  }
+
+  .quiz-monitor-page #statusHeader {
+    min-height: 104px;
+    padding: 23px 26px !important;
+    border: 0;
+    background: linear-gradient(115deg, #0f766e, #059669) !important;
+    color: #fff !important;
+  }
+
+  .quiz-monitor-page #statusHeader.bg-info {
+    background: linear-gradient(115deg, #0e7490, #06b6d4) !important;
+    color: #fff !important;
+  }
+
+  .quiz-monitor-page #statusHeader.bg-warning {
+    background: linear-gradient(115deg, #b45309, #f59e0b) !important;
+    color: #fff !important;
+  }
+
+  .quiz-monitor-page #statusHeader.bg-primary {
+    background: linear-gradient(115deg, #4338ca, #6366f1) !important;
+    color: #fff !important;
+  }
+
+  .quiz-monitor-page #statusHeader.bg-secondary {
+    background: linear-gradient(115deg, #334155, #64748b) !important;
+    color: #fff !important;
+  }
+
+  .quiz-monitor-page #statusHeader h5 {
+    color: inherit;
+    font-size: 1.1rem;
+    letter-spacing: -.02em;
+  }
+
+  .quiz-monitor-page #statusHeader small {
+    display: inline-block;
+    margin-top: 7px;
+    color: inherit;
+    opacity: .8;
+  }
+
+  .quiz-monitor-page #headerRangeBadge {
+    border: 1px solid rgba(255, 255, 255, .38) !important;
+    background: rgba(255, 255, 255, .15) !important;
+    color: #fff !important;
+    font-size: .72rem;
+  }
+
+  .quiz-monitor-page #statusBadge {
+    border: 1px solid rgba(255, 255, 255, .28);
+    border-radius: 999px;
+    background: rgba(255, 255, 255, .16);
+    color: #fff;
+    font-size: .75rem !important;
+    letter-spacing: .035em;
+    white-space: nowrap;
+  }
+
+  .quiz-monitor-page #statusCard > .card-body {
+    padding: clamp(18px, 3vw, 30px) !important;
+  }
+
+  .quiz-monitor-page #progressText {
+    color: #334155;
+    font-size: .88rem;
+  }
+
+  .quiz-monitor-page .progress {
+    overflow: hidden;
+    height: 13px !important;
+    border-radius: 999px !important;
+    background: #e9eef6;
+  }
+
+  .quiz-monitor-page .progress-bar {
+    border-radius: 999px;
+    transition: width .65s cubic-bezier(.22, 1, .36, 1);
+  }
+
+  .quiz-monitor-page #asciiProgressBar {
+    border-radius: 999px;
+    background: #172033 !important;
+    font-size: .72rem !important;
+    letter-spacing: .05em;
+  }
+
+  .quiz-monitor-page .monitor-stat-card {
+    position: relative;
+    height: 100%;
+    overflow: hidden;
+    padding: 18px 15px !important;
+    border: 1px solid var(--monitor-line);
+    border-radius: 17px;
+    background: linear-gradient(145deg, #fff, #f8faff) !important;
+    box-shadow: 0 7px 18px rgba(29, 42, 68, .045) !important;
+    transition: transform .2s ease, box-shadow .2s ease;
+  }
+
+  .quiz-monitor-page .monitor-stat-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 12px 24px rgba(29, 42, 68, .09) !important;
+  }
+
+  .quiz-monitor-page .monitor-stat-card .fs-2 {
+    margin-bottom: 3px;
+    font-size: clamp(1.55rem, 2.7vw, 2rem) !important;
+    letter-spacing: -.05em;
+  }
+
+  .quiz-monitor-page .monitor-stat-card small {
+    color: var(--monitor-muted) !important;
+    font-size: .72rem;
+    letter-spacing: .045em;
+    text-transform: uppercase;
+  }
+
+  .quiz-monitor-page .monitor-timer-stage {
+    width: min(100%, 290px);
+    margin: 0 auto;
+    padding: 16px;
+    border: 1px solid #e8ebf5;
+    border-radius: 24px;
+    background:
+      radial-gradient(circle, #fff 0%, #f8faff 55%, #eef2ff 100%);
+  }
+
+  .quiz-monitor-page .monitor-timer-stage svg {
+    width: min(100%, 190px);
+    height: auto;
+    filter: drop-shadow(0 10px 12px rgba(30, 41, 59, .08));
+  }
+
+  .quiz-monitor-page #timerRingText {
+    color: #172033;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -.06em;
+  }
+
+  .quiz-monitor-page #timerRingLabel {
+    color: var(--monitor-muted) !important;
+    font-size: .72rem;
+    font-weight: 700;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+  }
+
+  .quiz-monitor-page #timerSubtitle {
+    margin-top: 10px !important;
+    color: var(--monitor-muted);
+    font-size: .83rem;
+  }
+
+  .quiz-monitor-page .monitor-sync-strip {
+    gap: 12px;
+    padding: 12px 14px !important;
+    border: 1px solid var(--monitor-line) !important;
+    border-radius: 15px !important;
+    background: #f8faff !important;
+  }
+
+  .quiz-monitor-page .monitor-sync-strip .badge {
+    padding: 7px 10px;
+    border-radius: 999px;
+    font-size: .7rem;
+  }
+
+  .quiz-monitor-page #engineAlertBox {
+    border: 1px solid #f4dca6 !important;
+    border-left: 4px solid #f59e0b !important;
+    border-radius: 14px !important;
+    background: #fffbeb !important;
+    color: #744210;
+    line-height: 1.55;
+  }
+
+  .quiz-monitor-page .monitor-telegram-card {
+    border: 1px solid var(--monitor-line) !important;
+    border-radius: 17px !important;
+    background: #f8faff !important;
+  }
+
+  .quiz-monitor-page #tgStatusText {
+    font-size: .86rem;
+  }
+
+  .quiz-monitor-page #tgLiveMessagePreview {
+    border-color: #e4e9f2 !important;
+    border-radius: 11px !important;
+    color: #475569 !important;
+    line-height: 1.55;
+  }
+
+  .quiz-monitor-page #errorBox {
+    border-radius: 11px;
+    font-size: .82rem;
+  }
+
+  .quiz-monitor-page .monitor-controls {
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+
+  .quiz-monitor-page .monitor-controls .btn {
+    min-height: 45px;
+    border-radius: 12px;
+    font-size: .78rem;
+    letter-spacing: .025em;
+    box-shadow: 0 5px 12px rgba(29, 42, 68, .08);
+    transition: transform .18s ease, box-shadow .18s ease;
+  }
+
+  .quiz-monitor-page .monitor-controls .btn:not(:disabled):hover {
+    transform: translateY(-2px);
+    box-shadow: 0 9px 18px rgba(29, 42, 68, .14);
+  }
+
+  .quiz-monitor-page .monitor-controls .btn:disabled {
+    cursor: not-allowed;
+    opacity: .46;
+    box-shadow: none;
+  }
+
+  .quiz-monitor-page #actionResult .alert {
+    margin-bottom: 0;
+    border-radius: 12px;
+  }
+
+  .quiz-monitor-page .monitor-activity-card .card-header {
+    padding: 16px 20px !important;
+    border: 0;
+    background: #172033 !important;
+    letter-spacing: .015em;
+  }
+
+  .quiz-monitor-page #logsContainer {
+    max-height: 290px !important;
+  }
+
+  .quiz-monitor-page #logsContainer > div {
+    padding: 11px 18px !important;
+    border-color: #edf0f5 !important;
+  }
+
+  .quiz-monitor-page .monitor-session-card {
+    height: 100%;
+    transition: transform .2s ease, box-shadow .2s ease;
+  }
+
+  .quiz-monitor-page .monitor-session-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 22px 50px rgba(29, 42, 68, .13) !important;
+  }
+
+  .quiz-monitor-page .monitor-empty-state {
+    padding: 22px;
+  }
+
+  @media (max-width: 767.98px) {
+    .quiz-monitor-page .monitor-topbar {
+      align-items: flex-start;
+      flex-direction: column;
+      gap: 18px;
+      border-radius: 19px;
+    }
+
+    .quiz-monitor-page .monitor-nav {
+      justify-content: flex-start;
+      width: 100%;
+    }
+
+    .quiz-monitor-page .monitor-nav .btn {
+      padding: 8px 10px;
+      font-size: .74rem;
+    }
+
+    .quiz-monitor-page #statusHeader {
+      align-items: flex-start !important;
+      flex-direction: column;
+      gap: 12px;
+      padding: 19px !important;
+    }
+
+    .quiz-monitor-page #statusHeader > div {
+      max-width: 100%;
+    }
+
+    .quiz-monitor-page #statusBadge {
+      align-self: flex-start;
+    }
+
+    .quiz-monitor-page .monitor-stat-card {
+      padding: 14px 8px !important;
+    }
+
+    .quiz-monitor-page .monitor-controls .btn {
+      flex: 1 1 calc(50% - 10px);
+      padding-right: 10px;
+      padding-left: 10px;
+      font-size: .7rem;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .quiz-monitor-page *,
+    .quiz-monitor-page *::before,
+    .quiz-monitor-page *::after {
+      scroll-behavior: auto !important;
+      animation-duration: .01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: .01ms !important;
+    }
+  }
+</style>
+
+<div class="main-content quiz-monitor-page">
+  <div class="monitor-topbar">
+    <div class="monitor-title-group">
+      <button class="btn btn-dark d-md-none" id="sidebarToggle" aria-label="Open navigation"><i class="fa-solid fa-bars"></i></button>
+      <div class="monitor-brand-icon"><i class="fa-solid fa-satellite-dish"></i></div>
+      <div class="monitor-heading-copy">
+        <p class="monitor-kicker">Telegram Quiz / Control Room</p>
+        <h1 class="monitor-title">Live Quiz Monitor</h1>
+        <p class="monitor-subtitle">Track progress, timing and delivery in real time.</p>
+      </div>
     </div>
-    <div class="d-flex gap-2">
+    <div class="monitor-nav">
       <?php if ($session): ?>
-      <a href="quiz_results.php?session_id=<?= (int)$session['id'] ?>" class="btn btn-outline-primary btn-sm"><i class="fa-solid fa-trophy me-1"></i>Results</a>
+      <span class="monitor-connection is-connecting" id="monitorConnection" role="status" aria-live="polite">
+        <span class="connection-dot"></span>
+        <span id="monitorConnectionLabel">Connecting</span>
+      </span>
+      <a href="quiz_results.php?session_id=<?= (int)$session['id'] ?>" class="btn btn-sm"><i class="fa-solid fa-trophy me-1"></i>Results</a>
       <?php endif; ?>
-      <a href="quiz_sets.php" class="btn btn-outline-secondary btn-sm"><i class="fa-solid fa-layer-group me-1"></i>Quiz Sets</a>
-      <a href="quiz_history.php" class="btn btn-outline-dark btn-sm"><i class="fa-solid fa-clock-rotate-left me-1"></i>History</a>
+      <a href="quiz_sets.php" class="btn btn-sm"><i class="fa-solid fa-layer-group me-1"></i>Quiz Sets</a>
+      <a href="quiz_history.php" class="btn btn-sm"><i class="fa-solid fa-clock-rotate-left me-1"></i>History</a>
     </div>
   </div>
 
   <?php if ($session): ?>
   <!-- Single Session Monitor -->
-  <div class="row justify-content-center">
-    <div class="col-lg-8">
+  <div class="row justify-content-center monitor-layout">
+    <div class="col-xl-10 col-xxl-9">
 
       <!-- Status Card -->
-      <div class="card border-0 shadow mb-4" id="statusCard">
+      <div class="card border-0 shadow mb-4 monitor-session-card" id="statusCard">
         <div class="card-header py-3 d-flex justify-content-between align-items-center" id="statusHeader">
           <div>
             <div class="d-flex align-items-center gap-2 flex-wrap">
@@ -96,7 +586,7 @@ require_once '../includes/header.php';
           </div>
 
           <!-- Synchronization & Announcement Info Bar -->
-          <div class="d-flex flex-wrap justify-content-between align-items-center bg-light p-2 px-3 rounded-3 mb-4 border">
+          <div class="d-flex flex-wrap justify-content-between align-items-center bg-light p-2 px-3 rounded-3 mb-4 border monitor-sync-strip">
             <div class="d-flex align-items-center gap-2">
               <span class="badge bg-secondary" id="announcementBadge"><i class="fa-solid fa-bullhorn me-1"></i>Announcement: Not Sent</span>
               <span class="badge bg-info text-dark" id="syncStatusBadge"><i class="fa-solid fa-satellite-dish me-1"></i>Telegram Live Sync: Active</span>
@@ -117,25 +607,29 @@ require_once '../includes/header.php';
           <!-- Current Info Grid -->
           <div class="row g-3 mb-4">
             <div class="col-md-3 col-6">
-              <div class="text-center bg-light rounded p-3 shadow-sm">
+              <div class="text-center bg-light rounded p-3 shadow-sm monitor-stat-card">
+                <i class="fa-solid fa-layer-group text-primary mb-2"></i>
                 <div class="fs-2 fw-bold text-primary" id="totalQ">—</div>
                 <small class="text-muted fw-semibold">Total Questions</small>
               </div>
             </div>
             <div class="col-md-3 col-6">
-              <div class="text-center bg-light rounded p-3 shadow-sm">
+              <div class="text-center bg-light rounded p-3 shadow-sm monitor-stat-card">
+                <i class="fa-solid fa-paper-plane text-success mb-2"></i>
                 <div class="fs-2 fw-bold text-success" id="sentQ">—</div>
                 <small class="text-muted fw-semibold">Sent Questions</small>
               </div>
             </div>
             <div class="col-md-3 col-6">
-              <div class="text-center bg-light rounded p-3 shadow-sm">
+              <div class="text-center bg-light rounded p-3 shadow-sm monitor-stat-card">
+                <i class="fa-solid fa-hourglass-half text-danger mb-2"></i>
                 <div class="fs-2 fw-bold text-danger" id="remainingQ">—</div>
                 <small class="text-muted fw-semibold">Remaining Questions</small>
               </div>
             </div>
             <div class="col-md-3 col-6">
-              <div class="text-center bg-light rounded p-3 shadow-sm">
+              <div class="text-center bg-light rounded p-3 shadow-sm monitor-stat-card">
+                <i class="fa-solid fa-stopwatch text-info mb-2"></i>
                 <div class="fs-2 fw-bold text-info" id="timerSet">—</div>
                 <small class="text-muted fw-semibold">Timer per Q</small>
               </div>
@@ -143,7 +637,7 @@ require_once '../includes/header.php';
           </div>
 
           <!-- Timer Progress Ring & Countdown -->
-          <div class="text-center mb-4">
+          <div class="text-center mb-4 monitor-timer-stage">
             <div class="position-relative d-inline-block">
               <svg width="150" height="150" viewBox="0 0 150 150">
                 <circle cx="75" cy="75" r="65" fill="none" stroke="#e9ecef" stroke-width="12"/>
@@ -160,7 +654,7 @@ require_once '../includes/header.php';
           </div>
 
           <!-- Telegram Live Message Sync & Error Box -->
-          <div class="card border-0 bg-light p-3 mb-3 rounded-3 shadow-sm border-start border-4 border-info">
+          <div class="card border-0 bg-light p-3 mb-3 rounded-3 shadow-sm border-start border-4 border-info monitor-telegram-card">
             <div class="d-flex justify-content-between align-items-center mb-2">
               <div>
                 <small class="text-muted text-uppercase fw-bold d-block">Telegram Live Message Sync</small>
@@ -178,7 +672,7 @@ require_once '../includes/header.php';
 
         <!-- Control Buttons -->
         <div class="card-footer bg-transparent border-0 p-4">
-          <div class="d-flex flex-wrap gap-2 justify-content-center">
+          <div class="monitor-controls">
             <button class="btn btn-outline-info btn-lg fw-bold px-3" id="btnAnnounce" onclick="sessionAction('announce')" title="Send pre-quiz upcoming alert to Telegram group">
               <i class="fa-solid fa-bullhorn me-1"></i>ANNOUNCE
             </button>
@@ -206,7 +700,7 @@ require_once '../includes/header.php';
       </div>
 
       <!-- Recent Logs -->
-      <div class="card border-0 shadow-sm">
+      <div class="card border-0 shadow-sm monitor-activity-card">
         <div class="card-header fw-bold bg-dark text-white py-2">
           <i class="fa-solid fa-list me-2"></i>Recent Activity
         </div>
@@ -224,7 +718,7 @@ require_once '../includes/header.php';
 
   <!-- Active Sessions List -->
   <?php if (empty($active_sessions)): ?>
-  <div class="card border-0 shadow-sm">
+  <div class="card border-0 shadow-sm monitor-empty-state">
     <div class="card-body text-center py-5">
       <i class="fa-solid fa-circle-play fa-4x text-muted mb-3"></i>
       <h5 class="text-muted">No Active Quiz Sessions</h5>
@@ -235,10 +729,10 @@ require_once '../includes/header.php';
     </div>
   </div>
   <?php else: ?>
-  <div class="row g-3">
+  <div class="row g-3 monitor-session-grid">
     <?php foreach ($active_sessions as $s): ?>
     <div class="col-lg-6">
-      <div class="card border-0 shadow-sm">
+      <div class="card border-0 shadow-sm monitor-session-card">
         <div class="card-body">
           <div class="d-flex justify-content-between mb-2">
             <h6 class="fw-bold"><?= htmlspecialchars($s['title'] ?? 'Quiz') ?></h6>
@@ -579,13 +1073,24 @@ function addLog(msg, type='info') {
   document.getElementById('logsContainer').innerHTML = html;
 }
 
+function setMonitorConnection(state, label) {
+  const indicator = document.getElementById('monitorConnection');
+  const labelNode = document.getElementById('monitorConnectionLabel');
+  if (!indicator || !labelNode) return;
+  indicator.className = `monitor-connection is-${state}`;
+  labelNode.textContent = label;
+}
+
 async function pollStatus() {
   if (isPolling) return;
   isPolling = true;
 
   try {
-    const res = await fetch(`${API}?action=status&session_id=${SESSION_ID}&_nocache=${Date.now()}`).then(r=>r.json());
+    const response = await fetch(`${API}?action=status&session_id=${SESSION_ID}&_nocache=${Date.now()}`);
+    if (!response.ok) throw new Error(`Status request failed (${response.status})`);
+    const res = await response.json();
     if (res.success) {
+      setMonitorConnection('online', 'Monitor connected');
       updateUI(res);
       const startQ = parseInt(res.session.start_question) || 1;
       const curSent = parseInt(res.session.questions_sent) || 0;
@@ -603,9 +1108,11 @@ async function pollStatus() {
       if (res.finalization && res.finalization.completed && !res.finalization.already_announced) {
         addLog(`🏆 Quiz finished! Final results successfully published to Telegram!`, 'success');
       }
+    } else {
+      setMonitorConnection('offline', 'Session unavailable');
     }
   } catch(e) {
-    /* network error, keep trying */
+    setMonitorConnection('offline', 'Reconnecting…');
   } finally {
     isPolling = false;
   }

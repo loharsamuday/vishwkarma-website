@@ -71,6 +71,46 @@ if (!function_exists('ensureTgTablesExist')) {
     function ensureTgTablesExist(PDO $pdo): void {
         static $tablesCreated = false;
         if ($tablesCreated) return;
+
+        try {
+            $schemaState = $pdo->query("
+                SELECT
+                    (
+                        SELECT COUNT(*)
+                        FROM information_schema.tables
+                        WHERE table_schema = DATABASE()
+                          AND table_name IN (
+                              'tg_bots', 'tg_chats', 'tg_quiz_sets', 'tg_quiz_questions',
+                              'tg_quiz_sessions', 'tg_quiz_logs', 'tg_quiz_user_answers',
+                              'tg_quiz_results', 'tg_quiz_responses'
+                          )
+                    ) AS table_count,
+                    (
+                        SELECT COUNT(*)
+                        FROM information_schema.columns
+                        WHERE table_schema = DATABASE()
+                          AND (
+                              (table_name = 'tg_quiz_questions' AND column_name IN ('is_active', 'time_limit', 'updated_at'))
+                              OR (table_name = 'tg_quiz_sets' AND column_name = 'is_active')
+                              OR (table_name = 'tg_bots' AND column_name IN ('is_active', 'last_update_id'))
+                              OR (table_name = 'tg_quiz_sessions' AND column_name IN (
+                                  'current_question_id', 'remaining_time', 'results_claimed_at', 'results_announced_at'
+                              ))
+                          )
+                    ) AS column_count
+            ")->fetch(PDO::FETCH_ASSOC);
+
+            if (
+                (int)($schemaState['table_count'] ?? 0) === 9
+                && (int)($schemaState['column_count'] ?? 0) === 10
+            ) {
+                $tablesCreated = true;
+                return;
+            }
+        } catch (\Throwable $schemaCheckError) {
+            error_log("Telegram quiz schema check failed; running compatibility setup: " . $schemaCheckError->getMessage());
+        }
+
         $tablesCreated = true;
         try {
             $pdo->exec("
@@ -215,6 +255,24 @@ if (!function_exists('ensureTgTablesExist')) {
                     `rank` INT UNSIGNED DEFAULT 0,
                     `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
                     UNIQUE KEY `uniq_session_user` (`session_id`, `telegram_user_id`)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+            ");
+            $pdo->exec("
+                CREATE TABLE IF NOT EXISTS `tg_quiz_responses` (
+                    `id` BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+                    `session_id` INT UNSIGNED NOT NULL,
+                    `question_id` INT UNSIGNED NOT NULL,
+                    `question_number` INT UNSIGNED NOT NULL,
+                    `telegram_poll_id` VARCHAR(128) NOT NULL,
+                    `user_id` BIGINT NOT NULL,
+                    `username` VARCHAR(255) DEFAULT NULL,
+                    `first_name` VARCHAR(255) DEFAULT NULL,
+                    `last_name` VARCHAR(255) DEFAULT NULL,
+                    `selected_option_id` TINYINT UNSIGNED NOT NULL,
+                    `is_correct` TINYINT(1) NOT NULL DEFAULT 0,
+                    `answered_at` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                    UNIQUE KEY `uniq_poll_user` (`telegram_poll_id`, `user_id`),
+                    INDEX `idx_session_user` (`session_id`, `user_id`)
                 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
             ");
 
