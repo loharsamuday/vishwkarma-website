@@ -2,16 +2,23 @@
 // includes/db.php
 require_once __DIR__ . '/../config/config.php';
 
+if (!function_exists('createDatabasePdo')) {
+    function createDatabasePdo(): PDO {
+        $connection = new PDO(
+            "mysql:host=" . DB_HOST . ";dbname=" . DB_NAME . ";charset=utf8mb4",
+            DB_USER,
+            DB_PASS
+        );
+        $connection->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+        $connection->setAttribute(PDO::ATTR_DEFAULT_FETCH_MODE, PDO::FETCH_ASSOC);
+        try { $connection->exec("SET time_zone = '+05:30'"); } catch (Exception $e) {}
+        try { $connection->exec("SET NAMES utf8mb4 COLLATE utf8mb4_unicode_ci"); } catch (Exception $e) {}
+        return $connection;
+    }
+}
+
 try {
-    $pdo = new PDO("mysql:host=" . DB_HOST . ";dbname=" . DB_NAME . ";charset=utf8mb4", DB_USER, DB_PASS);
-    // Set PDO error mode to exception
-    $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-    // Set default fetch mode to associative array
-    $pdo->setAttribute(PDO::ATTR_DEFAULT_FETCH_MODE, PDO::FETCH_ASSOC);
-    // Synchronize timezone with PHP (Asia/Kolkata)
-    try { $pdo->exec("SET time_zone = '+05:30'"); } catch (Exception $e) {}
-    // Ensure utf8mb4 encoding & collation for full Hindi/Devanagari Unicode support
-    try { $pdo->exec("SET NAMES utf8mb4 COLLATE utf8mb4_unicode_ci"); } catch (Exception $e) {}
+    $pdo = createDatabasePdo();
     if (function_exists('mb_internal_encoding')) { mb_internal_encoding('UTF-8'); }
     // Ensure roles table exists and seed default roles
     try {

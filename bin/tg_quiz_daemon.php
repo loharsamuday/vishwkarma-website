@@ -274,6 +274,16 @@ while (true) {
 
     } catch (\Throwable $e) {
         daemonLog("Daemon iteration exception: " . $e->getMessage() . "\n" . $e->getTraceAsString(), $logFile);
+
+        $mysqlErrorCode = $e instanceof PDOException ? (int)($e->errorInfo[1] ?? 0) : 0;
+        if (in_array($mysqlErrorCode, [2002, 2003, 2006, 2013], true)) {
+            try {
+                $pdo = createDatabasePdo();
+                daemonLog("Database connection restored after MySQL error {$mysqlErrorCode}.", $logFile);
+            } catch (\Throwable $reconnectError) {
+                daemonLog("Database reconnect failed: " . $reconnectError->getMessage(), $logFile);
+            }
+        }
     }
 
     // Sleep 1 second before next cycle

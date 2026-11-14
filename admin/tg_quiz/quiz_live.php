@@ -394,9 +394,9 @@ function updateUI(data) {
       engineIcon.className = 'fa-solid fa-server me-2 fs-5 text-success';
       engineDesc.innerHTML = '<strong>Server Daemon Active (PHP Background Engine):</strong> Quiz is executing autonomously in the background. It will continue running even if this tab is closed, minimized, or screen locked.';
     } else {
-      engineAlert.className = 'alert alert-info py-2 px-3 small d-flex align-items-center mb-4 rounded-3 shadow-sm border-0';
-      engineIcon.className = 'fa-solid fa-circle-nodes me-2 fs-5 text-primary';
-      engineDesc.innerHTML = '<strong>Live Monitor Active:</strong> Browser live polling and server auto-dispatch are running in real-time.';
+      engineAlert.className = 'alert alert-warning py-2 px-3 small d-flex align-items-center mb-4 rounded-3 shadow-sm border-0';
+      engineIcon.className = 'fa-solid fa-triangle-exclamation me-2 fs-5 text-warning';
+      engineDesc.innerHTML = '<strong>PHP background daemon is inactive.</strong> If your hosting worker or cron is not running, keep this Live Monitor tab open; browser polling is the fallback scheduler.';
     }
   }
 
