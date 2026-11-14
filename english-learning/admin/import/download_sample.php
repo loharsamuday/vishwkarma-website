@@ -73,7 +73,7 @@ $output = fopen('php://output', 'w');
 fputs($output, "\xEF\xBB\xBF"); 
 
 foreach ($data as $row) {
-    fputcsv($output, $row);
+    fputcsv($output, $row, ',', '"', "\\");
 }
 
 fclose($output);

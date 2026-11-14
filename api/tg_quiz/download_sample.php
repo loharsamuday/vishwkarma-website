@@ -40,7 +40,7 @@ if ($format === 'csv') {
     fprintf($output, chr(0xEF) . chr(0xBB) . chr(0xBF));
 
     foreach ($sample_rows as $row) {
-        fputcsv($output, $row);
+        fputcsv($output, $row, ',', '"', "\\");
     }
     fclose($output);
     exit;

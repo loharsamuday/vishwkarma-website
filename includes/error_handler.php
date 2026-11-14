@@ -12,13 +12,25 @@ define('ERROR_LOG_FILE', $log_dir . '/error.log');
 
 /**
  * Custom Error Handler
- * Converts all errors into ErrorExceptions so they can be caught globally.
+ * Converts severe errors into ErrorExceptions so they can be caught globally.
+ * Deprecations and notices are logged silently so they NEVER break live requests.
  */
 function custom_error_handler($severity, $message, $file, $line) {
     if (!(error_reporting() & $severity)) {
-        // This error code is not included in error_reporting
-        return;
+        // This error code is not included in error_reporting or suppressed with @
+        return false;
     }
+
+    // Deprecations, notices and user notices should NEVER crash the application
+    if ($severity === E_DEPRECATED || $severity === E_USER_DEPRECATED || $severity === E_NOTICE || $severity === E_USER_NOTICE) {
+        if (defined('ERROR_LOG_FILE')) {
+            $type = ($severity === E_DEPRECATED || $severity === E_USER_DEPRECATED) ? 'DEPRECATED' : 'NOTICE';
+            $log_message = sprintf("[%s] %s: %s in %s on line %d\n", date('Y-m-d H:i:s'), $type, $message, $file, $line);
+            @error_log($log_message, 3, ERROR_LOG_FILE);
+        }
+        return true; // Marked as handled - execution continues smoothly!
+    }
+
     throw new ErrorException($message, 0, $severity, $file, $line);
 }
 
@@ -93,5 +105,5 @@ set_exception_handler('global_exception_handler');
 // Disable raw display of errors to the screen
 ini_set('display_errors', '0');
 ini_set('display_startup_errors', '0');
-error_reporting(E_ALL);
+error_reporting(E_ALL & ~E_DEPRECATED & ~E_USER_DEPRECATED & ~E_NOTICE);
 ?>

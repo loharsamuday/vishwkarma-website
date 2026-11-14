@@ -13,8 +13,8 @@ if (isset($_GET['download_sample'])) {
     header('Content-Type: text/csv');
     header('Content-Disposition: attachment; filename="sample_questions.csv"');
     $output = fopen('php://output', 'w');
-    fputcsv($output, ['Subject ID', 'Topic ID (Optional)', 'Question Type', 'Difficulty', 'Marks', 'Negative Marks', 'Language', 'Question Text', 'Option A', 'Option B', 'Option C', 'Option D', 'Option E', 'Correct Option', 'Explanation', 'Short Trick']);
-    fputcsv($output, ['1', '', 'single_mcq', 'Moderate', '1.00', '0.25', 'English', 'What is the capital of India?', 'Mumbai', 'New Delhi', 'Kolkata', 'Chennai', '', 'B', 'New Delhi is the capital of India.', '']);
+    fputcsv($output, ['Subject ID', 'Topic ID (Optional)', 'Question Type', 'Difficulty', 'Marks', 'Negative Marks', 'Language', 'Question Text', 'Option A', 'Option B', 'Option C', 'Option D', 'Option E', 'Correct Option', 'Explanation', 'Short Trick'], ',', '"', "\\");
+    fputcsv($output, ['1', '', 'single_mcq', 'Moderate', '1.00', '0.25', 'English', 'What is the capital of India?', 'Mumbai', 'New Delhi', 'Kolkata', 'Chennai', '', 'B', 'New Delhi is the capital of India.', ''], ',', '"', "\\");
     fclose($output);
     exit;
 }
@@ -29,14 +29,14 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_FILES['csv_file'])) {
         $ext = pathinfo($file['name'], PATHINFO_EXTENSION);
         if (strtolower($ext) == 'csv') {
             if (($handle = fopen($file['tmp_name'], "r")) !== FALSE) {
-                $header = fgetcsv($handle, 1000, ","); // Skip header
+                $header = fgetcsv($handle, 1000, ",", '"', "\\"); // Skip header
                 $row_num = 2; // Assuming row 1 is header
                 
                 $pdo->beginTransaction();
                 try {
                     $stmt = $pdo->prepare("INSERT INTO mt_questions (subject_id, topic_id, question_type, difficulty_level, marks, negative_marks, language, question_text, option_a, option_b, option_c, option_d, option_e, correct_option, explanation, short_trick, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active')");
                     
-                    while (($data = fgetcsv($handle, 10000, ",")) !== FALSE) {
+                    while (($data = fgetcsv($handle, 10000, ",", '"', "\\")) !== FALSE) {
                         // Basic validation
                         if (count($data) < 14) {
                             $errors[] = "Row $row_num: Missing required columns.";

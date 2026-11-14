@@ -28,7 +28,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_FILES['csv_file'])) {
         $handle = fopen($file, "r");
         if ($handle !== FALSE) {
             // Read header row
-            $header = fgetcsv($handle, 10000, ",");
+            $header = fgetcsv($handle, 10000, ",", '"', "\\");
             
             // Clean BOM from first header column if present
             if (!empty($header)) {
@@ -60,7 +60,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_FILES['csv_file'])) {
                     $category_cache = [];
 
                     $row_num = 1;
-                    while (($data = fgetcsv($handle)) !== FALSE) {
+                    while (($data = fgetcsv($handle, 10000, ",", '"', "\\")) !== FALSE) {
                         $row_num++;
 
                         // Ignore completely empty lines in a CSV exported from Excel/Google Sheets.
@@ -157,7 +157,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_FILES['csv_file'])) {
                     $stmt_insert_vocab = $pdo->prepare("INSERT INTO vocabulary (story_id, word, hindi_meaning, english_meaning, part_of_speech, example_sentence, synonym, antonym) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
 
                     $row_num = 1;
-                    while (($data = fgetcsv($handle, 10000, ",")) !== FALSE) {
+                    while (($data = fgetcsv($handle, 10000, ",", '"', "\\")) !== FALSE) {
                         $row_num++;
                         
                         $story_id = trim($data[$header_flip['story_id']] ?? '');

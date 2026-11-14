@@ -12,10 +12,10 @@ if (isset($_POST['import_csv'])) {
     if (isset($_FILES['csv_file']) && $_FILES['csv_file']['error'] === UPLOAD_ERR_OK) {
         $tmp_name = $_FILES['csv_file']['tmp_name'];
         if (($handle = fopen($tmp_name, "r")) !== FALSE) {
-            $header = fgetcsv($handle, 1000, ","); // Skip header
+            $header = fgetcsv($handle, 1000, ",", '"', "\\"); // Skip header
             $imported = 0;
             $updated = 0;
-            while (($data = fgetcsv($handle, 1000, ",")) !== FALSE) {
+            while (($data = fgetcsv($handle, 1000, ",", '"', "\\")) !== FALSE) {
                 if (count($data) >= 8) {
                     $id = $data[0] ?? '';
                     $first = $data[1] ?? '';
@@ -121,11 +121,11 @@ if (isset($_GET['action']) && isset($_GET['id'])) {
         header('Content-Type: text/csv; charset=utf-8');
         header('Content-Disposition: attachment; filename=users_backup_' . date('Y-m-d') . '.csv');
         $output = fopen('php://output', 'w');
-        fputcsv($output, array('ID', 'First Name', 'Last Name', 'Email', 'Phone', 'Gender', 'DOB', 'Status', 'Joined Date'));
+        fputcsv($output, array('ID', 'First Name', 'Last Name', 'Email', 'Phone', 'Gender', 'DOB', 'Status', 'Joined Date'), ',', '"', "\\");
         
         $export_users = $pdo->query("SELECT id, first_name, last_name, email, phone, gender, dob, status, created_at FROM users ORDER BY id DESC")->fetchAll(PDO::FETCH_ASSOC);
         foreach ($export_users as $row) {
-            fputcsv($output, $row);
+            fputcsv($output, $row, ',', '"', "\\");
         }
         fclose($output);
         exit;

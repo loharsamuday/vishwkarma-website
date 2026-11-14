@@ -22,13 +22,13 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_FILES['csv_file'])) {
     } else {
         $handle = fopen($file, "r");
         if ($handle !== FALSE) {
-            $header = fgetcsv($handle, 1000, ",");
+            $header = fgetcsv($handle, 1000, ",", '"', "\\");
             
             $pdo->beginTransaction();
             try {
                 if ($import_type == 'idioms') {
                     $stmt = $pdo->prepare("INSERT INTO idioms (idiom, slug, english_meaning, hindi_meaning, explanation, example_sentence, memory_trick, synonyms, antonyms, difficulty, exam_type, meta_title, meta_description, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
-                    while (($data = fgetcsv($handle, 1000, ",")) !== FALSE) {
+                    while (($data = fgetcsv($handle, 1000, ",", '"', "\\")) !== FALSE) {
                         if (count($data) >= 14) {
                             $slug = !empty($data[1]) ? $data[1] : strtolower(trim(preg_replace('/[^A-Za-z0-9-]+/', '-', $data[0])));
                             try {
@@ -42,7 +42,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_FILES['csv_file'])) {
                     }
                 } elseif ($import_type == 'phrasal_verbs') {
                     $stmt = $pdo->prepare("INSERT INTO phrasal_verbs (phrasal_verb, slug, english_meaning, hindi_meaning, explanation, example_sentence, memory_trick, synonyms, antonyms, difficulty, exam_type, meta_title, meta_description, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
-                    while (($data = fgetcsv($handle, 1000, ",")) !== FALSE) {
+                    while (($data = fgetcsv($handle, 1000, ",", '"', "\\")) !== FALSE) {
                         if (count($data) >= 14) {
                             $slug = !empty($data[1]) ? $data[1] : strtolower(trim(preg_replace('/[^A-Za-z0-9-]+/', '-', $data[0])));
                             try {

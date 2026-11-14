@@ -27,7 +27,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $error = 'The uploaded CSV could not be opened.';
         } else {
             // Required column order: question, option_a, option_b, option_c, option_d, correct_answer.
-            fgetcsv($handle);
+            fgetcsv($handle, 10000, ",", '"', "\\");
             $insert = $pdo->prepare('INSERT INTO practice_questions
                 (content_type, content_id, question, option_a, option_b, option_c, option_d, correct_answer, explanation, hindi_explanation, difficulty, exam_type, status)
                 VALUES (\'vocabulary\', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
@@ -36,7 +36,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             try {
                 $pdo->beginTransaction();
-                while (($data = fgetcsv($handle)) !== false) {
+                while (($data = fgetcsv($handle, 10000, ",", '"', "\\")) !== false) {
                     $row++;
                     $data = array_pad($data, 12, '');
                     $question = trim($data[0]);

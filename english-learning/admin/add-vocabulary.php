@@ -71,7 +71,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['upload_csv'])) {
             $handle = fopen($file_tmp, "r");
             if ($handle !== FALSE) {
                 // Skip the first row (headers)
-                fgetcsv($handle, 1000, ",");
+                fgetcsv($handle, 1000, ",", '"', "\\");
                 
                 $imported = 0;
                 $stmt = $pdo->prepare("
@@ -79,7 +79,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['upload_csv'])) {
                     VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                 ");
                 
-                while (($data = fgetcsv($handle, 1000, ",")) !== FALSE) {
+                while (($data = fgetcsv($handle, 1000, ",", '"', "\\")) !== FALSE) {
                     // Ensure we have data
                     $word = isset($data[0]) ? trim($data[0]) : '';
                     if (empty($word)) continue;
