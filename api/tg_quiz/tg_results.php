@@ -177,20 +177,28 @@ function finalizeTelegramQuiz(PDO $pdo, int $sessionId, bool $force = false): ar
     }
 
     // ATOMIC CLAIM: lock this session so concurrent requests/workers never publish duplicate results
+    $nowDt = date('Y-m-d H:i:s', $now);
+    $twoMinAgo = date('Y-m-d H:i:s', $now - 120);
+
     if (!$force) {
         $claim = $pdo->prepare("
             UPDATE tg_quiz_sessions
-            SET results_claimed_at = NOW(), updated_at = NOW()
-            WHERE id = ? AND results_announced_at IS NULL
-              AND (results_claimed_at IS NULL OR results_claimed_at < DATE_SUB(NOW(), INTERVAL 2 MINUTE))
-              AND (next_question_at IS NULL OR next_question_at <= NOW())
+            SET results_claimed_at = :nowDt, updated_at = :nowDt
+            WHERE id = :id AND results_announced_at IS NULL
+              AND (results_claimed_at IS NULL OR results_claimed_at < :twoMinAgo)
+              AND (next_question_at IS NULL OR next_question_at <= :nowDt)
         ");
-        $claim->execute([$sessionId]);
+        $claim->execute([
+            ':nowDt'      => $nowDt,
+            ':twoMinAgo'  => $twoMinAgo,
+            ':id'         => $sessionId
+        ]);
         if ($claim->rowCount() !== 1) {
             return ['success' => true, 'pending' => true, 'message' => 'Results already claimed by another process'];
         }
     } else {
-        $pdo->prepare("UPDATE tg_quiz_sessions SET results_claimed_at = NOW(), updated_at = NOW() WHERE id = ?")->execute([$sessionId]);
+        $pdo->prepare("UPDATE tg_quiz_sessions SET results_claimed_at = :nowDt, updated_at = :nowDt WHERE id = :id")
+            ->execute([':nowDt' => $nowDt, ':id' => $sessionId]);
     }
 
     // Retrieve and decrypt Bot Token
@@ -334,12 +342,13 @@ function finalizeTelegramQuiz(PDO $pdo, int $sessionId, bool $force = false): ar
         }
 
         // Successfully published! Mark session as COMPLETED and record announcement timestamp
+        $nowDt = date('Y-m-d H:i:s');
         $pdo->prepare("
             UPDATE tg_quiz_sessions
-            SET status = 'COMPLETED', end_time = NOW(), results_announced_at = NOW(),
-                results_claimed_at = NULL, error_message = NULL, updated_at = NOW()
-            WHERE id = ?
-        ")->execute([$sessionId]);
+            SET status = 'COMPLETED', end_time = :nowDt, results_announced_at = :nowDt,
+                results_claimed_at = NULL, error_message = NULL, updated_at = :nowDt
+            WHERE id = :id
+        ")->execute([':nowDt' => $nowDt, ':id' => $sessionId]);
 
         // Log admin activity
         if (function_exists('logActivity') && !empty($session['admin_id'])) {
@@ -351,7 +360,7 @@ function finalizeTelegramQuiz(PDO $pdo, int $sessionId, bool $force = false): ar
             'completed'    => true,
             'session_id'   => $sessionId,
             'participants' => count($results),
-            'announced_at' => date('Y-m-d H:i:s'),
+            'announced_at' => $nowDt,
             'message'      => 'Final quiz results published successfully to Telegram!'
         ];
 
@@ -369,16 +378,18 @@ function finalizeTelegramQuiz(PDO $pdo, int $sessionId, bool $force = false): ar
 function checkAndFinalizeDueSessions(PDO $pdo): array {
     $finalized = [];
     try {
-        $stmt = $pdo->query("
+        $nowDt = date('Y-m-d H:i:s');
+        $stmt = $pdo->prepare("
             SELECT id FROM tg_quiz_sessions
             WHERE results_announced_at IS NULL
               AND current_question >= total_questions
               AND total_questions > 0
-              AND (next_question_at IS NULL OR next_question_at <= NOW())
+              AND (next_question_at IS NULL OR next_question_at <= :nowDt)
               AND status IN ('RUNNING', 'COMPLETED')
             ORDER BY next_question_at ASC
             LIMIT 5
         ");
+        $stmt->execute([':nowDt' => $nowDt]);
         $sessionIds = $stmt->fetchAll(PDO::FETCH_COLUMN);
         foreach ($sessionIds as $sid) {
             $res = finalizeTelegramQuiz($pdo, (int)$sid);

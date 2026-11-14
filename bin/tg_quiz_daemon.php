@@ -189,10 +189,10 @@ while (true) {
                     $pdo->prepare("
                         UPDATE tg_quiz_sessions
                         SET status = 'RUNNING',
-                            start_time = NOW(),
-                            updated_at = NOW()
-                        WHERE id = ? AND status = 'COUNTDOWN'
-                    ")->execute([$sessionId]);
+                            start_time = :now_dt,
+                            updated_at = :now_dt
+                        WHERE id = :id AND status = 'COUNTDOWN'
+                    ")->execute([':now_dt' => $nowStr, ':id' => $sessionId]);
 
                     // Dispatch first Question
                     $disp = dispatchSessionQuestion($pdo, $sessionId, true);

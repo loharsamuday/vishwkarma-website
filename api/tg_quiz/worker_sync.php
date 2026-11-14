@@ -191,14 +191,16 @@ switch ($action) {
     // ─────────────────────────────────────────────────────────────
     case 'finalize_due_sessions':
         try {
-            $stmt = $pdo->query("
+            $nowDt = date('Y-m-d H:i:s');
+            $stmt = $pdo->prepare("
                 SELECT id
                 FROM tg_quiz_sessions
                 WHERE status IN ('RUNNING', 'COMPLETED') AND current_question >= total_questions
-                  AND (next_question_at IS NULL OR next_question_at <= NOW()) AND results_announced_at IS NULL
+                  AND (next_question_at IS NULL OR next_question_at <= :now_dt) AND results_announced_at IS NULL
                 ORDER BY next_question_at ASC
                 LIMIT 10
             ");
+            $stmt->execute([':now_dt' => $nowDt]);
             $sessions = $stmt->fetchAll(PDO::FETCH_COLUMN);
             $results = [];
             foreach ($sessions as $sessionId) {
@@ -220,6 +222,7 @@ switch ($action) {
     // ─────────────────────────────────────────────────────────────
     case 'get_pending_tasks':
         try {
+            $nowDt = date('Y-m-d H:i:s');
             $stmt = $pdo->prepare("
                 SELECT s.id AS session_id, s.quiz_set_id, s.admin_id, s.chat_id,
                        s.chat_title, s.title, s.status, s.total_questions,
@@ -230,12 +233,12 @@ switch ($action) {
                 FROM tg_quiz_sessions s
                 JOIN tg_bots b ON b.admin_id = s.admin_id AND b.is_active = 1
                 WHERE s.status = 'RUNNING'
-                  AND s.next_question_at <= NOW()
+                  AND s.next_question_at <= :now_dt
                   AND s.current_question < s.total_questions
                 ORDER BY s.next_question_at ASC
                 LIMIT 10
             ");
-            $stmt->execute();
+            $stmt->execute([':now_dt' => $nowDt]);
             $sessions = $stmt->fetchAll();
 
             $tasks = [];
@@ -307,23 +310,24 @@ switch ($action) {
 
             $pdo->beginTransaction();
 
+            $nowDt = date('Y-m-d H:i:s');
             $pdo->prepare("
                 UPDATE tg_quiz_sessions
                 SET current_question        = current_question + 1,
                     questions_sent          = questions_sent + 1,
-                    last_question_sent_at   = NOW(),
-                    next_question_at        = ?,
-                    last_telegram_message_id = ?,
+                    last_question_sent_at   = :now_dt,
+                    next_question_at        = :next_at,
+                    last_telegram_message_id = :poll_id,
                     retry_count             = 0,
-                    updated_at              = NOW()
-                WHERE id = ?
-            ")->execute([$next_at, $poll_id, $session_id]);
+                    updated_at              = :now_dt
+                WHERE id = :session_id
+            ")->execute([':now_dt' => $nowDt, ':next_at' => $next_at, ':poll_id' => $poll_id, ':session_id' => $session_id]);
 
             $pdo->prepare("
                 INSERT INTO tg_quiz_logs
                     (session_id, question_id, question_number, status, telegram_poll_id, sent_at)
-                VALUES (?, ?, ?, 'SENT', ?, NOW())
-            ")->execute([$session_id, $question_id, $question_number, $poll_id]);
+                VALUES (?, ?, ?, 'SENT', ?, ?)
+            ")->execute([$session_id, $question_id, $question_number, $poll_id, $nowDt]);
 
             $pdo->commit();
             echo json_encode(['success' => true, 'message' => 'Question marked as sent']);
@@ -409,11 +413,12 @@ switch ($action) {
             break;
         }
         try {
+            $nowDt = date('Y-m-d H:i:s');
             $pdo->prepare("
                 UPDATE tg_quiz_sessions
-                SET status = 'COMPLETED', end_time = NOW(), updated_at = NOW()
-                WHERE id = ? AND status IN ('RUNNING','PAUSED')
-            ")->execute([$session_id]);
+                SET status = 'COMPLETED', end_time = :now_dt, updated_at = :now_dt
+                WHERE id = :id AND status IN ('RUNNING','PAUSED')
+            ")->execute([':now_dt' => $nowDt, ':id' => $session_id]);
             echo json_encode(['success' => true, 'message' => 'Session completed']);
         } catch (PDOException $e) {
             http_response_code(500);
@@ -432,11 +437,12 @@ switch ($action) {
             break;
         }
         try {
+            $nowDt = date('Y-m-d H:i:s');
             $pdo->prepare("
                 UPDATE tg_quiz_sessions
-                SET status = 'FAILED', end_time = NOW(), error_message = ?, updated_at = NOW()
-                WHERE id = ? AND status IN ('RUNNING','PAUSED')
-            ")->execute([$error_msg, $session_id]);
+                SET status = 'FAILED', end_time = :now_dt, error_message = :err, updated_at = :now_dt
+                WHERE id = :id AND status IN ('RUNNING','PAUSED')
+            ")->execute([':now_dt' => $nowDt, ':err' => $error_msg, ':id' => $session_id]);
             echo json_encode(['success' => true, 'message' => 'Session marked failed']);
         } catch (PDOException $e) {
             http_response_code(500);

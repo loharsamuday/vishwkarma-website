@@ -152,7 +152,7 @@ switch ($action) {
         }
 
         // Get total questions in quiz set
-        $qStmt = $pdo->prepare("SELECT id, question_number FROM tg_quiz_questions WHERE quiz_set_id=? AND is_active=1 ORDER BY question_number ASC");
+        $qStmt = $pdo->prepare("SELECT id, question_number FROM tg_quiz_questions WHERE quiz_set_id=? AND is_active=1 ORDER BY question_number ASC, id ASC");
         $qStmt->execute([$quiz_set_id]);
         $all_rows = $qStmt->fetchAll(PDO::FETCH_ASSOC);
 
@@ -162,19 +162,36 @@ switch ($action) {
             break;
         }
 
-        if ($end_q <= 0 || $end_q > $totalInSet) {
-            $end_q = $totalInSet;
-        }
-        if ($start_q > $end_q) {
-            $start_q = 1;
-        }
-
         // Apply range filter
-        $start_idx = max(0, $start_q - 1);
-        $end_idx   = min($end_q - 1, $totalInSet - 1);
-        $filtered_rows = array_slice($all_rows, $start_idx, max(0, $end_idx - $start_idx + 1));
-        $filtered = array_column($filtered_rows, 'id');
+        $matchedRows = [];
+        if ($end_q > 0) {
+            // First check if question_number column matches this custom range directly
+            foreach ($all_rows as $row) {
+                $qNum = (int)($row['question_number'] ?? 0);
+                if ($qNum >= $start_q && $qNum <= $end_q) {
+                    $matchedRows[] = $row;
+                }
+            }
+        }
 
+        if (!empty($matchedRows)) {
+            $filtered = array_column($matchedRows, 'id');
+        } else {
+            // 1-based sequential slice fallback
+            if ($end_q <= 0 || $end_q > $totalInSet) {
+                $end_q = $totalInSet;
+            }
+            if ($start_q > $end_q) {
+                $start_q = 1;
+            }
+            $start_idx = max(0, $start_q - 1);
+            $end_idx   = min($end_q - 1, $totalInSet - 1);
+            $sliceLen  = max(1, $end_idx - $start_idx + 1);
+            $filtered_rows = array_slice($all_rows, $start_idx, $sliceLen);
+            $filtered = array_column($filtered_rows, 'id');
+        }
+
+        $filtered = array_values(array_unique(array_filter($filtered)));
         if (empty($filtered)) {
             echo json_encode(['success'=>false,'message'=>'No questions found in the specified range'], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
             break;
@@ -202,9 +219,11 @@ switch ($action) {
         $title = $custom_title ?: $quiz_set['title'];
         $total = count($filtered);
 
+        $now = time();
+        $nowDt = date('Y-m-d H:i:s', $now);
         $initialStatus    = ($countdown > 0) ? 'COUNTDOWN' : 'RUNNING';
-        $countdownEndsAt  = ($countdown > 0) ? date('Y-m-d H:i:s', time() + $countdown) : null;
-        $nextQuestionAt   = ($countdown > 0) ? $countdownEndsAt : date('Y-m-d H:i:s', time());
+        $countdownEndsAt  = ($countdown > 0) ? date('Y-m-d H:i:s', $now + $countdown) : null;
+        $nextQuestionAt   = ($countdown > 0) ? $countdownEndsAt : $nowDt;
 
         $ins = $pdo->prepare("
             INSERT INTO tg_quiz_sessions
@@ -216,12 +235,12 @@ switch ($action) {
                 (?, ?, ?, ?, ?, ?,
                  ?, 0, 0, ?,
                  ?, ?, ?, ?,
-                 ?, ?, ?, ?, NOW(), ?)
+                 ?, ?, ?, ?, ?, ?)
         ");
         $ins->execute([
             $quiz_set_id, $admin_id, $chat_id, $chatRow['chat_title'], $title, $initialStatus,
             $total, $order, json_encode(array_values($filtered)), $timer, $countdown, $countdownEndsAt,
-            $correct_mark, $wrong_mark, $start_q, $end_q, $nextQuestionAt
+            $correct_mark, $wrong_mark, $start_q, $end_q, $nowDt, $nextQuestionAt
         ]);
         $session_id = (int)$pdo->lastInsertId();
 
@@ -297,15 +316,17 @@ switch ($action) {
             break;
         }
 
+        $now = time();
+        $nowDt = date('Y-m-d H:i:s', $now);
         $rem = 0;
         if ($sess['status'] === 'COUNTDOWN' && !empty($sess['countdown_ends_at'])) {
-            $rem = max(0, strtotime($sess['countdown_ends_at']) - time());
+            $rem = max(0, strtotime($sess['countdown_ends_at']) - $now);
         } elseif (!empty($sess['next_question_at'])) {
-            $rem = max(0, strtotime($sess['next_question_at']) - time());
+            $rem = max(0, strtotime($sess['next_question_at']) - $now);
         }
 
-        $pdo->prepare("UPDATE tg_quiz_sessions SET status='PAUSED', remaining_time=?, paused_at=NOW(), updated_at=NOW() WHERE id=?")
-            ->execute([$rem, $session_id]);
+        $pdo->prepare("UPDATE tg_quiz_sessions SET status='PAUSED', remaining_time=?, paused_at=?, updated_at=? WHERE id=?")
+            ->execute([$rem, $nowDt, $nowDt, $session_id]);
 
         try {
             syncTelegramQuizLiveStatus($pdo, $session_id, 'pause', $rem);
@@ -329,8 +350,10 @@ switch ($action) {
             break;
         }
 
+        $now = time();
+        $nowDt = date('Y-m-d H:i:s', $now);
         $rem = max(3, (int)($sess['remaining_time'] ?: $sess['timer_seconds']));
-        $next_at = date('Y-m-d H:i:s', time() + $rem);
+        $next_at = date('Y-m-d H:i:s', $now + $rem);
 
         $isPreQuiz = ($sess['current_question'] == 0 && $sess['questions_sent'] == 0);
         $newStatus = $isPreQuiz ? 'COUNTDOWN' : 'RUNNING';
@@ -339,9 +362,9 @@ switch ($action) {
         $pdo->prepare("
             UPDATE tg_quiz_sessions
             SET status=?, next_question_at=?, countdown_ends_at=?,
-                remaining_time=0, paused_at=NULL, updated_at=NOW()
+                remaining_time=0, paused_at=NULL, updated_at=?
             WHERE id=?
-        ")->execute([$newStatus, $next_at, $countdownEndsAt, $session_id]);
+        ")->execute([$newStatus, $next_at, $countdownEndsAt, $nowDt, $session_id]);
 
         try {
             syncTelegramQuizLiveStatus($pdo, $session_id, 'resume', $rem);
@@ -366,7 +389,8 @@ switch ($action) {
             break;
         }
 
-        $pdo->prepare("UPDATE tg_quiz_sessions SET status='STOPPED', end_time=NOW(), updated_at=NOW() WHERE id=?")->execute([$session_id]);
+        $nowDt = date('Y-m-d H:i:s');
+        $pdo->prepare("UPDATE tg_quiz_sessions SET status='STOPPED', end_time=?, updated_at=? WHERE id=?")->execute([$nowDt, $nowDt, $session_id]);
 
         try {
             syncTelegramQuizLiveStatus($pdo, $session_id, 'completed');
@@ -390,15 +414,17 @@ switch ($action) {
             break;
         }
 
+        $now = time();
+        $nowDt = date('Y-m-d H:i:s', $now);
         $pdo->prepare("
             UPDATE tg_quiz_sessions
             SET status='RUNNING', current_question=0, questions_sent=0,
-                start_time=NOW(), end_time=NULL, next_question_at=NOW(),
+                start_time=?, end_time=NULL, next_question_at=?,
                 results_announced_at=NULL, results_claimed_at=NULL,
                 telegram_status_message_id=NULL, last_telegram_status_text=NULL,
-                error_message=NULL, retry_count=0, updated_at=NOW()
+                error_message=NULL, retry_count=0, updated_at=?
             WHERE id=?
-        ")->execute([$session_id]);
+        ")->execute([$nowDt, $nowDt, $nowDt, $session_id]);
 
         $pdo->prepare("DELETE FROM tg_quiz_logs WHERE session_id=?")->execute([$session_id]);
         $pdo->prepare("DELETE FROM tg_quiz_responses WHERE session_id=?")->execute([$session_id]);
@@ -481,6 +507,8 @@ switch ($action) {
             ensureTelegramQuizDaemonRunning();
         }
 
+        $now = time();
+        $nowDt = date('Y-m-d H:i:s', $now);
         $dispatchInfo = null;
         $countdown_remaining = 0;
         $seconds_remaining = 0;
@@ -488,7 +516,7 @@ switch ($action) {
         // 1. COUNTDOWN STATE HANDLING
         if ($session['status'] === 'COUNTDOWN') {
             $countdown_ends_ts = !empty($session['countdown_ends_at']) ? strtotime($session['countdown_ends_at']) : 0;
-            $countdown_remaining = max(0, $countdown_ends_ts - time());
+            $countdown_remaining = max(0, $countdown_ends_ts - $now);
 
             if ($countdown_remaining > 0) {
                 // Update live countdown in Telegram
@@ -504,10 +532,10 @@ switch ($action) {
                 $pdo->prepare("
                     UPDATE tg_quiz_sessions
                     SET status = 'RUNNING',
-                        start_time = NOW(),
-                        updated_at = NOW()
-                    WHERE id = ? AND status = 'COUNTDOWN'
-                ")->execute([$session_id]);
+                        start_time = :nowDt,
+                        updated_at = :nowDt
+                    WHERE id = :id AND status = 'COUNTDOWN'
+                ")->execute([':nowDt' => $nowDt, ':id' => $session_id]);
 
                 // Dispatch Question 1
                 $dispatchInfo = dispatchSessionQuestion($pdo, $session_id, true);
@@ -519,9 +547,10 @@ switch ($action) {
         }
 
         // 2. RUNNING STATE HANDLING (AUTO-DISPATCH NEXT QUESTION)
-        if ($session['status'] === 'RUNNING' && $session['next_question_at']) {
+        // Guard with empty($dispatchInfo) so if Q1 was just dispatched from countdown above, Q2 is NOT immediately dispatched!
+        if ($session['status'] === 'RUNNING' && $session['next_question_at'] && empty($dispatchInfo)) {
             $next_ts = strtotime($session['next_question_at']);
-            if ($next_ts <= time() && (int)$session['current_question'] < (int)$session['total_questions']) {
+            if ($next_ts <= $now && (int)$session['current_question'] < (int)$session['total_questions']) {
                 $dispatchInfo = dispatchSessionQuestion($pdo, $session_id, false);
                 // Re-fetch updated session state
                 $stmt->execute([$session_id, $admin_id]);
@@ -531,7 +560,7 @@ switch ($action) {
             // Sync live status tick with timer countdown and progress bar
             if ($session['status'] === 'RUNNING' && $session['next_question_at']) {
                 $cur_next_ts = strtotime($session['next_question_at']);
-                $seconds_remaining = max(0, $cur_next_ts - time());
+                $seconds_remaining = max(0, $cur_next_ts - $now);
                 try {
                     syncTelegramQuizLiveStatus($pdo, $session, 'status_tick', $seconds_remaining);
                 } catch (\Throwable $e) {}
@@ -559,7 +588,7 @@ switch ($action) {
             empty($session['results_announced_at'])
             && (int)$session['current_question'] >= (int)$session['total_questions']
             && (int)$session['total_questions'] > 0
-            && (empty($session['next_question_at']) || strtotime($session['next_question_at']) <= time())
+            && (empty($session['next_question_at']) || strtotime($session['next_question_at']) <= $now)
             && in_array($session['status'], ['RUNNING', 'COMPLETED'])
         ) {
             // Update Telegram status message to QUIZ COMPLETED
@@ -575,7 +604,7 @@ switch ($action) {
         // Calculate time remaining for current question
         if ($session['status'] === 'RUNNING' && $session['next_question_at']) {
             $next_ts = strtotime($session['next_question_at']);
-            $seconds_remaining = max(0, $next_ts - time());
+            $seconds_remaining = max(0, $next_ts - $now);
         } elseif ($session['status'] === 'PAUSED') {
             $seconds_remaining = (int)($session['remaining_time'] ?? 0);
         }

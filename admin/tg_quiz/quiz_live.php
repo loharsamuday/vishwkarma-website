@@ -61,7 +61,18 @@ require_once '../includes/header.php';
       <div class="card border-0 shadow mb-4" id="statusCard">
         <div class="card-header py-3 d-flex justify-content-between align-items-center" id="statusHeader">
           <div>
-            <h5 class="mb-0 fw-bold"><?= htmlspecialchars($session['title'] ?? $session['quiz_set_title']) ?></h5>
+            <div class="d-flex align-items-center gap-2 flex-wrap">
+              <h5 class="mb-0 fw-bold"><?= htmlspecialchars($session['title'] ?? $session['quiz_set_title']) ?></h5>
+              <?php
+                $sStart = (int)($session['start_question'] ?? 1);
+                $sEnd   = (int)($session['end_question'] ?? 0);
+                $sTot   = (int)$session['total_questions'];
+                $sRangeBadge = ($sStart > 1 || ($sEnd > 0 && $sEnd !== $sTot))
+                    ? "Custom: Q#{$sStart} - Q#{$sEnd} ({$sTot} Qs)"
+                    : "Full Set ({$sTot} Qs)";
+              ?>
+              <span id="headerRangeBadge" class="badge bg-light text-dark border"><?= $sRangeBadge ?></span>
+            </div>
             <small class="opacity-75"><i class="fa-solid fa-users me-1"></i><?= htmlspecialchars($session['chat_title'] ?? $session['chat_id']) ?></small>
           </div>
           <span class="badge fs-6 px-3 py-2" id="statusBadge">—</span>
@@ -266,14 +277,22 @@ require_once '../includes/header.php';
 
 <?php if ($session): ?>
 <script>
-const CSRF      = '<?= htmlspecialchars($_SESSION['csrf_token']) ?>';
-const API       = '<?= BASE_URL ?>api/tg_quiz/session.php';
+const CSRF       = '<?= htmlspecialchars($_SESSION['csrf_token']) ?>';
+const API        = '<?= BASE_URL ?>api/tg_quiz/session.php';
 const SESSION_ID = <?= $session_id ?>;
-const TOTAL_Q   = <?= (int)$session['total_questions'] ?>;
-let pollInterval;
-let logs = [];
+const TOTAL_Q    = <?= (int)$session['total_questions'] ?>;
+
+let pollInterval = null;
+let tickInterval = null;
+let isPolling    = false;
+let logs         = [];
 let lastSentCount = -1;
-let lastStatus = null;
+let lastStatus   = null;
+
+let currentSecs    = 0;
+let currentMaxSecs = 15;
+let currentStatus  = null;
+let serverOffsetSec = 0;
 
 const statusColors = {
   'COUNTDOWN': {bg:'bg-info text-dark',     text:'🚀 COUNTDOWN'},
@@ -285,6 +304,56 @@ const statusColors = {
   'PENDING':   {bg:'bg-secondary',          text:'⏳ PENDING'},
 };
 
+function renderRing(secs, maxSecs, status) {
+  const timerRing     = document.getElementById('timerRing');
+  const timerRingText = document.getElementById('timerRingText');
+  const timerDisplay  = document.getElementById('timerDisplay');
+  const ringLabel     = document.getElementById('timerRingLabel');
+  const ringSubtitle  = document.getElementById('timerSubtitle');
+  if (!timerRing) return;
+
+  const displaySecs = Math.max(0, secs);
+  if (timerRingText) timerRingText.textContent = displaySecs;
+  if (timerDisplay)  timerDisplay.textContent  = displaySecs + 's';
+
+  const circumference = 2 * Math.PI * 65; // ~408.4
+  const safeMax = Math.max(1, maxSecs || 15);
+  const dashOffset = circumference * (1 - (Math.min(displaySecs, safeMax) / safeMax));
+  timerRing.style.strokeDashoffset = Math.max(0, Math.min(circumference, dashOffset));
+
+  if (status === 'COUNTDOWN') {
+    if (ringLabel) ringLabel.textContent = 'starts in';
+    if (ringSubtitle) ringSubtitle.innerHTML = `🚀 <span class="text-primary fw-bold">Live Pre-Quiz Countdown</span> synced with Telegram!`;
+    timerRing.style.stroke = '#0dcaf0';
+  } else if (status === 'PAUSED') {
+    if (ringLabel) ringLabel.textContent = 'paused';
+    if (ringSubtitle) ringSubtitle.innerHTML = `⏸ <span class="text-warning fw-bold">Quiz Paused</span> — Telegram status updated to PAUSED`;
+    timerRing.style.stroke = '#ffc107';
+  } else if (status === 'RUNNING') {
+    if (ringLabel) ringLabel.textContent = 'sec left';
+    if (ringSubtitle) ringSubtitle.innerHTML = `Next question countdown: <span class="fw-bold text-dark">${displaySecs}s</span>`;
+    timerRing.style.stroke = displaySecs > 5 ? '#28a745' : '#dc3545';
+  } else {
+    if (ringLabel) ringLabel.textContent = 'status';
+    if (ringSubtitle) ringSubtitle.innerHTML = `Session status: <span class="fw-bold text-dark">${status || '—'}</span>`;
+    timerRing.style.stroke = '#6c757d';
+  }
+}
+
+function tickRealtime() {
+  if (['RUNNING', 'COUNTDOWN'].includes(currentStatus)) {
+    if (currentSecs > 0) {
+      currentSecs--;
+      renderRing(currentSecs, currentMaxSecs, currentStatus);
+    } else {
+      // Timer reached 0! Trigger immediate status poll to dispatch / start without waiting
+      if (!isPolling) {
+        pollStatus();
+      }
+    }
+  }
+}
+
 function updateUI(data) {
   const s = data.session;
   const pct  = data.progress_pct || 0;
@@ -292,19 +361,28 @@ function updateUI(data) {
   const isPaused = s.status === 'PAUSED';
   const isRunning = s.status === 'RUNNING';
 
+  currentStatus = s.status;
+
+  if (data.server_time) {
+    serverOffsetSec = data.server_time - Math.floor(Date.now() / 1000);
+  }
+
   // Determine seconds to display on ring & display
   let secs = 0;
   let maxSecs = 15;
   if (isCountdown) {
-    secs = data.countdown_remaining !== undefined ? data.countdown_remaining : (parseInt(s.countdown_seconds) || 30);
+    secs = data.countdown_remaining !== undefined ? parseInt(data.countdown_remaining) : (parseInt(s.countdown_seconds) || 30);
     maxSecs = parseInt(s.countdown_seconds) || 30;
   } else if (isRunning) {
-    secs = data.seconds_remaining || 0;
+    secs = data.seconds_remaining !== undefined ? parseInt(data.seconds_remaining) : 0;
     maxSecs = parseInt(s.timer_seconds) || 15;
   } else if (isPaused) {
-    secs = data.seconds_remaining || (parseInt(s.remaining_time) || 0);
+    secs = data.seconds_remaining !== undefined ? parseInt(data.seconds_remaining) : (parseInt(s.remaining_time) || 0);
     maxSecs = parseInt(s.timer_seconds) || 15;
   }
+
+  currentSecs = Math.max(0, secs);
+  currentMaxSecs = maxSecs;
 
   // Background engine status indicator
   const engineAlert = document.getElementById('engineAlertBox');
@@ -314,11 +392,11 @@ function updateUI(data) {
     if (data.daemon_active) {
       engineAlert.className = 'alert alert-success py-2 px-3 small d-flex align-items-center mb-4 rounded-3 shadow-sm border-0';
       engineIcon.className = 'fa-solid fa-server me-2 fs-5 text-success';
-      engineDesc.innerHTML = '<strong>Server Daemon Active (XAMPP PHP):</strong> Quiz is executing autonomously in the background. It will continue running even if this tab is closed, minimized, or screen locked.';
+      engineDesc.innerHTML = '<strong>Server Daemon Active (PHP Background Engine):</strong> Quiz is executing autonomously in the background. It will continue running even if this tab is closed, minimized, or screen locked.';
     } else {
       engineAlert.className = 'alert alert-info py-2 px-3 small d-flex align-items-center mb-4 rounded-3 shadow-sm border-0';
       engineIcon.className = 'fa-solid fa-circle-nodes me-2 fs-5 text-primary';
-      engineDesc.innerHTML = '<strong>Background Engine:</strong> Standby. Starts automatically when quiz begins.';
+      engineDesc.innerHTML = '<strong>Live Monitor Active:</strong> Browser live polling and server auto-dispatch are running in real-time.';
     }
   }
 
@@ -335,16 +413,40 @@ function updateUI(data) {
   else headerClass += 'bg-secondary text-white';
   document.getElementById('statusHeader').className = headerClass;
 
+  // Numbers & Range Info
+  const sent = parseInt(s.questions_sent) || 0;
+  const total = parseInt(s.total_questions) || 0;
+  const remaining = Math.max(0, total - sent);
+  const startNum = parseInt(s.start_question) || 1;
+  const endNum = parseInt(s.end_question) || 0;
+
+  // Range Badge in Header
+  const headerRangeBadge = document.getElementById('headerRangeBadge');
+  if (headerRangeBadge) {
+    if (startNum > 1 || (endNum > 0 && endNum !== total)) {
+      headerRangeBadge.textContent = `Custom Range: Q#${startNum} - Q#${endNum} (${total} Qs)`;
+      headerRangeBadge.className = 'badge bg-warning text-dark border';
+    } else {
+      headerRangeBadge.textContent = `Full Set: ${total} Questions`;
+      headerRangeBadge.className = 'badge bg-light text-dark border';
+    }
+  }
+
   // Progress Bar & ASCII bar
   const progressBar = document.getElementById('progressBar');
   if (isCountdown) {
     progressBar.style.width = '100%';
     progressBar.className = 'progress-bar progress-bar-striped progress-bar-animated bg-info';
-    document.getElementById('progressText').textContent = `Countdown Active: Starting in ${secs}s`;
+    document.getElementById('progressText').textContent = `Countdown Active: Starting in ${currentSecs}s`;
   } else {
     progressBar.style.width = pct + '%';
     progressBar.className = 'progress-bar progress-bar-striped progress-bar-animated bg-success';
-    document.getElementById('progressText').textContent = `${s.questions_sent} / ${s.total_questions} (${pct}%)`;
+    if (startNum > 1 || (endNum > 0 && endNum !== total)) {
+      const curQDisplay = sent > 0 ? (startNum + sent - 1) : startNum;
+      document.getElementById('progressText').textContent = `${sent} / ${total} (${pct}%) — Current: Q#${curQDisplay}`;
+    } else {
+      document.getElementById('progressText').textContent = `${sent} / ${total} (${pct}%)`;
+    }
   }
 
   if (document.getElementById('asciiProgressBar')) {
@@ -379,41 +481,13 @@ function updateUI(data) {
       : '<i class="fa-solid fa-clock-rotate-left me-1"></i>Last Synced: —';
   }
 
-  // Numbers
-  const sent = parseInt(s.questions_sent) || 0;
-  const total = parseInt(s.total_questions) || 0;
-  const remaining = Math.max(0, total - sent);
-
   document.getElementById('totalQ').textContent       = total;
   document.getElementById('sentQ').textContent        = sent;
   document.getElementById('remainingQ').textContent   = remaining;
   document.getElementById('timerSet').textContent     = (s.timer_seconds || 15) + 's';
-  document.getElementById('timerDisplay').textContent = secs + 's';
-  document.getElementById('timerRingText').textContent = secs;
 
-  // Ring progress & subtitles
-  const ringLabel = document.getElementById('timerRingLabel');
-  const ringSubtitle = document.getElementById('timerSubtitle');
-  const timerRing = document.getElementById('timerRing');
-
-  if (isCountdown) {
-    if (ringLabel) ringLabel.textContent = 'starts in';
-    if (ringSubtitle) ringSubtitle.innerHTML = `🚀 <span class="text-primary fw-bold">Live Pre-Quiz Countdown</span> synced with Telegram!`;
-    timerRing.style.stroke = '#0dcaf0';
-  } else if (isPaused) {
-    if (ringLabel) ringLabel.textContent = 'paused';
-    if (ringSubtitle) ringSubtitle.innerHTML = `⏸ <span class="text-warning fw-bold">Quiz Paused</span> — Telegram status updated to PAUSED`;
-    timerRing.style.stroke = '#ffc107';
-  } else {
-    if (ringLabel) ringLabel.textContent = 'sec left';
-    if (ringSubtitle) ringSubtitle.innerHTML = `Next question countdown: <span id="timerDisplay" class="fw-bold text-dark">${secs}s</span>`;
-    timerRing.style.stroke = secs > 5 ? '#28a745' : '#dc3545';
-  }
-
-  const circumference = 2 * Math.PI * 65; // ~408
-  const safeMax = Math.max(1, maxSecs);
-  const dashOffset = circumference * (1 - (Math.min(secs, safeMax) / safeMax));
-  timerRing.style.strokeDashoffset = Math.max(0, dashOffset);
+  // Render timer ring with accurate values
+  renderRing(currentSecs, currentMaxSecs, currentStatus);
 
   // Telegram status, message ID, & preview
   const tgStatus = document.getElementById('tgStatusText');
@@ -463,10 +537,9 @@ function updateUI(data) {
   document.getElementById('btnResume').disabled = s.status !== 'PAUSED';
   if (document.getElementById('btnDispatch')) {
     // If in COUNTDOWN, admin can click to skip countdown and send first question immediately
-    const startQ = parseInt(s.start_question) || 1;
     document.getElementById('btnDispatch').disabled = (!['RUNNING','COUNTDOWN'].includes(s.status) || remaining <= 0);
     document.getElementById('btnDispatch').innerHTML = isCountdown
-      ? `<i class="fa-solid fa-bolt me-2"></i>SKIP TO QUESTION #${startQ}`
+      ? `<i class="fa-solid fa-bolt me-2"></i>SKIP TO QUESTION #${startNum}`
       : '<i class="fa-solid fa-forward-step me-2"></i>SEND NEXT NOW';
   }
   document.getElementById('btnStop').style.display   = ['COUNTDOWN','RUNNING','PAUSED'].includes(s.status) ? '' : 'none';
@@ -487,9 +560,10 @@ function updateUI(data) {
     }
   }
 
-  // Stop polling when done and announced
+  // Stop polling and ticking when done and announced
   if ((s.status === 'COMPLETED' && s.results_announced_at) || ['STOPPED','FAILED'].includes(s.status)) {
-    clearInterval(pollInterval);
+    if (pollInterval) clearInterval(pollInterval);
+    if (tickInterval) clearInterval(tickInterval);
   }
 }
 
@@ -506,15 +580,18 @@ function addLog(msg, type='info') {
 }
 
 async function pollStatus() {
+  if (isPolling) return;
+  isPolling = true;
+
   try {
-    const res = await fetch(`${API}?action=status&session_id=${SESSION_ID}`).then(r=>r.json());
+    const res = await fetch(`${API}?action=status&session_id=${SESSION_ID}&_nocache=${Date.now()}`).then(r=>r.json());
     if (res.success) {
       updateUI(res);
       const startQ = parseInt(res.session.start_question) || 1;
       const curSent = parseInt(res.session.questions_sent) || 0;
       if (lastSentCount !== -1 && curSent > lastSentCount) {
         const curQNum = (startQ > 1) ? (startQ + curSent - 1) : curSent;
-        addLog(`🎯 Question #${curQNum} dispatched to Telegram group!`, 'success');
+        addLog(`🎯 Question #${curQNum} dispatched to Telegram group! (${curSent}/${res.session.total_questions})`, 'success');
       }
       lastSentCount = curSent;
 
@@ -527,7 +604,11 @@ async function pollStatus() {
         addLog(`🏆 Quiz finished! Final results successfully published to Telegram!`, 'success');
       }
     }
-  } catch(e) { /* network error, keep trying */ }
+  } catch(e) {
+    /* network error, keep trying */
+  } finally {
+    isPolling = false;
+  }
 }
 
 async function sessionAction(action) {
@@ -541,17 +622,22 @@ async function sessionAction(action) {
 
   const fd = new FormData();
   fd.append('action', action); fd.append('csrf_token', CSRF); fd.append('session_id', SESSION_ID);
-  const res = await fetch(API, {method:'POST', body:fd}).then(r=>r.json());
-  document.getElementById('actionResult').innerHTML = `<div class="alert alert-${res.success?'success':'danger'} py-2 text-center">${res.message}</div>`;
-  addLog(res.message, res.success ? 'success' : 'error');
-  if (res.success) pollStatus();
+  try {
+    const res = await fetch(API, {method:'POST', body:fd}).then(r=>r.json());
+    document.getElementById('actionResult').innerHTML = `<div class="alert alert-${res.success?'success':'danger'} py-2 text-center">${res.message}</div>`;
+    addLog(res.message, res.success ? 'success' : 'error');
+    if (res.success) pollStatus();
+  } catch(e) {
+    document.getElementById('actionResult').innerHTML = `<div class="alert alert-danger py-2 text-center">Network error executing ${action}</div>`;
+  }
 }
 
-// Start polling every 3 seconds
+// Start polling every 3 seconds and real-time ticker every 1 second
 document.addEventListener('DOMContentLoaded', () => {
   pollStatus();
   pollInterval = setInterval(pollStatus, 3000);
-  addLog('Monitor started — polling every 3s', 'info');
+  tickInterval = setInterval(tickRealtime, 1000);
+  addLog('Monitor started — real-time 1s timer & 3s sync active', 'info');
 });
 
 // Immediately re-sync when tab becomes visible, window restored from minimize, or screen unlocked
@@ -565,7 +651,10 @@ window.addEventListener('focus', () => {
 });
 
 // Clean up on page leave
-window.addEventListener('beforeunload', () => clearInterval(pollInterval));
+window.addEventListener('beforeunload', () => {
+  if (pollInterval) clearInterval(pollInterval);
+  if (tickInterval) clearInterval(tickInterval);
+});
 </script>
 <?php endif; ?>
 

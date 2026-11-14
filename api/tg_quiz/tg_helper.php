@@ -352,11 +352,11 @@ function formatTelegramQuestionText(string $questionRaw, int $qNum = 0, int $tot
     }
     $questionRaw = cleanUtf8String($questionRaw);
     if ($qNum > 0 && $totalQ > 0) {
-        if (!preg_match('/^(📝\s*)?Question\s*\d+\s*(\/|of)\s*\d+/ui', $questionRaw)) {
-            $prefix = "📝 Question {$qNum}/{$totalQ}\n\n";
-            $allowedLen = $maxLen - mb_strlen($prefix, 'UTF-8');
-            return $prefix . mb_substr($questionRaw, 0, max(1, $allowedLen), 'UTF-8');
-        }
+        // Strip any existing Question X/Y or 📝 Question X/Y prefix so we never show repeated/frozen numbering
+        $questionClean = preg_replace('/^(📝\s*)?Question\s*\d+\s*(\/|of)\s*\d+[\s:\.\-]*[\r\n]*/ui', '', $questionRaw);
+        $prefix = "📝 Question {$qNum}/{$totalQ}\n\n";
+        $allowedLen = $maxLen - mb_strlen($prefix, 'UTF-8');
+        return $prefix . mb_substr($questionClean, 0, max(1, $allowedLen), 'UTF-8');
     }
     return mb_substr($questionRaw, 0, $maxLen, 'UTF-8');
 }
@@ -469,7 +469,7 @@ function dispatchSessionQuestion(PDO $pdo, int $session_id, bool $force = false)
         return ['success' => false, 'status' => 'not_found', 'message' => 'Session not found'];
     }
 
-    if ($session['status'] !== 'RUNNING') {
+    if (!in_array($session['status'], ['RUNNING', 'COUNTDOWN'])) {
         return ['success' => false, 'status' => $session['status'], 'message' => "Session is {$session['status']}"];
     }
 
@@ -479,13 +479,13 @@ function dispatchSessionQuestion(PDO $pdo, int $session_id, bool $force = false)
     $is_final  = ($current_q + 1 >= $total_q);
 
     // Check if completed
-    if ($current_q >= $total_q) {
+    if ($current_q >= $total_q && $total_q > 0) {
         return ['success' => true, 'status' => 'waiting_results', 'message' => 'Collecting final Telegram answers'];
     }
 
-    // Check due time unless forced
     $now = time();
-    $nextTs = $session['next_question_at'] ? strtotime($session['next_question_at']) : 0;
+    $nowDt = date('Y-m-d H:i:s', $now);
+    $nextTs = !empty($session['next_question_at']) ? strtotime($session['next_question_at']) : 0;
     if (!$force && $nextTs > $now) {
         return [
             'success'           => true,
@@ -495,37 +495,68 @@ function dispatchSessionQuestion(PDO $pdo, int $session_id, bool $force = false)
         ];
     }
 
-    // 2. ATOMIC CLAIM: Lock this turn for 30 seconds so no other worker claims it
-    $claimStmt = $pdo->prepare("
-        UPDATE tg_quiz_sessions
-        SET next_question_at = DATE_ADD(NOW(), INTERVAL 30 SECOND), updated_at = NOW()
-        WHERE id = ? AND status = 'RUNNING'
-    ");
-    $claimStmt->execute([$session_id]);
+    // 2. ATOMIC CLAIM: Lock this turn for 60 seconds so no concurrent poll or worker can claim it
+    $lockUntil = date('Y-m-d H:i:s', $now + 60);
+    if (!$force) {
+        $claimStmt = $pdo->prepare("
+            UPDATE tg_quiz_sessions
+            SET next_question_at = :lock_until, updated_at = :now_dt
+            WHERE id = :id AND status = 'RUNNING' AND (next_question_at IS NULL OR next_question_at <= :now_dt)
+        ");
+        $claimStmt->execute([
+            ':lock_until' => $lockUntil,
+            ':now_dt'     => $nowDt,
+            ':id'         => $session_id,
+        ]);
+        if ($claimStmt->rowCount() === 0) {
+            // Another worker or request has already claimed this turn or timer has not expired
+            return [
+                'success'           => true,
+                'status'            => 'waiting',
+                'seconds_remaining' => max(0, $nextTs - $now),
+                'message'           => 'Waiting for timer or turn already claimed'
+            ];
+        }
+    } else {
+        // Forced dispatch: update lock
+        $claimStmt = $pdo->prepare("
+            UPDATE tg_quiz_sessions
+            SET status = 'RUNNING', next_question_at = :lock_until, updated_at = :now_dt
+            WHERE id = :id AND status IN ('RUNNING','COUNTDOWN')
+        ");
+        $claimStmt->execute([
+            ':lock_until' => $lockUntil,
+            ':now_dt'     => $nowDt,
+            ':id'         => $session_id,
+        ]);
+    }
 
     // 3. Decrypt Bot Token
     $token = decryptToken($session['bot_token_encrypted']);
     if (empty($token)) {
-        $pdo->prepare("UPDATE tg_quiz_sessions SET status = 'FAILED', error_message = 'Failed to decrypt bot token' WHERE id = ?")->execute([$session_id]);
+        $pdo->prepare("UPDATE tg_quiz_sessions SET status = 'FAILED', error_message = 'Failed to decrypt bot token', updated_at = :now_dt WHERE id = :id")
+            ->execute([':now_dt' => $nowDt, ':id' => $session_id]);
         return ['success' => false, 'status' => 'failed', 'message' => 'Bot token decryption failed'];
     }
 
     // 4. Get Question ID
-    $question_ids = @json_decode($session['question_ids_json'], true);
-    if (!is_array($question_ids) || !isset($question_ids[$current_q])) {
+    $question_ids = @json_decode($session['question_ids_json'] ?? '[]', true);
+    if (!is_array($question_ids) || empty($question_ids)) {
         // Fallback: fetch directly from DB respecting range
         $fbStart = max(1, (int)($session['start_question'] ?? 1));
         $fbEnd   = (int)($session['end_question'] ?? 0);
-        $qFetch = $pdo->prepare("SELECT id FROM tg_quiz_questions WHERE quiz_set_id = ? AND is_active = 1 ORDER BY question_number ASC");
+        $qFetch = $pdo->prepare("SELECT id FROM tg_quiz_questions WHERE quiz_set_id = ? AND is_active = 1 ORDER BY question_number ASC, id ASC");
         $qFetch->execute([$session['quiz_set_id']]);
         $all_db_ids = $qFetch->fetchAll(PDO::FETCH_COLUMN);
         $s_idx = max(0, $fbStart - 1);
         $e_idx = $fbEnd > 0 ? min($fbEnd - 1, count($all_db_ids) - 1) : count($all_db_ids) - 1;
-        $question_ids = array_slice($all_db_ids, $s_idx, max(0, $e_idx - $s_idx + 1));
+        $question_ids = array_slice($all_db_ids, $s_idx, max(1, $e_idx - $s_idx + 1));
+        $question_ids = array_values(array_unique($question_ids));
     }
 
-    if (!isset($question_ids[$current_q])) {
-        $pdo->prepare("UPDATE tg_quiz_sessions SET status = 'COMPLETED', end_time = NOW() WHERE id = ?")->execute([$session_id]);
+    if ($current_q >= count($question_ids) || ($total_q > 0 && $current_q >= $total_q)) {
+        $pdo->prepare("UPDATE tg_quiz_sessions SET status = 'COMPLETED', end_time = :now_dt, updated_at = :now_dt WHERE id = :id AND status != 'COMPLETED'")
+            ->execute([':now_dt' => $nowDt, ':id' => $session_id]);
         return ['success' => true, 'status' => 'completed', 'message' => 'All questions processed'];
     }
 
@@ -539,7 +570,8 @@ function dispatchSessionQuestion(PDO $pdo, int $session_id, bool $force = false)
 
     if (!$question) {
         // Skip missing question
-        $pdo->prepare("UPDATE tg_quiz_sessions SET current_question = current_question + 1, updated_at = NOW() WHERE id = ?")->execute([$session_id]);
+        $pdo->prepare("UPDATE tg_quiz_sessions SET current_question = current_question + 1, updated_at = :now_dt WHERE id = :id")
+            ->execute([':now_dt' => $nowDt, ':id' => $session_id]);
         return ['success' => false, 'status' => 'skipped', 'message' => "Question ID {$question_id} not found, skipped."];
     }
 
@@ -547,7 +579,7 @@ function dispatchSessionQuestion(PDO $pdo, int $session_id, bool $force = false)
     $start_q = max(1, (int)($session['start_question'] ?? 1));
     $end_q   = (int)($session['end_question'] ?? 0);
 
-    if (!empty($question['question_number'])) {
+    if (!empty($question['question_number']) && (int)$question['question_number'] >= $start_q && ($end_q <= 0 || (int)$question['question_number'] <= $end_q)) {
         $displayQNum = (int)$question['question_number'];
     } elseif ($start_q > 1) {
         $displayQNum = $start_q + $current_q;
@@ -566,6 +598,10 @@ function dispatchSessionQuestion(PDO $pdo, int $session_id, bool $force = false)
     if (!empty($res['ok'])) {
         $poll_id = (string)($res['result']['poll']['id'] ?? $res['result']['message_id'] ?? '');
 
+        // Schedule next question at exact wall-clock time: now + timer using PHP timezone
+        $nextQuestionAt = date('Y-m-d H:i:s', time() + $timer);
+        $completeDt = date('Y-m-d H:i:s');
+
         $pdo->beginTransaction();
         try {
             $upd = $pdo->prepare("
@@ -573,22 +609,28 @@ function dispatchSessionQuestion(PDO $pdo, int $session_id, bool $force = false)
                 SET current_question        = current_question + 1,
                     questions_sent          = questions_sent + 1,
                     status                  = 'RUNNING',
-                    last_question_sent_at   = NOW(),
-                    next_question_at        = DATE_ADD(NOW(), INTERVAL ? SECOND),
-                    last_telegram_message_id = ?,
+                    last_question_sent_at   = :sent_dt,
+                    next_question_at        = :next_at,
+                    last_telegram_message_id = :poll_id,
                     error_message           = NULL,
                     retry_count             = 0,
                     end_time                = NULL,
-                    updated_at              = NOW()
-                WHERE id = ?
+                    updated_at              = :upd_dt
+                WHERE id = :id
             ");
-            $upd->execute([$timer, $poll_id, $session_id]);
+            $upd->execute([
+                ':sent_dt' => $completeDt,
+                ':next_at' => $nextQuestionAt,
+                ':poll_id' => $poll_id,
+                ':upd_dt'  => $completeDt,
+                ':id'      => $session_id,
+            ]);
 
             $logIns = $pdo->prepare("
                 INSERT INTO tg_quiz_logs (session_id, question_id, question_number, status, telegram_poll_id, sent_at)
-                VALUES (?, ?, ?, 'SENT', ?, NOW())
+                VALUES (?, ?, ?, 'SENT', ?, ?)
             ");
-            $logIns->execute([$session_id, $question_id, $displayQNum, $poll_id]);
+            $logIns->execute([$session_id, $question_id, $displayQNum, $poll_id, $completeDt]);
 
             $pdo->commit();
 
@@ -618,48 +660,68 @@ function dispatchSessionQuestion(PDO $pdo, int $session_id, bool $force = false)
         $errorDesc = $res['description'] ?? 'Telegram API error';
         $errorCode = $res['error_code'] ?? 0;
         $retry_count = ((int)$session['retry_count']) + 1;
+        $errDt = date('Y-m-d H:i:s');
 
         // Rate limit 429
         $retry_after = (int)($res['parameters']['retry_after'] ?? 30);
         if ($errorCode == 429 || strpos($errorDesc, 'Too Many Requests') !== false) {
+            $retryAt = date('Y-m-d H:i:s', time() + $retry_after);
             $pdo->prepare("
                 UPDATE tg_quiz_sessions
-                SET next_question_at = DATE_ADD(NOW(), INTERVAL ? SECOND),
-                    error_message = ?,
-                    updated_at = NOW()
-                WHERE id = ?
-            ")->execute([$retry_after, "Rate limit: {$errorDesc}", $session_id]);
+                SET next_question_at = :retry_at,
+                    error_message = :err,
+                    updated_at = :upd_dt
+                WHERE id = :id
+            ")->execute([
+                ':retry_at' => $retryAt,
+                ':err'      => "Rate limit: {$errorDesc}",
+                ':upd_dt'   => $errDt,
+                ':id'       => $session_id,
+            ]);
 
             return ['success' => false, 'status' => 'rate_limited', 'retry_after' => $retry_after, 'message' => $errorDesc];
         }
 
         if ($retry_count >= 3) {
             // Max retries reached — skip to next question so quiz doesn't halt forever
+            $nextAt = date('Y-m-d H:i:s', time() + $timer);
             $pdo->prepare("
                 UPDATE tg_quiz_sessions
                 SET current_question = current_question + 1,
                     retry_count = 0,
-                    next_question_at = DATE_ADD(NOW(), INTERVAL ? SECOND),
-                    error_message = ?,
-                    updated_at = NOW()
-                WHERE id = ?
-            ")->execute([$timer, "Skipped Q{$displayQNum}: {$errorDesc}", $session_id]);
+                    next_question_at = :next_at,
+                    error_message = :err,
+                    updated_at = :upd_dt
+                WHERE id = :id
+            ")->execute([
+                ':next_at' => $nextAt,
+                ':err'     => "Skipped Q{$displayQNum}: {$errorDesc}",
+                ':upd_dt'  => $errDt,
+                ':id'      => $session_id,
+            ]);
         } else {
             // Retry in 10 seconds
+            $retryAt = date('Y-m-d H:i:s', time() + 10);
             $pdo->prepare("
                 UPDATE tg_quiz_sessions
-                SET retry_count = ?,
-                    next_question_at = DATE_ADD(NOW(), INTERVAL 10 SECOND),
-                    error_message = ?,
-                    updated_at = NOW()
-                WHERE id = ?
-            ")->execute([$retry_count, $errorDesc, $session_id]);
+                SET retry_count = :rc,
+                    next_question_at = :retry_at,
+                    error_message = :err,
+                    updated_at = :upd_dt
+                WHERE id = :id
+            ")->execute([
+                ':rc'       => $retry_count,
+                ':retry_at' => $retryAt,
+                ':err'      => $errorDesc,
+                ':upd_dt'   => $errDt,
+                ':id'       => $session_id,
+            ]);
         }
 
         $pdo->prepare("
-            INSERT INTO tg_quiz_logs (session_id, question_id, question_number, status, error_message, retry_count)
-            VALUES (?, ?, ?, 'FAILED', ?, ?)
-        ")->execute([$session_id, $question_id, $displayQNum, $errorDesc, $retry_count]);
+            INSERT INTO tg_quiz_logs (session_id, question_id, question_number, status, error_message, retry_count, sent_at)
+            VALUES (?, ?, ?, 'FAILED', ?, ?, ?)
+        ")->execute([$session_id, $question_id, $displayQNum, $errorDesc, $retry_count, $errDt]);
 
         return ['success' => false, 'status' => 'telegram_error', 'error' => $errorDesc, 'message' => $errorDesc];
     }
@@ -866,8 +928,9 @@ if (!function_exists('sendTelegramQuizAnnouncement')) {
         ]);
 
         if (!empty($res['ok'])) {
-            $pdo->prepare("UPDATE tg_quiz_sessions SET announcement_sent_at = NOW(), updated_at = NOW() WHERE id = ?")
-                ->execute([$sessionId]);
+            $nowDt = date('Y-m-d H:i:s');
+            $pdo->prepare("UPDATE tg_quiz_sessions SET announcement_sent_at = :nowDt, updated_at = :nowDt WHERE id = :id")
+                ->execute([':nowDt' => $nowDt, ':id' => $sessionId]);
             return ['success' => true, 'message' => 'Pre-quiz announcement sent to Telegram!'];
         }
 
@@ -1036,8 +1099,9 @@ if (!function_exists('syncTelegramQuizLiveStatus')) {
 
             // If edit returned "message is not modified", treat as successful
             if (empty($res['ok']) && strpos($res['description'] ?? '', 'message is not modified') !== false) {
-                $pdo->prepare("UPDATE tg_quiz_sessions SET last_telegram_update = NOW(), last_telegram_status_text = ? WHERE id = ?")
-                    ->execute([$text, $sessionId]);
+                $nowDt = date('Y-m-d H:i:s');
+                $pdo->prepare("UPDATE tg_quiz_sessions SET last_telegram_update = :nowDt, last_telegram_status_text = :txt, updated_at = :nowDt WHERE id = :id")
+                    ->execute([':nowDt' => $nowDt, ':txt' => $text, ':id' => $sessionId]);
                 return ['ok' => true, 'message_id' => $statusMsgId];
             }
 
@@ -1065,13 +1129,15 @@ if (!function_exists('syncTelegramQuizLiveStatus')) {
 
         // 8. Update database session with new status message state
         if (!empty($res['ok']) && $statusMsgId > 0) {
+            $nowDt = date('Y-m-d H:i:s');
             $pdo->prepare("
                 UPDATE tg_quiz_sessions
-                SET telegram_status_message_id = ?,
-                    last_telegram_update       = NOW(),
-                    last_telegram_status_text  = ?
-                WHERE id = ?
-            ")->execute([$statusMsgId, $text, $sessionId]);
+                SET telegram_status_message_id = :msg_id,
+                    last_telegram_update       = :nowDt,
+                    last_telegram_status_text  = :txt,
+                    updated_at                 = :nowDt
+                WHERE id = :id
+            ")->execute([':msg_id' => $statusMsgId, ':nowDt' => $nowDt, ':txt' => $text, ':id' => $sessionId]);
 
             return ['ok' => true, 'message_id' => $statusMsgId, 'text' => $text];
         }
