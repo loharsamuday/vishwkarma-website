@@ -495,8 +495,8 @@ function dispatchSessionQuestion(PDO $pdo, int $session_id, bool $force = false)
         ];
     }
 
-    // 2. ATOMIC CLAIM: Lock this turn for 60 seconds so no concurrent poll or worker can claim it
-    $lockUntil = date('Y-m-d H:i:s', $now + 60);
+    // Keep the claim longer than the Telegram API timeout, but avoid a minute-long stall if a worker exits unexpectedly.
+    $lockUntil = date('Y-m-d H:i:s', $now + 20);
     if (!$force) {
         $claimStmt = $pdo->prepare("
             UPDATE tg_quiz_sessions

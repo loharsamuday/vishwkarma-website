@@ -69,7 +69,7 @@ DB_CONFIG = {
 }
 
 ENCRYPTION_KEY_RAW = os.getenv('TG_ENCRYPTION_KEY', 'default-32-char-key-change-this!!')
-POLL_INTERVAL      = int(os.getenv('POLL_INTERVAL_SECONDS', '5'))
+POLL_INTERVAL      = int(os.getenv('POLL_INTERVAL_SECONDS', '2'))
 MAX_RETRIES        = int(os.getenv('MAX_RETRIES', '3'))
 RETRY_DELAY        = int(os.getenv('RETRY_DELAY_SECONDS', '10'))
 TELEGRAM_API_BASE  = 'https://api.telegram.org/bot{token}/{method}'
@@ -203,11 +203,13 @@ class SyncAPIClient:
         return []
 
     def report_sent(self, session_id: int, question_id: int, question_number: int,
+                    current_question: int,
                     timer: int, poll_id: str = '') -> dict:
         return self._post('report_sent', {
             'session_id':      session_id,
             'question_id':     question_id,
             'question_number': question_number,
+            'current_question': current_question,
             'timer_seconds':   timer,
             'poll_id':         poll_id,
         })
@@ -285,7 +287,7 @@ def process_task_api(client: SyncAPIClient, task: dict):
 
     if result.get('ok'):
         poll_id = str(result.get('result', {}).get('poll', {}).get('id', ''))
-        resp = client.report_sent(session_id, question_id, question_num, timer, poll_id)
+        resp = client.report_sent(session_id, question_id, question_num, current_q, timer, poll_id)
 
         # Check if session was paused/stopped while we were sending
         if resp.get('action') == 'stop':

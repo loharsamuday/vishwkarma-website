@@ -250,6 +250,24 @@ switch ($action) {
                     continue;
                 }
 
+                $claimUntil = date('Y-m-d H:i:s', time() + 20);
+                $claim = $pdo->prepare("
+                    UPDATE tg_quiz_sessions
+                    SET next_question_at = :claim_until, updated_at = :now_dt
+                    WHERE id = :id AND status = 'RUNNING'
+                      AND current_question = :current_question
+                      AND next_question_at <= :now_dt
+                ");
+                $claim->execute([
+                    ':claim_until' => $claimUntil,
+                    ':now_dt' => $nowDt,
+                    ':id' => (int)$sess['session_id'],
+                    ':current_question' => $current_idx,
+                ]);
+                if ($claim->rowCount() !== 1) {
+                    continue;
+                }
+
                 $q_id  = (int) $question_ids[$current_idx];
                 $qStmt = $pdo->prepare("
                     SELECT id, question_text, option_a, option_b, option_c, option_d,
@@ -289,29 +307,21 @@ switch ($action) {
         $session_id      = (int) ($_POST['session_id'] ?? 0);
         $question_id     = (int) ($_POST['question_id'] ?? 0);
         $question_number = (int) ($_POST['question_number'] ?? 0);
+        $current_question = (int) ($_POST['current_question'] ?? -1);
         $poll_id         = trim($_POST['poll_id'] ?? '');
         $timer           = max(5, (int) ($_POST['timer_seconds'] ?? 15));
 
-        if (!$session_id || !$question_id) {
-            echo json_encode(['success' => false, 'message' => 'Missing session_id or question_id']);
+        if (!$session_id || !$question_id || $current_question < 0) {
+            echo json_encode(['success' => false, 'message' => 'Missing session_id, question_id, or current_question']);
             break;
         }
 
         try {
-            // Verify session is still RUNNING (user may have paused/stopped)
-            $chk = $pdo->prepare("SELECT status FROM tg_quiz_sessions WHERE id = ? AND status = 'RUNNING'");
-            $chk->execute([$session_id]);
-            if (!$chk->fetchColumn()) {
-                echo json_encode(['success' => false, 'message' => 'Session no longer running', 'action' => 'stop']);
-                break;
-            }
-
             $next_at = date('Y-m-d H:i:s', time() + $timer);
-
             $pdo->beginTransaction();
 
             $nowDt = date('Y-m-d H:i:s');
-            $pdo->prepare("
+            $update = $pdo->prepare("
                 UPDATE tg_quiz_sessions
                 SET current_question        = current_question + 1,
                     questions_sent          = questions_sent + 1,
@@ -320,8 +330,21 @@ switch ($action) {
                     last_telegram_message_id = :poll_id,
                     retry_count             = 0,
                     updated_at              = :now_dt
-                WHERE id = :session_id
-            ")->execute([':now_dt' => $nowDt, ':next_at' => $next_at, ':poll_id' => $poll_id, ':session_id' => $session_id]);
+                WHERE id = :session_id AND status = 'RUNNING'
+                  AND current_question = :current_question
+            ");
+            $update->execute([
+                ':now_dt' => $nowDt,
+                ':next_at' => $next_at,
+                ':poll_id' => $poll_id,
+                ':session_id' => $session_id,
+                ':current_question' => $current_question,
+            ]);
+            if ($update->rowCount() !== 1) {
+                $pdo->rollBack();
+                echo json_encode(['success' => false, 'message' => 'Session turn already advanced or is no longer running', 'action' => 'stop']);
+                break;
+            }
 
             $pdo->prepare("
                 INSERT INTO tg_quiz_logs
