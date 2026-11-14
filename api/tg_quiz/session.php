@@ -31,51 +31,83 @@ function validateCsrfToken() {
 /**
  * Check if the background Telegram quiz daemon is currently active
  */
-function isTelegramQuizDaemonActive(): bool {
-    $lockFilePath = sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'tg_quiz_daemon.lock';
-    if (!file_exists($lockFilePath)) {
-        return false;
+if (!function_exists('isTelegramQuizDaemonActive')) {
+    function isTelegramQuizDaemonActive(): bool {
+        try {
+            $lockFilePath = sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'tg_quiz_daemon.lock';
+            if (!file_exists($lockFilePath)) {
+                return false;
+            }
+            $fp = @fopen($lockFilePath, 'c+');
+            if (!$fp) return false;
+            $wouldBlock = false;
+            $locked = flock($fp, LOCK_EX | LOCK_NB, $wouldBlock);
+            if ($locked) {
+                flock($fp, LOCK_UN);
+                fclose($fp);
+                return false;
+            }
+            fclose($fp);
+            return true; // Another process currently holds the lock
+        } catch (\Throwable $e) {
+            return false;
+        }
     }
-    $fp = @fopen($lockFilePath, 'c+');
-    if (!$fp) return false;
-    $wouldBlock = false;
-    $locked = flock($fp, LOCK_EX | LOCK_NB, $wouldBlock);
-    if ($locked) {
-        flock($fp, LOCK_UN);
-        fclose($fp);
-        return false;
-    }
-    fclose($fp);
-    return true; // Another process currently holds the lock
 }
 
 /**
- * Ensures the background Telegram quiz daemon is running via PHP CLI on XAMPP.
- * Spawns detached background process without opening console window.
+ * Ensures the background Telegram quiz daemon is running via PHP CLI on XAMPP / local server.
+ * On shared hosting (e.g. InfinityFree) where exec() is disabled, this fails gracefully
+ * and allows browser-based polling to drive the quiz without errors.
  */
-function ensureTelegramQuizDaemonRunning(): bool {
-    if (isTelegramQuizDaemonActive()) {
-        return true;
-    }
+if (!function_exists('ensureTelegramQuizDaemonRunning')) {
+    function ensureTelegramQuizDaemonRunning(): bool {
+        try {
+            if (isTelegramQuizDaemonActive()) {
+                return true;
+            }
 
-    $daemonScript = realpath(__DIR__ . '/../../bin/tg_quiz_daemon.php');
-    if (!$daemonScript || !file_exists($daemonScript)) {
+            $daemonScript = realpath(__DIR__ . '/../../bin/tg_quiz_daemon.php');
+            if (!$daemonScript || !file_exists($daemonScript)) {
+                return false;
+            }
+
+            $phpCli = 'C:\\xampp\\php\\php.exe';
+            if (!file_exists($phpCli)) {
+                $phpCli = defined('PHP_BINARY') && PHP_BINARY ? PHP_BINARY : 'php';
+            }
+
+            if (strtoupper(substr(PHP_OS, 0, 3)) === 'WIN') {
+                if (class_exists('COM')) {
+                    try {
+                        $wsh = new COM("WScript.Shell");
+                        $wsh->Run("\"{$phpCli}\" \"{$daemonScript}\"", 0, false);
+                        return true;
+                    } catch (\Throwable $e) {}
+                }
+                if (function_exists('popen') && function_exists('pclose')) {
+                    $cmd = "start /B \"\" \"{$phpCli}\" \"{$daemonScript}\"";
+                    $proc = @popen($cmd, "r");
+                    if ($proc) {
+                        @pclose($proc);
+                        return true;
+                    }
+                }
+            } else {
+                // Linux / Unix / Shared Hosting (e.g. InfinityFree)
+                // Always check function_exists before calling exec()
+                if (function_exists('exec')) {
+                    @exec("\"{$phpCli}\" \"{$daemonScript}\" > /dev/null 2>&1 &");
+                    return true;
+                }
+            }
+        } catch (\Throwable $e) {
+            // CLI/exec unavailable on shared hosting; gracefully ignore
+            return false;
+        }
+
         return false;
     }
-
-    $phpCli = 'C:\\xampp\\php\\php.exe';
-    if (!file_exists($phpCli)) {
-        $phpCli = defined('PHP_BINARY') && PHP_BINARY ? PHP_BINARY : 'php';
-    }
-
-    if (strtoupper(substr(PHP_OS, 0, 3)) === 'WIN') {
-        $cmd = "start /B \"\" \"{$phpCli}\" \"{$daemonScript}\"";
-        @pclose(@popen($cmd, "r"));
-    } else {
-        @exec("\"{$phpCli}\" \"{$daemonScript}\" > /dev/null 2>&1 &");
-    }
-
-    return true;
 }
 
 $action   = $_GET['action'] ?? $_POST['action'] ?? '';
