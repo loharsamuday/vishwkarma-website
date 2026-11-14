@@ -43,6 +43,25 @@ function global_exception_handler($exception) {
         ob_end_clean();
     }
 
+    // Check if this is an API / AJAX request
+    $isApi = (
+        (isset($_SERVER['HTTP_ACCEPT']) && stripos($_SERVER['HTTP_ACCEPT'], 'application/json') !== false) ||
+        (isset($_SERVER['REQUEST_URI']) && stripos($_SERVER['REQUEST_URI'], '/api/') !== false) ||
+        (isset($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest')
+    );
+
+    if ($isApi) {
+        http_response_code(500);
+        header('Content-Type: application/json; charset=UTF-8');
+        echo json_encode([
+            'success' => false,
+            'message' => 'Server Error: ' . $exception->getMessage(),
+            'file'    => basename($exception->getFile()),
+            'line'    => $exception->getLine()
+        ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+        exit;
+    }
+
     // 3. Display a friendly, generic error page to the user
     http_response_code(500);
     echo '<!DOCTYPE html>

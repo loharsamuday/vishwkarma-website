@@ -63,6 +63,168 @@ if (!function_exists('cleanUtf8String')) {
     }
 }
 
+if (!function_exists('ensureTgTablesExist')) {
+    /**
+     * Auto-ensure all required Telegram Quiz tables exist in the database.
+     * Prevents fatal 500 errors if SQL schema was not manually imported.
+     */
+    function ensureTgTablesExist(PDO $pdo): void {
+        static $tablesCreated = false;
+        if ($tablesCreated) return;
+        $tablesCreated = true;
+        try {
+            $pdo->exec("
+                CREATE TABLE IF NOT EXISTS `tg_bots` (
+                    `id` INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+                    `admin_id` INT UNSIGNED NOT NULL,
+                    `bot_token_encrypted` TEXT NOT NULL,
+                    `bot_name` VARCHAR(255) DEFAULT NULL,
+                    `bot_username` VARCHAR(255) DEFAULT NULL,
+                    `bot_id` BIGINT DEFAULT NULL,
+                    `is_active` TINYINT(1) DEFAULT 1,
+                    `last_update_id` BIGINT NOT NULL DEFAULT 0,
+                    `last_verified_at` DATETIME DEFAULT NULL,
+                    `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    `updated_at` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                    INDEX `idx_admin_id` (`admin_id`)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+            ");
+            $pdo->exec("
+                CREATE TABLE IF NOT EXISTS `tg_chats` (
+                    `id` INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+                    `admin_id` INT UNSIGNED NOT NULL,
+                    `chat_id` BIGINT NOT NULL,
+                    `chat_title` VARCHAR(500) DEFAULT NULL,
+                    `chat_type` ENUM('group','supergroup','channel','private') DEFAULT 'supergroup',
+                    `can_send_polls` TINYINT(1) DEFAULT 0,
+                    `is_verified` TINYINT(1) DEFAULT 0,
+                    `verified_at` DATETIME DEFAULT NULL,
+                    `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    `updated_at` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                    UNIQUE KEY `uniq_admin_chat` (`admin_id`, `chat_id`)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+            ");
+            $pdo->exec("
+                CREATE TABLE IF NOT EXISTS `tg_quiz_sets` (
+                    `id` INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+                    `admin_id` INT UNSIGNED NOT NULL,
+                    `title` VARCHAR(500) NOT NULL,
+                    `description` TEXT DEFAULT NULL,
+                    `total_questions` INT UNSIGNED DEFAULT 0,
+                    `default_timer` INT UNSIGNED DEFAULT 15,
+                    `is_active` TINYINT(1) DEFAULT 1,
+                    `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    `updated_at` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                    INDEX `idx_admin_id` (`admin_id`)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+            ");
+            $pdo->exec("
+                CREATE TABLE IF NOT EXISTS `tg_quiz_questions` (
+                    `id` INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+                    `quiz_set_id` INT UNSIGNED NOT NULL,
+                    `question_number` INT UNSIGNED NOT NULL,
+                    `question_text` TEXT NOT NULL,
+                    `option_a` VARCHAR(500) NOT NULL,
+                    `option_b` VARCHAR(500) NOT NULL,
+                    `option_c` VARCHAR(500) DEFAULT NULL,
+                    `option_d` VARCHAR(500) DEFAULT NULL,
+                    `correct_answer` ENUM('A','B','C','D') NOT NULL,
+                    `explanation` TEXT DEFAULT NULL,
+                    `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    INDEX `idx_quiz_set` (`quiz_set_id`)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+            ");
+            $pdo->exec("
+                CREATE TABLE IF NOT EXISTS `tg_quiz_sessions` (
+                    `id` INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+                    `quiz_set_id` INT UNSIGNED NOT NULL,
+                    `admin_id` INT UNSIGNED NOT NULL,
+                    `chat_id` BIGINT NOT NULL,
+                    `chat_title` VARCHAR(500) DEFAULT NULL,
+                    `title` VARCHAR(500) DEFAULT NULL,
+                    `status` ENUM('PENDING','COUNTDOWN','RUNNING','PAUSED','COMPLETED','STOPPED','FAILED') DEFAULT 'PENDING',
+                    `total_questions` INT UNSIGNED DEFAULT 0,
+                    `current_question` INT UNSIGNED DEFAULT 0,
+                    `questions_sent` INT UNSIGNED DEFAULT 0,
+                    `question_order` ENUM('original','random') DEFAULT 'original',
+                    `question_ids_json` TEXT DEFAULT NULL,
+                    `timer_seconds` INT UNSIGNED DEFAULT 15,
+                    `countdown_seconds` INT UNSIGNED DEFAULT 30,
+                    `countdown_ends_at` DATETIME DEFAULT NULL,
+                    `correct_mark` DECIMAL(4,2) DEFAULT 1.00,
+                    `wrong_mark` DECIMAL(4,2) DEFAULT -0.25,
+                    `start_question` INT UNSIGNED DEFAULT 1,
+                    `end_question` INT UNSIGNED DEFAULT 0,
+                    `telegram_status_message_id` BIGINT DEFAULT NULL,
+                    `last_telegram_status_text` TEXT DEFAULT NULL,
+                    `last_telegram_update` DATETIME DEFAULT NULL,
+                    `announcement_sent_at` DATETIME DEFAULT NULL,
+                    `results_announced_at` DATETIME DEFAULT NULL,
+                    `error_message` TEXT DEFAULT NULL,
+                    `start_time` DATETIME DEFAULT NULL,
+                    `end_time` DATETIME DEFAULT NULL,
+                    `next_question_at` DATETIME DEFAULT NULL,
+                    `remaining_time` INT DEFAULT NULL,
+                    `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    `updated_at` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+            ");
+            $pdo->exec("
+                CREATE TABLE IF NOT EXISTS `tg_quiz_logs` (
+                    `id` INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+                    `session_id` INT UNSIGNED NOT NULL,
+                    `question_id` INT UNSIGNED NOT NULL,
+                    `question_number` INT UNSIGNED NOT NULL,
+                    `telegram_message_id` BIGINT DEFAULT NULL,
+                    `telegram_poll_id` VARCHAR(255) DEFAULT NULL,
+                    `dispatched_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    `expires_at` DATETIME DEFAULT NULL,
+                    `closed_at` DATETIME DEFAULT NULL,
+                    INDEX `idx_session_q` (`session_id`, `question_id`),
+                    INDEX `idx_poll_id` (`telegram_poll_id`)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+            ");
+            $pdo->exec("
+                CREATE TABLE IF NOT EXISTS `tg_quiz_user_answers` (
+                    `id` INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+                    `session_id` INT UNSIGNED NOT NULL,
+                    `question_id` INT UNSIGNED NOT NULL,
+                    `telegram_user_id` BIGINT NOT NULL,
+                    `telegram_username` VARCHAR(255) DEFAULT NULL,
+                    `telegram_full_name` VARCHAR(255) DEFAULT NULL,
+                    `selected_option` ENUM('A','B','C','D') DEFAULT NULL,
+                    `is_correct` TINYINT(1) DEFAULT 0,
+                    `answered_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    INDEX `idx_session_user` (`session_id`, `telegram_user_id`)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+            ");
+            $pdo->exec("
+                CREATE TABLE IF NOT EXISTS `tg_quiz_results` (
+                    `id` INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+                    `session_id` INT UNSIGNED NOT NULL,
+                    `telegram_user_id` BIGINT NOT NULL,
+                    `telegram_username` VARCHAR(255) DEFAULT NULL,
+                    `telegram_full_name` VARCHAR(255) DEFAULT NULL,
+                    `total_attempted` INT UNSIGNED DEFAULT 0,
+                    `correct_count` INT UNSIGNED DEFAULT 0,
+                    `wrong_count` INT UNSIGNED DEFAULT 0,
+                    `final_score` DECIMAL(6,2) DEFAULT 0.00,
+                    `rank` INT UNSIGNED DEFAULT 0,
+                    `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    UNIQUE KEY `uniq_session_user` (`session_id`, `telegram_user_id`)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+            ");
+        } catch (\Throwable $e) {
+            error_log("ensureTgTablesExist notice: " . $e->getMessage());
+        }
+    }
+}
+
+// Auto-run table check if $pdo is available in current scope
+if (isset($pdo) && $pdo instanceof PDO) {
+    ensureTgTablesExist($pdo);
+}
+
 if (!function_exists('getTelegramApiBaseUrl')) {
     /**
      * Get base URL for Telegram Bot API calls.
@@ -120,13 +282,23 @@ if (!function_exists('callTelegramAPI')) {
                 'Content-Type: application/json; charset=UTF-8',
                 'Accept: application/json',
             ],
-            CURLOPT_CONNECTTIMEOUT => 4,
-            CURLOPT_TIMEOUT        => 10,
+            CURLOPT_CONNECTTIMEOUT => 5,
+            CURLOPT_TIMEOUT        => 12,
             CURLOPT_SSL_VERIFYPEER => true,
         ]);
         $response = curl_exec($ch);
         $error    = curl_error($ch);
         $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+
+        // If SSL certificate check failed due to server's outdated local CA store, retry once without peer verification
+        if ($error && stripos($error, 'certificate') !== false) {
+            curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+            curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 0);
+            $response = curl_exec($ch);
+            $error    = curl_error($ch);
+            $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        }
+
         curl_close($ch);
 
         if ($error) {
@@ -139,7 +311,7 @@ if (!function_exists('callTelegramAPI')) {
 
         $decoded = json_decode($response, true);
         if (!is_array($decoded)) {
-            return ['ok' => false, 'error_code' => $httpCode, 'description' => 'Invalid JSON from Telegram: ' . mb_substr((string)$response, 0, 200, 'UTF-8')];
+            return ['ok' => false, 'error_code' => $httpCode, 'description' => 'Invalid JSON from Telegram (HTTP ' . $httpCode . '): ' . mb_substr((string)$response, 0, 200, 'UTF-8')];
         }
 
         return $decoded;

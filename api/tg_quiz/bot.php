@@ -119,27 +119,37 @@ switch ($action) {
         $bot_info = $result['result'];
         $encrypted = encryptToken($raw_token);
 
-        // Upsert bot record (one bot per admin)
-        $stmt = $pdo->prepare("SELECT id FROM tg_bots WHERE admin_id = ? LIMIT 1");
-        $stmt->execute([$admin_id]);
-        $existing = $stmt->fetchColumn();
+        try {
+            // Upsert bot record (one bot per admin)
+            $stmt = $pdo->prepare("SELECT id FROM tg_bots WHERE admin_id = ? LIMIT 1");
+            $stmt->execute([$admin_id]);
+            $existing = $stmt->fetchColumn();
 
-        if ($existing) {
-            $upd = $pdo->prepare("UPDATE tg_bots SET bot_token_encrypted=?, bot_name=?, bot_username=?, bot_id=?, is_active=1, last_verified_at=NOW(), updated_at=NOW() WHERE admin_id=?");
-            $upd->execute([$encrypted, $bot_info['first_name'], $bot_info['username'], $bot_info['id'], $admin_id]);
-        } else {
-            $ins = $pdo->prepare("INSERT INTO tg_bots (admin_id, bot_token_encrypted, bot_name, bot_username, bot_id, last_verified_at) VALUES (?,?,?,?,?,NOW())");
-            $ins->execute([$admin_id, $encrypted, $bot_info['first_name'], $bot_info['username'], $bot_info['id']]);
+            if ($existing) {
+                $upd = $pdo->prepare("UPDATE tg_bots SET bot_token_encrypted=?, bot_name=?, bot_username=?, bot_id=?, is_active=1, last_verified_at=NOW(), updated_at=NOW() WHERE admin_id=?");
+                $upd->execute([$encrypted, $bot_info['first_name'], $bot_info['username'], $bot_info['id'], $admin_id]);
+            } else {
+                $ins = $pdo->prepare("INSERT INTO tg_bots (admin_id, bot_token_encrypted, bot_name, bot_username, bot_id, last_verified_at) VALUES (?,?,?,?,?,NOW())");
+                $ins->execute([$admin_id, $encrypted, $bot_info['first_name'], $bot_info['username'], $bot_info['id']]);
+            }
+
+            if (function_exists('logActivity')) {
+                logActivity("Telegram bot connected: @{$bot_info['username']}", 'admin', null, $admin_id);
+            }
+
+            echo json_encode([
+                'success'      => true,
+                'message'      => "Bot @{$bot_info['username']} connected successfully!",
+                'bot_name'     => $bot_info['first_name'],
+                'bot_username' => $bot_info['username'],
+                'bot_id'       => $bot_info['id'],
+            ]);
+        } catch (\Throwable $dbEx) {
+            echo json_encode([
+                'success' => false,
+                'message' => 'Database error while saving bot: ' . $dbEx->getMessage()
+            ]);
         }
-
-        logActivity("Telegram bot connected: @{$bot_info['username']}", 'admin', null, $admin_id);
-        echo json_encode([
-            'success'      => true,
-            'message'      => 'Bot connected successfully!',
-            'bot_name'     => $bot_info['first_name'],
-            'bot_username' => $bot_info['username'],
-            'bot_id'       => $bot_info['id'],
-        ]);
         break;
 
     // --------------------------------------------------------

@@ -33,7 +33,10 @@ if (ENVIRONMENT === 'local') {
     define('DB_PASS', 'LiAc40aALrDAS');
     define('DB_NAME', 'if0_42277227_vishwkarma');
     
-    define('BASE_URL', 'https://vishwkarma.great-site.net/');
+    // Automatically match current protocol (http or https) to prevent mixed-content & SSL errors
+    $proto = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off' || ($_SERVER['SERVER_PORT'] ?? 80) == 443 || (!empty($_SERVER['HTTP_X_FORWARDED_PROTO']) && $_SERVER['HTTP_X_FORWARDED_PROTO'] === 'https')) ? 'https://' : 'http://';
+    $host  = $_SERVER['HTTP_HOST'] ?? 'vishwkarma.great-site.net';
+    define('BASE_URL', $proto . $host . '/');
 }
 
 // Telegram Webhook Secret Token for X-Telegram-Bot-Api-Secret-Token validation
@@ -42,12 +45,10 @@ if (!defined('TG_WEBHOOK_SECRET')) {
     define('TG_WEBHOOK_SECRET', 'V1shwk4rma_TG_w3bh00k_S3cr3t_2026_Sec99');
 }
 
-// Telegram API Base URL
-// Default: 'https://api.telegram.org'
-// Note: Free hosting like InfinityFree blocks direct outbound calls to api.telegram.org.
-// If your server blocks api.telegram.org, set this to your custom reverse proxy URL (e.g. 'https://my-tg-proxy.vercel.app').
+// Telegram API Base URL (Reverse Proxy)
+// Uses custom Vercel proxy to bypass InfinityFree blocking api.telegram.org
 if (!defined('TG_API_BASE_URL')) {
-    define('TG_API_BASE_URL', getenv('TG_API_BASE_URL') ?: 'https://api.telegram.org');
+    define('TG_API_BASE_URL', 'https://telegram-proxy-pi.vercel.app');
 }
 
 define('GOOGLE_CLIENT_ID', 'YOUR_GOOGLE_OAUTH_CLIENT_ID');

@@ -319,21 +319,43 @@ require_once '../includes/header.php';
 
 <script>
 const CSRF = '<?= htmlspecialchars($_SESSION['csrf_token']) ?>';
-const API_BOT  = '<?= BASE_URL ?>api/tg_quiz/bot.php';
-const API_CHAT = '<?= BASE_URL ?>api/tg_quiz/chat.php';
-const API_SESSION = '<?= BASE_URL ?>api/tg_quiz/session.php';
+// Use relative URLs to prevent HTTP/HTTPS mixed-content or domain mismatch issues
+const API_BOT  = '../../api/tg_quiz/bot.php';
+const API_CHAT = '../../api/tg_quiz/chat.php';
+const API_SESSION = '../../api/tg_quiz/session.php';
 
 async function apiPost(url, data) {
   data.csrf_token = CSRF;
   const fd = new FormData();
   for (const [k,v] of Object.entries(data)) fd.append(k, v);
-  const r = await fetch(url, {method:'POST', body: fd});
-  return r.json();
+  try {
+    const r = await fetch(url, {method:'POST', body: fd});
+    const text = await r.text();
+    try {
+      return JSON.parse(text);
+    } catch(err) {
+      console.error('Non-JSON server response:', text);
+      const cleanSnippet = text.replace(/<[^>]*>?/gm, ' ').replace(/\s+/g, ' ').trim().substring(0, 250);
+      return { 
+        success: false, 
+        message: 'Server Error (HTTP ' + r.status + '): ' + (cleanSnippet || 'Invalid JSON response from server') 
+      };
+    }
+  } catch (netErr) {
+    console.error('Network error during apiPost:', netErr);
+    return { 
+      success: false, 
+      message: 'Connection Failed: ' + netErr.message + '. (Check network or try reloading page).' 
+    };
+  }
 }
 
 function showResult(elId, res) {
   const el = document.getElementById(elId);
-  el.innerHTML = `<div class="alert alert-${res.success ? 'success' : 'danger'} py-2">${res.message || JSON.stringify(res)}</div>`;
+  if (!el) return;
+  const alertType = res.success ? 'success' : 'danger';
+  const icon = res.success ? '<i class="fa-solid fa-circle-check me-2"></i>' : '<i class="fa-solid fa-triangle-exclamation me-2"></i>';
+  el.innerHTML = `<div class="alert alert-${alertType} py-2 d-flex align-items-center">${icon}<div>${res.message || JSON.stringify(res)}</div></div>`;
 }
 
 async function stopQuiz(sessionId, button) {
@@ -368,42 +390,68 @@ async function stopQuiz(sessionId, button) {
 }
 
 async function connectBot() {
-  const token = document.getElementById('botTokenInput').value.trim();
+  const tokenInput = document.getElementById('botTokenInput');
+  const token = tokenInput ? tokenInput.value.trim() : '';
   if (!token) return alert('Enter bot token');
-  document.getElementById('botResult').innerHTML = '<div class="alert alert-secondary py-2"><i class="fa-solid fa-spinner fa-spin me-2"></i>Connecting...</div>';
-  const res = await apiPost(API_BOT + '?action=connect', {bot_token: token, action:'connect'});
-  showResult('botResult', res);
-  if (res.success) setTimeout(() => location.reload(), 1500);
+  
+  const resultBox = document.getElementById('botResult');
+  resultBox.innerHTML = '<div class="alert alert-secondary py-2"><i class="fa-solid fa-spinner fa-spin me-2"></i>Connecting to Telegram...</div>';
+  
+  try {
+    const res = await apiPost(API_BOT + '?action=connect', {bot_token: token, action:'connect'});
+    showResult('botResult', res);
+    if (res.success) {
+      setTimeout(() => location.reload(), 1500);
+    }
+  } catch (err) {
+    resultBox.innerHTML = `<div class="alert alert-danger py-2"><i class="fa-solid fa-triangle-exclamation me-2"></i>Error: ${err.message}</div>`;
+  }
 }
 
 async function testBot() {
-  const res = await apiPost(API_BOT + '?action=test', {action:'test'});
-  showResult('botResult', res);
+  const resultBox = document.getElementById('botResult');
+  resultBox.innerHTML = '<div class="alert alert-secondary py-2"><i class="fa-solid fa-spinner fa-spin me-2"></i>Testing connection...</div>';
+  try {
+    const res = await apiPost(API_BOT + '?action=test', {action:'test'});
+    showResult('botResult', res);
+  } catch (err) {
+    resultBox.innerHTML = `<div class="alert alert-danger py-2"><i class="fa-solid fa-triangle-exclamation me-2"></i>Error: ${err.message}</div>`;
+  }
 }
 
 async function disconnectBot() {
   if (!confirm('Disconnect bot?')) return;
-  const res = await apiPost(API_BOT + '?action=disconnect', {action:'disconnect'});
-  showResult('botResult', res);
-  if (res.success) setTimeout(() => location.reload(), 1000);
+  const resultBox = document.getElementById('botResult');
+  resultBox.innerHTML = '<div class="alert alert-secondary py-2"><i class="fa-solid fa-spinner fa-spin me-2"></i>Disconnecting...</div>';
+  try {
+    const res = await apiPost(API_BOT + '?action=disconnect', {action:'disconnect'});
+    showResult('botResult', res);
+    if (res.success) setTimeout(() => location.reload(), 1000);
+  } catch (err) {
+    resultBox.innerHTML = `<div class="alert alert-danger py-2"><i class="fa-solid fa-triangle-exclamation me-2"></i>Error: ${err.message}</div>`;
+  }
 }
 
 async function verifyChat() {
   const chatId = document.getElementById('chatIdInput').value.trim();
   if (!chatId) return alert('Enter Chat ID');
-  document.getElementById('chatResult').innerHTML = '<div class="alert alert-secondary py-2"><i class="fa-solid fa-spinner fa-spin me-2"></i>Verifying...</div>';
-  const res = await apiPost(API_CHAT + '?action=verify', {action:'verify', chat_id: chatId});
   const el = document.getElementById('chatResult');
-  if (res.success) {
-    const checks = res.checks || {};
-    el.innerHTML = `
-      <div class="alert alert-success py-2">
-        <strong>${res.chat_title}</strong> (${res.chat_type})<br>
-        ${Object.entries(checks).map(([k,v]) => `<span class="me-3">${v ? '✅' : '❌'} ${k.replace(/_/g,' ')}</span>`).join('')}
-      </div>`;
-    setTimeout(() => location.reload(), 2000);
-  } else {
-    el.innerHTML = `<div class="alert alert-danger py-2">${res.message}</div>`;
+  el.innerHTML = '<div class="alert alert-secondary py-2"><i class="fa-solid fa-spinner fa-spin me-2"></i>Verifying...</div>';
+  try {
+    const res = await apiPost(API_CHAT + '?action=verify', {action:'verify', chat_id: chatId});
+    if (res.success) {
+      const checks = res.checks || {};
+      el.innerHTML = `
+        <div class="alert alert-success py-2">
+          <strong>${res.chat_title}</strong> (${res.chat_type})<br>
+          ${Object.entries(checks).map(([k,v]) => `<span class="me-3">${v ? '✅' : '❌'} ${k.replace(/_/g,' ')}</span>`).join('')}
+        </div>`;
+      setTimeout(() => location.reload(), 2000);
+    } else {
+      el.innerHTML = `<div class="alert alert-danger py-2">${res.message}</div>`;
+    }
+  } catch(err) {
+    el.innerHTML = `<div class="alert alert-danger py-2"><i class="fa-solid fa-triangle-exclamation me-2"></i>Error: ${err.message}</div>`;
   }
 }
 
