@@ -176,8 +176,9 @@ while (true) {
                 $rem = max(0, $countdownEndsTs - $now);
 
                 if ($rem <= 0) {
-                    // Countdown ended! Transition to RUNNING and dispatch Question 1
-                    daemonLog("Session #{$sessionId}: Countdown completed. Transitioning to RUNNING and sending Question 1.", $logFile);
+                    // Countdown ended! Transition to RUNNING and dispatch first question
+                    $startQ = (int)($session['start_question'] ?? 1);
+                    daemonLog("Session #{$sessionId}: Countdown completed. Transitioning to RUNNING and sending Question #{$startQ}.", $logFile);
 
                     try {
                         syncTelegramQuizLiveStatus($pdo, $session, 'started', 0);
@@ -193,9 +194,9 @@ while (true) {
                         WHERE id = ? AND status = 'COUNTDOWN'
                     ")->execute([$sessionId]);
 
-                    // Dispatch Question 1
+                    // Dispatch first Question
                     $disp = dispatchSessionQuestion($pdo, $sessionId, true);
-                    daemonLog("Session #{$sessionId}: Question 1 dispatch result: " . json_encode($disp), $logFile);
+                    daemonLog("Session #{$sessionId}: Question #{$startQ} dispatch result: " . json_encode($disp), $logFile);
 
                 } else {
                     // Live countdown tick: update Telegram status every 5 seconds or when <= 5s
@@ -218,7 +219,9 @@ while (true) {
 
                 // Check if next question is due
                 if ($nextTs > 0 && $nextTs <= $now && $currQ < $totalQ) {
-                    daemonLog("Session #{$sessionId}: Next question is due. Dispatching question #" . ($currQ + 1) . " of {$totalQ}.", $logFile);
+                    $startQ = (int)($session['start_question'] ?? 1);
+                    $dispQNum = ($startQ > 1) ? ($startQ + $currQ) : ($currQ + 1);
+                    daemonLog("Session #{$sessionId}: Next question is due. Dispatching question #{$dispQNum} (batch turn " . ($currQ + 1) . " of {$totalQ}).", $logFile);
                     $disp = dispatchSessionQuestion($pdo, $sessionId, false);
                     daemonLog("Session #{$sessionId}: Dispatch result: " . json_encode($disp), $logFile);
                 }

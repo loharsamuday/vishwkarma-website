@@ -173,7 +173,7 @@ require_once '../includes/header.php';
                   <option value="10">10 seconds</option>
                   <option value="0">0 seconds (Immediate Start)</option>
                 </select>
-                <small class="text-muted">Displays live countdown on Telegram & website before Question 1.</small>
+                <small class="text-muted">Displays live countdown on Telegram & website before the first question starts.</small>
               </div>
 
               <!-- Pre-Quiz Announcement -->
@@ -279,7 +279,13 @@ function updateSetInfo() {
   } else {
     document.getElementById('setInfoText').textContent = `${q} questions available in this set`;
   }
+  document.getElementById('rangeStart').max = q;
   document.getElementById('rangeEnd').placeholder = `max ${q}`;
+  document.getElementById('rangeEnd').max = q;
+  const currentEndVal = parseInt(document.getElementById('rangeEnd').value) || 0;
+  if (!currentEndVal || currentEndVal > q) {
+    document.getElementById('rangeEnd').value = q;
+  }
   document.getElementById('setInfoBox').classList.remove('d-none');
   updatePreview();
 }
@@ -292,6 +298,16 @@ function checkCustomTimer() {
 function toggleRange() {
   const custom = document.querySelector('input[name="qRange"]:checked').value === 'custom';
   document.getElementById('rangeInputs').classList.toggle('d-none', !custom);
+  if (custom) {
+    const sel = document.getElementById('quizSetSelect');
+    const opt = sel.selectedOptions[0];
+    const q = opt ? (parseInt(opt.dataset.q) || 0) : 0;
+    if (q > 0) {
+      if (!document.getElementById('rangeStart').value) document.getElementById('rangeStart').value = 1;
+      if (!document.getElementById('rangeEnd').value) document.getElementById('rangeEnd').value = q;
+    }
+  }
+  updatePreview();
 }
 
 function getTimer() {
@@ -305,10 +321,20 @@ function updatePreview() {
   if (!setOpt?.value || !chatOpt?.value) return;
   const timer = getTimer();
   const countdown = parseInt(document.getElementById('countdownSelect')?.value) || 0;
-  const q = setOpt.dataset.q;
-  const mins = Math.ceil(q * timer / 60);
+  const totalInSet = parseInt(setOpt.dataset.q) || 0;
+
+  const isCustom = document.querySelector('input[name="qRange"]:checked')?.value === 'custom';
+  let qCount = totalInSet;
+  let rangeInfo = '';
+  if (isCustom && totalInSet > 0) {
+    const sQ = Math.max(1, parseInt(document.getElementById('rangeStart').value) || 1);
+    const eQ = Math.min(totalInSet, parseInt(document.getElementById('rangeEnd').value) || totalInSet);
+    qCount = Math.max(1, eQ - sQ + 1);
+    rangeInfo = ` | Range: Q#${sQ} to Q#${eQ} (${qCount} Qs)`;
+  }
+  const mins = Math.ceil(qCount * timer / 60);
   document.getElementById('previewText').textContent =
-    `${setOpt.text.split('(')[0].trim()} → ${chatOpt.text.split('(')[0].trim()} | Timer: ${timer}s/Q | Pre-Quiz Countdown: ${countdown}s | Est. ${mins} min`;
+    `${setOpt.text.split('(')[0].trim()} → ${chatOpt.text.split('(')[0].trim()}${rangeInfo} | Timer: ${timer}s/Q | Pre-Quiz Countdown: ${countdown}s | Est. ${mins} min`;
   document.getElementById('launchPreview').classList.remove('d-none');
 }
 
@@ -316,6 +342,9 @@ document.getElementById('quizSetSelect')?.addEventListener('change', updatePrevi
 document.getElementById('chatSelect')?.addEventListener('change', updatePreview);
 document.getElementById('timerSelect')?.addEventListener('change', updatePreview);
 document.getElementById('countdownSelect')?.addEventListener('change', updatePreview);
+document.getElementById('rangeStart')?.addEventListener('input', updatePreview);
+document.getElementById('rangeEnd')?.addEventListener('input', updatePreview);
+document.querySelectorAll('input[name="qRange"]').forEach(r => r.addEventListener('change', updatePreview));
 
 async function startQuiz() {
   const quiz_set_id = document.getElementById('quizSetSelect').value;
@@ -326,8 +355,19 @@ async function startQuiz() {
   const correctMark = parseFloat(document.getElementById('correctMark').value);
   const wrongMark   = parseFloat(document.getElementById('wrongMark').value);
   const rangeType   = document.querySelector('input[name="qRange"]:checked').value;
-  const start_q     = rangeType === 'custom' ? (parseInt(document.getElementById('rangeStart').value)||1) : 1;
-  const end_q       = rangeType === 'custom' ? (parseInt(document.getElementById('rangeEnd').value)||0) : 0;
+  let start_q       = 1;
+  let end_q         = 0;
+
+  if (rangeType === 'custom') {
+    start_q = parseInt(document.getElementById('rangeStart').value) || 1;
+    end_q   = parseInt(document.getElementById('rangeEnd').value) || 0;
+    const selOpt = document.getElementById('quizSetSelect').selectedOptions[0];
+    const maxQ = selOpt ? (parseInt(selOpt.dataset.q) || 0) : 0;
+    if (end_q <= 0 && maxQ > 0) end_q = maxQ;
+    if (start_q > end_q && end_q > 0) {
+      return alert(`From Question # (${start_q}) cannot be greater than To Question # (${end_q})`);
+    }
+  }
 
   if (!quiz_set_id) return alert('Please select a quiz set');
   if (!chat_id)     return alert('Please select a Telegram chat');

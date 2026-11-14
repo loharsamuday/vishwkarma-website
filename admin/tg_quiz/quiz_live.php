@@ -26,7 +26,7 @@ if ($session_id) {
 $active_sessions = [];
 if (!$session) {
     try {
-        $stmt2 = $pdo->prepare("SELECT s.id, s.title, s.chat_title, s.status, s.total_questions, s.questions_sent, s.timer_seconds FROM tg_quiz_sessions s WHERE s.admin_id=? AND s.status IN ('RUNNING','PAUSED','COUNTDOWN') ORDER BY s.updated_at DESC");
+        $stmt2 = $pdo->prepare("SELECT s.id, s.title, s.chat_title, s.status, s.total_questions, s.questions_sent, s.timer_seconds, s.start_question, s.end_question FROM tg_quiz_sessions s WHERE s.admin_id=? AND s.status IN ('RUNNING','PAUSED','COUNTDOWN') ORDER BY s.updated_at DESC");
         $stmt2->execute([$_SESSION['admin_id']]);
         $active_sessions = $stmt2->fetchAll();
     } catch (PDOException $e) {}
@@ -240,7 +240,15 @@ require_once '../includes/header.php';
             <?php $pct = $s['total_questions'] ? round($s['questions_sent']/$s['total_questions']*100) : 0; ?>
             <div class="progress-bar bg-success" style="width:<?= $pct ?>%"></div>
           </div>
-          <small><?= $s['questions_sent'] ?> / <?= $s['total_questions'] ?> Questions | <?= $s['timer_seconds'] ?>s/Q</small>
+          <?php
+            $startNum = (int)($s['start_question'] ?? 1);
+            $endNum   = (int)($s['end_question'] ?? 0);
+            $totNum   = (int)$s['total_questions'];
+            $qRangeTxt = ($startNum > 1 || ($endNum > 0 && $endNum !== $totNum))
+                ? "Q#{$startNum} - #{$endNum} ({$totNum} Qs)"
+                : "{$totNum} Questions";
+          ?>
+          <small><?= $s['questions_sent'] ?> / <?= $totNum ?> Sent | <?= $qRangeTxt ?> | <?= $s['timer_seconds'] ?>s/Q</small>
         </div>
         <div class="card-footer bg-transparent border-0">
           <a href="quiz_live.php?session_id=<?= $s['id'] ?>" class="btn btn-primary btn-sm">
@@ -454,10 +462,11 @@ function updateUI(data) {
   document.getElementById('btnPause').disabled  = s.status !== 'RUNNING';
   document.getElementById('btnResume').disabled = s.status !== 'PAUSED';
   if (document.getElementById('btnDispatch')) {
-    // If in COUNTDOWN, admin can click to skip countdown and send Q1 immediately
+    // If in COUNTDOWN, admin can click to skip countdown and send first question immediately
+    const startQ = parseInt(s.start_question) || 1;
     document.getElementById('btnDispatch').disabled = (!['RUNNING','COUNTDOWN'].includes(s.status) || remaining <= 0);
     document.getElementById('btnDispatch').innerHTML = isCountdown
-      ? '<i class="fa-solid fa-bolt me-2"></i>SKIP TO QUESTION 1'
+      ? `<i class="fa-solid fa-bolt me-2"></i>SKIP TO QUESTION #${startQ}`
       : '<i class="fa-solid fa-forward-step me-2"></i>SEND NEXT NOW';
   }
   document.getElementById('btnStop').style.display   = ['COUNTDOWN','RUNNING','PAUSED'].includes(s.status) ? '' : 'none';
@@ -501,14 +510,16 @@ async function pollStatus() {
     const res = await fetch(`${API}?action=status&session_id=${SESSION_ID}`).then(r=>r.json());
     if (res.success) {
       updateUI(res);
+      const startQ = parseInt(res.session.start_question) || 1;
       const curSent = parseInt(res.session.questions_sent) || 0;
       if (lastSentCount !== -1 && curSent > lastSentCount) {
-        addLog(`🎯 Question #${curSent} dispatched to Telegram group!`, 'success');
+        const curQNum = (startQ > 1) ? (startQ + curSent - 1) : curSent;
+        addLog(`🎯 Question #${curQNum} dispatched to Telegram group!`, 'success');
       }
       lastSentCount = curSent;
 
       if (lastStatus === 'COUNTDOWN' && res.session.status === 'RUNNING') {
-        addLog(`🟢 Countdown ended! Quiz has started and Question #1 is live!`, 'success');
+        addLog(`🟢 Countdown ended! Quiz has started and Question #${startQ} is live!`, 'success');
       }
       lastStatus = res.session.status;
 

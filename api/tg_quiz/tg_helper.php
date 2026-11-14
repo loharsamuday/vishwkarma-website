@@ -317,10 +317,15 @@ function dispatchSessionQuestion(PDO $pdo, int $session_id, bool $force = false)
     // 4. Get Question ID
     $question_ids = @json_decode($session['question_ids_json'], true);
     if (!is_array($question_ids) || !isset($question_ids[$current_q])) {
-        // Fallback: fetch directly from DB
-        $qFetch = $pdo->prepare("SELECT id FROM tg_quiz_questions WHERE quiz_set_id = ? ORDER BY question_number ASC");
+        // Fallback: fetch directly from DB respecting range
+        $fbStart = max(1, (int)($session['start_question'] ?? 1));
+        $fbEnd   = (int)($session['end_question'] ?? 0);
+        $qFetch = $pdo->prepare("SELECT id FROM tg_quiz_questions WHERE quiz_set_id = ? AND is_active = 1 ORDER BY question_number ASC");
         $qFetch->execute([$session['quiz_set_id']]);
-        $question_ids = $qFetch->fetchAll(PDO::FETCH_COLUMN);
+        $all_db_ids = $qFetch->fetchAll(PDO::FETCH_COLUMN);
+        $s_idx = max(0, $fbStart - 1);
+        $e_idx = $fbEnd > 0 ? min($fbEnd - 1, count($all_db_ids) - 1) : count($all_db_ids) - 1;
+        $question_ids = array_slice($all_db_ids, $s_idx, max(0, $e_idx - $s_idx + 1));
     }
 
     if (!isset($question_ids[$current_q])) {
@@ -342,8 +347,25 @@ function dispatchSessionQuestion(PDO $pdo, int $session_id, bool $force = false)
         return ['success' => false, 'status' => 'skipped', 'message' => "Question ID {$question_id} not found, skipped."];
     }
 
+    // Determine actual question number and target total for display in poll title & logs
+    $start_q = max(1, (int)($session['start_question'] ?? 1));
+    $end_q   = (int)($session['end_question'] ?? 0);
+
+    if (!empty($question['question_number'])) {
+        $displayQNum = (int)$question['question_number'];
+    } elseif ($start_q > 1) {
+        $displayQNum = $start_q + $current_q;
+    } else {
+        $displayQNum = $qNum;
+    }
+
+    $displayTotalQ = ($end_q > 0) ? $end_q : (($start_q > 1) ? ($start_q + $total_q - 1) : $total_q);
+    if ($displayTotalQ < $displayQNum) {
+        $displayTotalQ = max($displayQNum, $total_q);
+    }
+
     // 5. Send to Telegram as Quiz Poll (with Question Numbering & Option Letters)
-    $res = sendQuizPoll($token, $session['chat_id'], $question, $timer, $qNum, $total_q);
+    $res = sendQuizPoll($token, $session['chat_id'], $question, $timer, $displayQNum, $displayTotalQ);
 
     if (!empty($res['ok'])) {
         $poll_id = (string)($res['result']['poll']['id'] ?? $res['result']['message_id'] ?? '');
@@ -370,7 +392,7 @@ function dispatchSessionQuestion(PDO $pdo, int $session_id, bool $force = false)
                 INSERT INTO tg_quiz_logs (session_id, question_id, question_number, status, telegram_poll_id, sent_at)
                 VALUES (?, ?, ?, 'SENT', ?, NOW())
             ");
-            $logIns->execute([$session_id, $question_id, $qNum, $poll_id]);
+            $logIns->execute([$session_id, $question_id, $displayQNum, $poll_id]);
 
             $pdo->commit();
 
@@ -384,12 +406,12 @@ function dispatchSessionQuestion(PDO $pdo, int $session_id, bool $force = false)
             return [
                 'success'         => true,
                 'status'          => 'sent',
-                'question_number' => $qNum,
-                'total_questions' => $total_q,
+                'question_number' => $displayQNum,
+                'total_questions' => $displayTotalQ,
                 'poll_id'         => $poll_id,
                 'is_completed'    => false,
                 'awaiting_results' => $is_final,
-                'message'         => "Question {$qNum} of {$total_q} sent to Telegram!"
+                'message'         => "Question {$displayQNum} of {$displayTotalQ} sent to Telegram!"
             ];
         } catch (PDOException $e) {
             $pdo->rollBack();
@@ -425,7 +447,7 @@ function dispatchSessionQuestion(PDO $pdo, int $session_id, bool $force = false)
                     error_message = ?,
                     updated_at = NOW()
                 WHERE id = ?
-            ")->execute([$timer, "Skipped Q{$qNum}: {$errorDesc}", $session_id]);
+            ")->execute([$timer, "Skipped Q{$displayQNum}: {$errorDesc}", $session_id]);
         } else {
             // Retry in 10 seconds
             $pdo->prepare("
@@ -441,7 +463,7 @@ function dispatchSessionQuestion(PDO $pdo, int $session_id, bool $force = false)
         $pdo->prepare("
             INSERT INTO tg_quiz_logs (session_id, question_id, question_number, status, error_message, retry_count)
             VALUES (?, ?, ?, 'FAILED', ?, ?)
-        ")->execute([$session_id, $question_id, $qNum, $errorDesc, $retry_count]);
+        ")->execute([$session_id, $question_id, $displayQNum, $errorDesc, $retry_count]);
 
         return ['success' => false, 'status' => 'telegram_error', 'error' => $errorDesc, 'message' => $errorDesc];
     }
@@ -628,10 +650,16 @@ if (!function_exists('sendTelegramQuizAnnouncement')) {
 
         $titleHtml = htmlspecialchars((string)($session['title'] ?: 'Telegram Quiz'));
         $totalQ = max(1, (int)$session['total_questions']);
+        $startQ = (int)($session['start_question'] ?? 1);
+        $endQ   = !empty($session['end_question']) ? (int)$session['end_question'] : ($startQ + $totalQ - 1);
+
+        $qInfo = ($startQ > 1 || (!empty($session['end_question']) && $endQ !== $totalQ))
+            ? "📝 <b>Questions:</b> #{$startQ} to #{$endQ} ({$totalQ} Questions)\n"
+            : "📝 <b>Total Questions:</b> {$totalQ}\n";
 
         $msg = "🔔 <b>UPCOMING QUIZ ALERT</b>\n\n"
              . "📚 <b>Quiz:</b> {$titleHtml}\n"
-             . "📝 <b>Total Questions:</b> {$totalQ}\n"
+             . $qInfo
              . "⏰ <b>Quiz Starting Soon!</b>\n\n"
              . "Get ready! The quiz will begin shortly.";
 
@@ -714,6 +742,16 @@ if (!function_exists('syncTelegramQuizLiveStatus')) {
         $pct    = min(100, (int)round(($sentQ / $totalQ) * 100));
         $bar    = renderQuizProgressBar($sentQ, $totalQ, 20);
 
+        $startQ = (int)($session['start_question'] ?? 1);
+        $endQ   = !empty($session['end_question']) ? (int)$session['end_question'] : ($startQ + $totalQ - 1);
+        $isCustomRange = ($startQ > 1 || (!empty($session['end_question']) && $endQ !== $totalQ));
+
+        $currentDisplayNum = ($startQ > 1) ? ($startQ + max(0, $sentQ - 1)) : $currQ;
+        $targetDisplayNum  = ($startQ > 1 || !empty($session['end_question'])) ? $endQ : $totalQ;
+        if ($targetDisplayNum < $currentDisplayNum) {
+            $targetDisplayNum = max($currentDisplayNum, $totalQ);
+        }
+
         $remainingSec = $customRemaining;
         if ($remainingSec === null) {
             if ($status === 'COUNTDOWN' && !empty($session['countdown_ends_at'])) {
@@ -737,29 +775,35 @@ if (!function_exists('syncTelegramQuizLiveStatus')) {
                       . "📚 <b>{$titleHtml}</b>\n\n"
                       . "Best of luck to all participants!";
             } else {
+                $qLine = $isCustomRange
+                    ? "📝 Questions: <b>#{$startQ} to #{$targetDisplayNum} ({$totalQ} Questions)</b>\n\n"
+                    : "📝 Total Questions: <b>{$totalQ}</b>\n\n";
                 $text = "🚀 <b>QUIZ STARTING SOON!</b>\n\n"
                       . "📚 <b>{$titleHtml}</b>\n"
-                      . "📝 Total Questions: <b>{$totalQ}</b>\n\n"
+                      . $qLine
                       . "⏳ <b>Starting in:</b> <code>{$timeStr}</code>";
             }
         } elseif ($status === 'PAUSED') {
             $text = "⏸ <b>QUIZ PAUSED</b>\n\n"
                   . "📚 <b>{$titleHtml}</b>\n\n"
-                  . "❓ Current Question: <b>{$currQ} / {$totalQ}</b>\n"
+                  . "❓ Current Question: <b>{$currentDisplayNum} / {$targetDisplayNum}</b>\n"
                   . "📈 Progress: <b>{$pct}%</b>\n"
                   . "<code>[{$bar}] {$pct}%</code>\n\n"
                   . "⏸ <i>Quiz has been temporarily paused by host. Timer is stopped.</i>";
         } elseif ($status === 'COMPLETED' || $event === 'completed') {
+            $qSummary = $isCustomRange
+                ? "✅ <b>Questions:</b> #{$startQ} to #{$targetDisplayNum} ({$totalQ} Questions)\n"
+                : "✅ <b>Total Questions:</b> {$totalQ}\n";
             $text = "🏆 <b>QUIZ COMPLETED!</b>\n\n"
                   . "📚 <b>{$titleHtml}</b>\n\n"
-                  . "✅ <b>Total Questions:</b> {$totalQ}\n"
+                  . $qSummary
                   . "🎯 <b>Quiz Successfully Completed!</b>\n\n"
                   . "Thank you for participating.";
         } elseif ($status === 'RUNNING') {
             if ($event === 'resume') {
                 $text = "▶️ <b>QUIZ RESUMED</b>\n\n"
                       . "📚 <b>{$titleHtml}</b>\n\n"
-                      . "❓ Current Question: <b>{$currQ} / {$totalQ}</b>\n"
+                      . "❓ Current Question: <b>{$currentDisplayNum} / {$targetDisplayNum}</b>\n"
                       . "📈 Progress: <b>{$pct}%</b>\n"
                       . "<code>[{$bar}] {$pct}%</code>\n\n"
                       . "⏳ <b>Time Remaining:</b> <code>{$timeStr}</code>";
@@ -767,7 +811,7 @@ if (!function_exists('syncTelegramQuizLiveStatus')) {
                 $text = "📊 <b>LIVE QUIZ STATUS</b>\n\n"
                       . "📚 <b>{$titleHtml}</b>\n\n"
                       . "🟢 Quiz Status: <b>LIVE</b>\n\n"
-                      . "❓ Current Question: <b>{$currQ} / {$totalQ}</b>\n"
+                      . "❓ Current Question: <b>{$currentDisplayNum} / {$targetDisplayNum}</b>\n"
                       . "📈 Progress: <b>{$pct}%</b>\n"
                       . "<code>[{$bar}] {$pct}%</code>\n\n"
                       . "⏳ <b>Time Remaining:</b> <code>{$timeStr}</code>";

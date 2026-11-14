@@ -225,7 +225,7 @@ switch ($action) {
                        s.chat_title, s.title, s.status, s.total_questions,
                        s.current_question, s.questions_sent, s.question_order,
                        s.question_ids_json, s.timer_seconds, s.retry_count,
-                       s.next_question_at,
+                       s.next_question_at, s.start_question, s.end_question,
                        b.bot_token_encrypted
                 FROM tg_quiz_sessions s
                 JOIN tg_bots b ON b.admin_id = s.admin_id AND b.is_active = 1
@@ -266,7 +266,9 @@ switch ($action) {
                     'bot_token_encrypted' => $sess['bot_token_encrypted'],
                     'question'            => $question ?: null,
                     'question_id'         => $q_id,
-                    'question_number'     => $current_idx + 1,
+                    'question_number'     => !empty($question['question_number']) ? (int)$question['question_number'] : (((int)($sess['start_question'] ?? 1)) + $current_idx),
+                    'start_question'      => (int)($sess['start_question'] ?? 1),
+                    'end_question'        => (int)($sess['end_question'] ?? 0),
                 ];
             }
 

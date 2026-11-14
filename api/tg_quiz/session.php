@@ -120,15 +120,29 @@ switch ($action) {
             break;
         }
 
-        // Get questions in order
-        $qStmt = $pdo->prepare("SELECT id FROM tg_quiz_questions WHERE quiz_set_id=? AND is_active=1 ORDER BY question_number ASC");
+        // Get total questions in quiz set
+        $qStmt = $pdo->prepare("SELECT id, question_number FROM tg_quiz_questions WHERE quiz_set_id=? AND is_active=1 ORDER BY question_number ASC");
         $qStmt->execute([$quiz_set_id]);
-        $all_ids = $qStmt->fetchAll(PDO::FETCH_COLUMN);
+        $all_rows = $qStmt->fetchAll(PDO::FETCH_ASSOC);
+
+        $totalInSet = count($all_rows);
+        if ($totalInSet === 0) {
+            echo json_encode(['success'=>false,'message'=>'No active questions found in this quiz set'], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+            break;
+        }
+
+        if ($end_q <= 0 || $end_q > $totalInSet) {
+            $end_q = $totalInSet;
+        }
+        if ($start_q > $end_q) {
+            $start_q = 1;
+        }
 
         // Apply range filter
-        $start_idx = $start_q - 1;
-        $end_idx   = $end_q > 0 ? min($end_q - 1, count($all_ids) - 1) : count($all_ids) - 1;
-        $filtered  = array_slice($all_ids, $start_idx, $end_idx - $start_idx + 1);
+        $start_idx = max(0, $start_q - 1);
+        $end_idx   = min($end_q - 1, $totalInSet - 1);
+        $filtered_rows = array_slice($all_rows, $start_idx, max(0, $end_idx - $start_idx + 1));
+        $filtered = array_column($filtered_rows, 'id');
 
         if (empty($filtered)) {
             echo json_encode(['success'=>false,'message'=>'No questions found in the specified range'], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
@@ -189,16 +203,21 @@ switch ($action) {
             }
         }
 
-        // 2. Either initialize Telegram countdown message OR dispatch Question 1 immediately
+        // 2. Either initialize Telegram countdown message OR dispatch first question immediately
         $dispatchRes = null;
+        $qRangeNote = ($start_q > 1 || $end_q < $totalInSet) ? " (Questions #{$start_q} to #{$end_q})" : "";
         if ($countdown > 0) {
             // Live countdown on Telegram and Website simultaneously
             syncTelegramQuizLiveStatus($pdo, $session_id, 'countdown_start', $countdown);
-            $msg = "🚀 Quiz initialized! Live {$countdown}s countdown started on Telegram & Website.";
+            $msg = "🚀 Quiz initialized! Live {$countdown}s countdown started on Telegram & Website{$qRangeNote}.";
         } else {
             // Immediate Start without countdown
             $dispatchRes = dispatchSessionQuestion($pdo, $session_id, true);
-            $msg = 'Quiz started immediately! Question 1 sent to Telegram.';
+            $firstQNum = $start_q;
+            if (!empty($dispatchRes['question_number'])) {
+                $firstQNum = (int)$dispatchRes['question_number'];
+            }
+            $msg = "Quiz started immediately! Question #{$firstQNum} sent to Telegram.";
         }
 
         // 3. Launch background PHP daemon on XAMPP (runs independently of browser window)
