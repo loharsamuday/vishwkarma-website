@@ -270,7 +270,7 @@ switch ($action) {
 
                 $q_id  = (int) $question_ids[$current_idx];
                 $qStmt = $pdo->prepare("
-                    SELECT id, question_text, option_a, option_b, option_c, option_d,
+                    SELECT id, question_number, question_text, option_a, option_b, option_c, option_d,
                            correct_answer, explanation
                     FROM tg_quiz_questions WHERE id = ? AND is_active = 1
                 ");
@@ -287,7 +287,9 @@ switch ($action) {
                     'bot_token_encrypted' => $sess['bot_token_encrypted'],
                     'question'            => $question ?: null,
                     'question_id'         => $q_id,
-                    'question_number'     => !empty($question['question_number']) ? (int)$question['question_number'] : (((int)($sess['start_question'] ?? 1)) + $current_idx),
+                    'question_number'     => ($sess['question_order'] ?? 'original') === 'original'
+                        ? (((int)($sess['start_question'] ?? 1)) + $current_idx)
+                        : (!empty($question['question_number']) ? (int)$question['question_number'] : (((int)($sess['start_question'] ?? 1)) + $current_idx)),
                     'start_question'      => (int)($sess['start_question'] ?? 1),
                     'end_question'        => (int)($sess['end_question'] ?? 0),
                 ];
@@ -311,12 +313,33 @@ switch ($action) {
         $poll_id         = trim($_POST['poll_id'] ?? '');
         $timer           = max(5, (int) ($_POST['timer_seconds'] ?? 15));
 
-        if (!$session_id || !$question_id || $current_question < 0) {
-            echo json_encode(['success' => false, 'message' => 'Missing session_id, question_id, or current_question']);
+        if (!$session_id || !$question_id) {
+            echo json_encode(['success' => false, 'message' => 'Missing session_id or question_id']);
             break;
         }
 
         try {
+            if ($current_question < 0) {
+                $turnStmt = $pdo->prepare("
+                    SELECT status, current_question, question_ids_json
+                    FROM tg_quiz_sessions
+                    WHERE id = ?
+                ");
+                $turnStmt->execute([$session_id]);
+                $turn = $turnStmt->fetch(PDO::FETCH_ASSOC);
+                $questionIds = $turn ? json_decode($turn['question_ids_json'] ?? '[]', true) : null;
+                $current_question = (int)($turn['current_question'] ?? -1);
+                if (
+                    !$turn
+                    || $turn['status'] !== 'RUNNING'
+                    || !is_array($questionIds)
+                    || (int)($questionIds[$current_question] ?? 0) !== $question_id
+                ) {
+                    echo json_encode(['success' => false, 'message' => 'Session turn already advanced or is no longer running', 'action' => 'stop']);
+                    break;
+                }
+            }
+
             $next_at = date('Y-m-d H:i:s', time() + $timer);
             $pdo->beginTransaction();
 
@@ -537,7 +560,7 @@ switch ($action) {
         }
         try {
             $pdo->beginTransaction();
-            $pdo->prepare("UPDATE tg_quiz_sessions SET current_question = current_question + 1, updated_at = NOW() WHERE id = ?")->execute([$session_id]);
+            $pdo->prepare("UPDATE tg_quiz_sessions SET current_question = current_question + 1, next_question_at = NOW(), updated_at = NOW() WHERE id = ?")->execute([$session_id]);
             $pdo->prepare("INSERT INTO tg_quiz_logs (session_id, question_id, question_number, status) VALUES (?, ?, ?, 'SKIPPED')")->execute([$session_id, $question_id, $question_number]);
             $pdo->commit();
             echo json_encode(['success' => true, 'message' => 'Question skipped']);

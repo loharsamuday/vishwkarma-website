@@ -162,35 +162,18 @@ switch ($action) {
             break;
         }
 
-        // Apply range filter
-        $matchedRows = [];
-        if ($end_q > 0) {
-            // First check if question_number column matches this custom range directly
-            foreach ($all_rows as $row) {
-                $qNum = (int)($row['question_number'] ?? 0);
-                if ($qNum >= $start_q && $qNum <= $end_q) {
-                    $matchedRows[] = $row;
-                }
-            }
+        // Range numbers refer to the displayed 1-based order, not stored question_number values.
+        if ($end_q <= 0) {
+            $end_q = $totalInSet;
+        }
+        if ($start_q > $end_q || $start_q > $totalInSet) {
+            echo json_encode(['success'=>false,'message'=>'The selected question range is outside this quiz set'], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+            break;
         }
 
-        if (!empty($matchedRows)) {
-            $filtered = array_column($matchedRows, 'id');
-        } else {
-            // 1-based sequential slice fallback
-            if ($end_q <= 0 || $end_q > $totalInSet) {
-                $end_q = $totalInSet;
-            }
-            if ($start_q > $end_q) {
-                $start_q = 1;
-            }
-            $start_idx = max(0, $start_q - 1);
-            $end_idx   = min($end_q - 1, $totalInSet - 1);
-            $sliceLen  = max(1, $end_idx - $start_idx + 1);
-            $filtered_rows = array_slice($all_rows, $start_idx, $sliceLen);
-            $filtered = array_column($filtered_rows, 'id');
-        }
-
+        $end_q = min($end_q, $totalInSet);
+        $filtered_rows = array_slice($all_rows, $start_q - 1, $end_q - $start_q + 1);
+        $filtered = array_column($filtered_rows, 'id');
         $filtered = array_values(array_unique(array_filter($filtered)));
         if (empty($filtered)) {
             echo json_encode(['success'=>false,'message'=>'No questions found in the specified range'], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);

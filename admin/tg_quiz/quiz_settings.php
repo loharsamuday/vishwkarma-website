@@ -142,18 +142,11 @@ require_once '../includes/header.php';
             <!-- Timer -->
             <div class="col-md-6">
               <label class="form-label fw-bold">Timer per Question</label>
-              <div class="d-flex gap-2 align-items-center">
-                <select class="form-select" id="timerSelect" onchange="checkCustomTimer()">
-                  <option value="5">5 seconds</option>
-                  <option value="10">10 seconds</option>
-                  <option value="15" selected>15 seconds</option>
-                  <option value="20">20 seconds</option>
-                  <option value="30">30 seconds</option>
-                  <option value="60">60 seconds</option>
-                  <option value="custom">Custom...</option>
-                </select>
-                <input type="number" class="form-control d-none" id="customTimer" min="5" max="300" placeholder="sec" style="width:80px">
+              <div class="input-group">
+                <input type="number" class="form-control" id="timerSeconds" min="5" max="300" step="1" value="15" required>
+                <span class="input-group-text">seconds</span>
               </div>
+              <small class="text-muted">Set any whole-number duration from 5 to 300 seconds.</small>
             </div>
           </div>
 
@@ -268,11 +261,7 @@ function updateSetInfo() {
     uploadLink.href = `quiz_create.php?id=${opt.value}#tabUpload`;
   }
 
-  document.getElementById('timerSelect').value = [5,10,15,20,30,60].includes(parseInt(timer)) ? timer : 'custom';
-  if (document.getElementById('timerSelect').value === 'custom') {
-    document.getElementById('customTimer').classList.remove('d-none');
-    document.getElementById('customTimer').value = timer;
-  }
+  document.getElementById('timerSeconds').value = timer;
 
   if (q === 0) {
     document.getElementById('setInfoText').innerHTML = `<strong>0 questions found in this set!</strong> <a href="quiz_create.php?id=${opt.value}#tabUpload" class="alert-link text-decoration-underline ms-1">Click here to upload CSV questions</a> before starting the quiz.`;
@@ -288,11 +277,6 @@ function updateSetInfo() {
   }
   document.getElementById('setInfoBox').classList.remove('d-none');
   updatePreview();
-}
-
-function checkCustomTimer() {
-  const v = document.getElementById('timerSelect').value;
-  document.getElementById('customTimer').classList.toggle('d-none', v !== 'custom');
 }
 
 function toggleRange() {
@@ -311,8 +295,7 @@ function toggleRange() {
 }
 
 function getTimer() {
-  const v = document.getElementById('timerSelect').value;
-  return v === 'custom' ? (parseInt(document.getElementById('customTimer').value) || 15) : parseInt(v);
+  return parseInt(document.getElementById('timerSeconds').value, 10);
 }
 
 function updatePreview() {
@@ -340,7 +323,7 @@ function updatePreview() {
 
 document.getElementById('quizSetSelect')?.addEventListener('change', updatePreview);
 document.getElementById('chatSelect')?.addEventListener('change', updatePreview);
-document.getElementById('timerSelect')?.addEventListener('change', updatePreview);
+document.getElementById('timerSeconds')?.addEventListener('input', updatePreview);
 document.getElementById('countdownSelect')?.addEventListener('change', updatePreview);
 document.getElementById('rangeStart')?.addEventListener('input', updatePreview);
 document.getElementById('rangeEnd')?.addEventListener('input', updatePreview);
@@ -371,7 +354,7 @@ async function startQuiz() {
 
   if (!quiz_set_id) return alert('Please select a quiz set');
   if (!chat_id)     return alert('Please select a Telegram chat');
-  if (timer < 5)    return alert('Timer must be at least 5 seconds');
+  if (!Number.isInteger(timer) || timer < 5 || timer > 300) return alert('Timer must be a whole number between 5 and 300 seconds');
   if (!Number.isFinite(correctMark) || correctMark < 0 || correctMark > 1000) return alert('Correct marks must be between 0 and 1000');
   if (!Number.isFinite(wrongMark) || wrongMark < -1000 || wrongMark > 0) return alert('Wrong-answer marks must be between -1000 and 0');
 

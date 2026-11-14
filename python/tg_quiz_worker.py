@@ -744,6 +744,18 @@ def process_session(conn, session: dict):
         mark_session_completed(conn, session_id)
         return
 
+    with conn.cursor() as cur:
+        cur.execute("""
+            UPDATE tg_quiz_sessions
+            SET next_question_at=DATE_ADD(NOW(), INTERVAL 20 SECOND), updated_at=NOW()
+            WHERE id=%s AND status='RUNNING' AND current_question=%s
+              AND next_question_at<=NOW()
+        """, (session_id, current_q))
+        claimed = cur.rowcount == 1
+    conn.commit()
+    if not claimed:
+        return
+
     token = decrypt_token(session['bot_token_encrypted'])
     if not token:
         mark_session_failed(conn, session_id, "Could not decrypt bot token")
@@ -766,7 +778,7 @@ def process_session(conn, session: dict):
     if not question:
         log.warning(f"Session #{session_id}: Question ID {question_id} not found, skipping")
         with conn.cursor() as cur:
-            cur.execute("UPDATE tg_quiz_sessions SET current_question=current_question+1, updated_at=NOW() WHERE id=%s", (session_id,))
+            cur.execute("UPDATE tg_quiz_sessions SET current_question=current_question+1, next_question_at=NOW(), updated_at=NOW() WHERE id=%s", (session_id,))
             cur.execute("INSERT INTO tg_quiz_logs (session_id, question_id, question_number, status) VALUES (%s, %s, %s, 'SKIPPED')", (session_id, question_id, question_num))
         conn.commit()
         return

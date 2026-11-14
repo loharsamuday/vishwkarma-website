@@ -501,12 +501,15 @@ function dispatchSessionQuestion(PDO $pdo, int $session_id, bool $force = false)
         $claimStmt = $pdo->prepare("
             UPDATE tg_quiz_sessions
             SET next_question_at = :lock_until, updated_at = :now_dt
-            WHERE id = :id AND status = 'RUNNING' AND (next_question_at IS NULL OR next_question_at <= :now_dt)
+            WHERE id = :id AND status = 'RUNNING'
+              AND current_question = :current_question
+              AND (next_question_at IS NULL OR next_question_at <= :now_dt)
         ");
         $claimStmt->execute([
             ':lock_until' => $lockUntil,
             ':now_dt'     => $nowDt,
             ':id'         => $session_id,
+            ':current_question' => $current_q,
         ]);
         if ($claimStmt->rowCount() === 0) {
             // Another worker or request has already claimed this turn or timer has not expired
@@ -523,12 +526,23 @@ function dispatchSessionQuestion(PDO $pdo, int $session_id, bool $force = false)
             UPDATE tg_quiz_sessions
             SET status = 'RUNNING', next_question_at = :lock_until, updated_at = :now_dt
             WHERE id = :id AND status IN ('RUNNING','COUNTDOWN')
+              AND current_question = :current_question
+              AND next_question_at <=> :observed_next
         ");
         $claimStmt->execute([
             ':lock_until' => $lockUntil,
             ':now_dt'     => $nowDt,
             ':id'         => $session_id,
+            ':current_question' => $current_q,
+            ':observed_next' => $session['next_question_at'],
         ]);
+        if ($claimStmt->rowCount() === 0) {
+            return [
+                'success' => true,
+                'status' => 'waiting',
+                'message' => 'Another dispatcher already claimed this question'
+            ];
+        }
     }
 
     // 3. Decrypt Bot Token
@@ -570,7 +584,7 @@ function dispatchSessionQuestion(PDO $pdo, int $session_id, bool $force = false)
 
     if (!$question) {
         // Skip missing question
-        $pdo->prepare("UPDATE tg_quiz_sessions SET current_question = current_question + 1, updated_at = :now_dt WHERE id = :id")
+        $pdo->prepare("UPDATE tg_quiz_sessions SET current_question = current_question + 1, next_question_at = :now_dt, updated_at = :now_dt WHERE id = :id")
             ->execute([':now_dt' => $nowDt, ':id' => $session_id]);
         return ['success' => false, 'status' => 'skipped', 'message' => "Question ID {$question_id} not found, skipped."];
     }
@@ -579,12 +593,12 @@ function dispatchSessionQuestion(PDO $pdo, int $session_id, bool $force = false)
     $start_q = max(1, (int)($session['start_question'] ?? 1));
     $end_q   = (int)($session['end_question'] ?? 0);
 
-    if (!empty($question['question_number']) && (int)$question['question_number'] >= $start_q && ($end_q <= 0 || (int)$question['question_number'] <= $end_q)) {
-        $displayQNum = (int)$question['question_number'];
-    } elseif ($start_q > 1) {
+    if (($session['question_order'] ?? 'original') === 'original') {
         $displayQNum = $start_q + $current_q;
+    } elseif (!empty($question['question_number'])) {
+        $displayQNum = (int)$question['question_number'];
     } else {
-        $displayQNum = $qNum;
+        $displayQNum = $start_q + $current_q;
     }
 
     $displayTotalQ = ($end_q > 0) ? $end_q : (($start_q > 1) ? ($start_q + $total_q - 1) : $total_q);
