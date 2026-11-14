@@ -231,9 +231,18 @@ try {
         // Ignore if columns already exist
     }
 
-    // Telegram Quiz schema upgrades for per-question time limits and pause/resume state
+    // Telegram Quiz schema upgrades for per-question time limits, active status, and pause/resume state
+    try {
+        $pdo->exec("ALTER TABLE tg_quiz_questions ADD COLUMN is_active TINYINT(1) NOT NULL DEFAULT 1");
+    } catch (PDOException $e) {}
     try {
         $pdo->exec("ALTER TABLE tg_quiz_questions ADD COLUMN time_limit INT UNSIGNED NULL AFTER explanation");
+    } catch (PDOException $e) {}
+    try {
+        $pdo->exec("ALTER TABLE tg_quiz_sets ADD COLUMN is_active TINYINT(1) NOT NULL DEFAULT 1");
+    } catch (PDOException $e) {}
+    try {
+        $pdo->exec("ALTER TABLE tg_bots ADD COLUMN is_active TINYINT(1) NOT NULL DEFAULT 1");
     } catch (PDOException $e) {}
     try {
         $pdo->exec("ALTER TABLE tg_quiz_sessions ADD COLUMN current_question_id INT UNSIGNED NULL AFTER current_question");

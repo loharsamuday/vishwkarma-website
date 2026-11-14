@@ -124,13 +124,16 @@ if (!function_exists('ensureTgTablesExist')) {
                     `quiz_set_id` INT UNSIGNED NOT NULL,
                     `question_number` INT UNSIGNED NOT NULL,
                     `question_text` TEXT NOT NULL,
-                    `option_a` VARCHAR(500) NOT NULL,
-                    `option_b` VARCHAR(500) NOT NULL,
-                    `option_c` VARCHAR(500) DEFAULT NULL,
-                    `option_d` VARCHAR(500) DEFAULT NULL,
+                    `option_a` VARCHAR(1000) NOT NULL,
+                    `option_b` VARCHAR(1000) NOT NULL,
+                    `option_c` VARCHAR(1000) DEFAULT NULL,
+                    `option_d` VARCHAR(1000) DEFAULT NULL,
                     `correct_answer` ENUM('A','B','C','D') NOT NULL,
                     `explanation` TEXT DEFAULT NULL,
+                    `time_limit` INT UNSIGNED DEFAULT NULL,
+                    `is_active` TINYINT(1) DEFAULT 1,
                     `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    `updated_at` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
                     INDEX `idx_quiz_set` (`quiz_set_id`)
                 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
             ");
@@ -214,6 +217,27 @@ if (!function_exists('ensureTgTablesExist')) {
                     UNIQUE KEY `uniq_session_user` (`session_id`, `telegram_user_id`)
                 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
             ");
+
+            // Safe auto-migration for existing tables/columns
+            $migrations = [
+                ['tg_quiz_questions', 'is_active', 'TINYINT(1) NOT NULL DEFAULT 1'],
+                ['tg_quiz_questions', 'time_limit', 'INT UNSIGNED NULL'],
+                ['tg_quiz_questions', 'updated_at', 'DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP'],
+                ['tg_quiz_sets', 'is_active', 'TINYINT(1) NOT NULL DEFAULT 1'],
+                ['tg_bots', 'is_active', 'TINYINT(1) NOT NULL DEFAULT 1'],
+                ['tg_bots', 'last_update_id', 'BIGINT NOT NULL DEFAULT 0'],
+                ['tg_quiz_sessions', 'current_question_id', 'INT UNSIGNED NULL'],
+                ['tg_quiz_sessions', 'remaining_time', 'INT UNSIGNED DEFAULT 0'],
+                ['tg_quiz_sessions', 'results_claimed_at', 'DATETIME NULL'],
+                ['tg_quiz_sessions', 'results_announced_at', 'DATETIME NULL'],
+            ];
+            foreach ($migrations as [$tbl, $col, $def]) {
+                try {
+                    $pdo->exec("ALTER TABLE `{$tbl}` ADD COLUMN `{$col}` {$def}");
+                } catch (\Throwable $migErr) {
+                    // Column already exists or table not ready, safely ignore
+                }
+            }
         } catch (\Throwable $e) {
             error_log("ensureTgTablesExist notice: " . $e->getMessage());
         }
