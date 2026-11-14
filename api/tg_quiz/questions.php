@@ -23,8 +23,7 @@ if (!isset($_SESSION['admin_id'])) {
 function validateCsrfToken() {
     $token = $_POST['csrf_token'] ?? $_SERVER['HTTP_X_CSRF_TOKEN'] ?? '';
     if (empty($token) || !isset($_SESSION['csrf_token']) || !hash_equals($_SESSION['csrf_token'], $token)) {
-        http_response_code(403);
-        echo json_encode(['success' => false, 'message' => 'CSRF token invalid'], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+        echo json_encode(['success' => false, 'message' => 'CSRF security token invalid or session expired. Please refresh the page.'], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
         exit;
     }
 }

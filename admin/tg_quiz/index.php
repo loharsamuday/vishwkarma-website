@@ -227,8 +227,8 @@ require_once '../includes/header.php';
               </button>
             </div>
             <small class="text-muted">
-              Add bot to group → Send any message → Use
-              <code>@userinfobot</code> to get Chat ID.
+              Add bot to group as Administrator → Send any message → Use
+              <code>@userinfobot</code> to get Chat ID (e.g. <code>-1001234567890</code>).
             </small>
           </div>
           <div id="chatResult" class="mb-3"></div>
@@ -321,7 +321,7 @@ require_once '../includes/header.php';
 const CSRF = '<?= htmlspecialchars($_SESSION['csrf_token']) ?>';
 // Use relative URLs to prevent HTTP/HTTPS mixed-content or domain mismatch issues
 const API_BOT  = '../../api/tg_quiz/bot.php';
-const API_CHAT = '../../api/tg_quiz/chat.php';
+const API_CHAT = '../../api/tg_quiz/tg_group.php';
 const API_SESSION = '../../api/tg_quiz/session.php';
 
 async function apiPost(url, data) {
@@ -433,22 +433,30 @@ async function disconnectBot() {
 }
 
 async function verifyChat() {
-  const chatId = document.getElementById('chatIdInput').value.trim();
+  let chatId = document.getElementById('chatIdInput').value.trim();
   if (!chatId) return alert('Enter Chat ID');
+
+  // Auto-format if user missed the minus sign for supergroups (e.g. 1004457706126 -> -1004457706126)
+  if (/^100\d{8,12}$/.test(chatId)) {
+    chatId = '-' + chatId;
+    document.getElementById('chatIdInput').value = chatId;
+  }
+
   const el = document.getElementById('chatResult');
-  el.innerHTML = '<div class="alert alert-secondary py-2"><i class="fa-solid fa-spinner fa-spin me-2"></i>Verifying...</div>';
+  el.innerHTML = '<div class="alert alert-secondary py-2"><i class="fa-solid fa-spinner fa-spin me-2"></i>Verifying with Telegram...</div>';
   try {
     const res = await apiPost(API_CHAT + '?action=verify', {action:'verify', chat_id: chatId});
     if (res.success) {
       const checks = res.checks || {};
       el.innerHTML = `
         <div class="alert alert-success py-2">
-          <strong>${res.chat_title}</strong> (${res.chat_type})<br>
+          <strong>${res.chat_title}</strong> (${res.chat_type}) — <code>${res.chat_id}</code><br>
           ${Object.entries(checks).map(([k,v]) => `<span class="me-3">${v ? '✅' : '❌'} ${k.replace(/_/g,' ')}</span>`).join('')}
         </div>`;
       setTimeout(() => location.reload(), 2000);
     } else {
-      el.innerHTML = `<div class="alert alert-danger py-2">${res.message}</div>`;
+      const detailHtml = res.detail ? `<div class="mt-1 small opacity-75">Detail: ${res.detail}</div>` : '';
+      el.innerHTML = `<div class="alert alert-danger py-2"><div>${res.message}</div>${detailHtml}</div>`;
     }
   } catch(err) {
     el.innerHTML = `<div class="alert alert-danger py-2"><i class="fa-solid fa-triangle-exclamation me-2"></i>Error: ${err.message}</div>`;
