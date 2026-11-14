@@ -23,7 +23,6 @@ import time
 import json
 import logging
 import traceback
-from datetime import datetime, timedelta
 from pathlib import Path
 
 import requests
@@ -172,20 +171,38 @@ class SyncAPIClient:
         self.http.headers['X-Worker-Secret'] = secret
         self.http.headers['User-Agent'] = 'TG-Quiz-Worker/2.0'
 
+    def _decode_response(self, response, action: str) -> dict:
+        try:
+            data = response.json()
+        except ValueError as exc:
+            content_type = response.headers.get('Content-Type', 'unknown')
+            raise RuntimeError(
+                f"Sync API action '{action}' returned non-JSON HTTP {response.status_code} "
+                f"(content-type {content_type}, {len(response.content)} bytes)"
+            ) from exc
+
+        if not isinstance(data, dict):
+            raise RuntimeError(f"Sync API action '{action}' returned an invalid JSON response")
+        if not response.ok:
+            message = data.get('message', 'Request failed')
+            raise requests.HTTPError(
+                f"Sync API action '{action}' returned HTTP {response.status_code}: {message}",
+                response=response,
+            )
+        return data
+
     def _get(self, action: str, params: dict = None) -> dict:
         url = f'{self.base_url}?action={action}'
         if params:
             for k, v in params.items():
                 url += f'&{k}={v}'
         resp = self.http.get(url, timeout=20)
-        resp.raise_for_status()
-        return resp.json()
+        return self._decode_response(resp, action)
 
     def _post(self, action: str, data: dict = None) -> dict:
         url = f'{self.base_url}?action={action}'
         resp = self.http.post(url, data=data or {}, timeout=20)
-        resp.raise_for_status()
-        return resp.json()
+        return self._decode_response(resp, action)
 
     def heartbeat(self) -> dict:
         return self._get('heartbeat')
@@ -326,18 +343,22 @@ def main_api_mode():
 
     client = SyncAPIClient(SYNC_API_URL, WORKER_SECRET)
 
-    # Test connection
-    try:
-        hb = client.heartbeat()
-        if hb.get('success'):
-            log.info(f"API connected ✅ Server time: {hb.get('server_time')}")
-        else:
-            log.error(f"API heartbeat failed: {hb.get('message')}")
-            sys.exit(1)
-    except Exception as e:
-        log.error(f"Cannot connect to Sync API: {e}")
-        log.error("Check SYNC_API_URL and WORKER_SECRET in .env")
-        sys.exit(1)
+    # Keep retrying startup so a temporary hosting/API error doesn't stop the worker permanently.
+    retry_delay = max(5, POLL_INTERVAL)
+    while True:
+        try:
+            hb = client.heartbeat()
+            if hb.get('success'):
+                log.info(f"API connected ✅ Server time: {hb.get('server_time')}")
+                break
+            error = hb.get('message', 'Heartbeat returned success=false')
+        except (requests.RequestException, RuntimeError) as e:
+            error = str(e)
+
+        log.error(f"Cannot connect to Sync API: {error}")
+        log.info(f"Retrying heartbeat in {retry_delay}s...")
+        time.sleep(retry_delay)
+        retry_delay = min(60, retry_delay * 2)
 
     consecutive_errors = 0
 
@@ -389,7 +410,15 @@ def main_api_mode():
 def get_db_connection():
     """Get a fresh DB connection (Direct DB mode only)."""
     import pymysql
-    return pymysql.connect(**DB_CONFIG, cursorclass=pymysql.cursors.DictCursor)
+    conn = pymysql.connect(**DB_CONFIG, cursorclass=pymysql.cursors.DictCursor)
+    try:
+        with conn.cursor() as cur:
+            cur.execute("SET time_zone = '+05:30'")
+        conn.commit()
+    except Exception:
+        conn.close()
+        raise
+    return conn
 
 def get_active_sessions(conn) -> list:
     """Fetch all RUNNING sessions where next_question_at <= NOW()."""
@@ -674,19 +703,18 @@ def get_question(conn, question_id: int) -> dict:
 def mark_question_sent(conn, session_id: int, question_id: int, question_num: int,
                         timer: int, poll_id: str = None):
     """Update session state after successfully sending a question."""
-    next_at = datetime.now() + timedelta(seconds=timer)
     with conn.cursor() as cur:
         cur.execute("""
             UPDATE tg_quiz_sessions
             SET current_question   = current_question + 1,
                 questions_sent     = questions_sent + 1,
                 last_question_sent_at = NOW(),
-                next_question_at   = %s,
+                next_question_at   = DATE_ADD(NOW(), INTERVAL %s SECOND),
                 last_telegram_message_id = %s,
                 retry_count        = 0,
                 updated_at         = NOW()
             WHERE id = %s
-        """, (next_at, poll_id, session_id))
+        """, (timer, poll_id, session_id))
         cur.execute("""
             INSERT INTO tg_quiz_logs (session_id, question_id, question_number, status, telegram_poll_id, sent_at)
             VALUES (%s, %s, %s, 'SENT', %s, NOW())
@@ -800,8 +828,11 @@ def process_session(conn, session: dict):
             retry_after = result.get('parameters', {}).get('retry_after', 30)
             log.warning(f"Session #{session_id}: Rate limited. Waiting {retry_after}s")
             with conn.cursor() as cur:
-                next_at = datetime.now() + timedelta(seconds=int(retry_after))
-                cur.execute("UPDATE tg_quiz_sessions SET next_question_at=%s, updated_at=NOW() WHERE id=%s", (next_at, session_id))
+                cur.execute("""
+                    UPDATE tg_quiz_sessions
+                    SET next_question_at=DATE_ADD(NOW(), INTERVAL %s SECOND), updated_at=NOW()
+                    WHERE id=%s
+                """, (int(retry_after), session_id))
             conn.commit()
             time.sleep(int(retry_after))
             return
@@ -811,18 +842,21 @@ def process_session(conn, session: dict):
 
         if new_retry >= MAX_RETRIES:
             log.warning(f"Session #{session_id}: Max retries reached for Q{question_num}. Skipping question.")
-            next_at = datetime.now() + timedelta(seconds=timer)
             with conn.cursor() as cur:
                 cur.execute("""
                     UPDATE tg_quiz_sessions
-                    SET current_question=current_question+1, retry_count=0, next_question_at=%s, updated_at=NOW()
+                    SET current_question=current_question+1, retry_count=0,
+                        next_question_at=DATE_ADD(NOW(), INTERVAL %s SECOND), updated_at=NOW()
                     WHERE id=%s
-                """, (next_at, session_id))
+                """, (timer, session_id))
             conn.commit()
         else:
-            next_at = datetime.now() + timedelta(seconds=RETRY_DELAY)
             with conn.cursor() as cur:
-                cur.execute("UPDATE tg_quiz_sessions SET next_question_at=%s, updated_at=NOW() WHERE id=%s", (next_at, session_id))
+                cur.execute("""
+                    UPDATE tg_quiz_sessions
+                    SET next_question_at=DATE_ADD(NOW(), INTERVAL %s SECOND), updated_at=NOW()
+                    WHERE id=%s
+                """, (RETRY_DELAY, session_id))
             conn.commit()
 
 

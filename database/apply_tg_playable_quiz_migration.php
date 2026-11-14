@@ -1,9 +1,14 @@
 <?php
+if (PHP_SAPI !== 'cli') {
+    http_response_code(403);
+    exit("CLI access only.\n");
+}
+
 require_once __DIR__ . '/../includes/db.php';
+require_once __DIR__ . '/../api/tg_quiz/tg_playable_helper.php';
 
 try {
-    $sql = file_get_contents(__DIR__ . '/tg_playable_quiz_migration.sql');
-    $pdo->exec($sql);
+    ensureTelegramPlayableQuizSchema($pdo);
     echo "tg_playable_quiz_migration.sql applied successfully!\n";
 
     // Verify all 5 tables

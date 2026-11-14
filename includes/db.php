@@ -11,7 +11,7 @@ if (!function_exists('createDatabasePdo')) {
         );
         $connection->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
         $connection->setAttribute(PDO::ATTR_DEFAULT_FETCH_MODE, PDO::FETCH_ASSOC);
-        try { $connection->exec("SET time_zone = '+05:30'"); } catch (Exception $e) {}
+        $connection->exec("SET time_zone = '+05:30'");
         try { $connection->exec("SET NAMES utf8mb4 COLLATE utf8mb4_unicode_ci"); } catch (Exception $e) {}
         return $connection;
     }

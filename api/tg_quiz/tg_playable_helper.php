@@ -14,6 +14,64 @@ if (function_exists('mb_internal_encoding')) {
 
 require_once __DIR__ . '/tg_helper.php';
 
+function ensureTelegramPlayableQuizSchema(PDO $pdo): void {
+    static $schemaReady = false;
+    if ($schemaReady) {
+        return;
+    }
+
+    $requiredTables = [
+        'tg_shared_quizzes',
+        'tg_individual_quiz_sessions',
+        'tg_individual_quiz_answers',
+        'tg_group_quiz_sessions',
+        'tg_group_quiz_answers',
+    ];
+    $tableExists = $pdo->prepare("
+        SELECT COUNT(*)
+        FROM information_schema.tables
+        WHERE table_schema = DATABASE() AND table_name = ?
+    ");
+    $missingTables = [];
+    foreach ($requiredTables as $table) {
+        $tableExists->execute([$table]);
+        if (!(int)$tableExists->fetchColumn()) {
+            $missingTables[] = $table;
+        }
+    }
+
+    if ($missingTables) {
+        $migrationPath = __DIR__ . '/../../database/tg_playable_quiz_migration.sql';
+        if (!is_file($migrationPath) || !is_readable($migrationPath)) {
+            throw new RuntimeException('Playable quiz migration file is missing or unreadable');
+        }
+        $migrationSql = file_get_contents($migrationPath);
+        if ($migrationSql === false) {
+            throw new RuntimeException('Playable quiz migration file could not be read');
+        }
+
+        foreach (explode(';', $migrationSql) as $statement) {
+            $statement = trim($statement);
+            if ($statement !== '') {
+                $pdo->exec($statement);
+            }
+        }
+
+        $stillMissing = [];
+        foreach ($requiredTables as $table) {
+            $tableExists->execute([$table]);
+            if (!(int)$tableExists->fetchColumn()) {
+                $stillMissing[] = $table;
+            }
+        }
+        if ($stillMissing) {
+            throw new RuntimeException('Playable quiz migration did not create: ' . implode(', ', $stillMissing));
+        }
+    }
+
+    $schemaReady = true;
+}
+
 class TelegramPlayableQuizEngine {
 
     /**

@@ -24,6 +24,17 @@ if (!isset($_SESSION['admin_id'])) {
 
 $admin_id = (int)$_SESSION['admin_id'];
 
+try {
+    ensureTelegramPlayableQuizSchema($pdo);
+} catch (\Throwable $e) {
+    http_response_code(500);
+    echo json_encode([
+        'success' => false,
+        'message' => 'Playable quiz database setup failed. Apply database/tg_playable_quiz_migration.sql and retry. Details: ' . $e->getMessage(),
+    ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+    exit;
+}
+
 // 2. CSRF Token Validation
 function validateCsrfToken() {
     $token = $_POST['csrf_token'] ?? $_SERVER['HTTP_X_CSRF_TOKEN'] ?? '';
